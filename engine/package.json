@@ -1,0 +1,13 @@
+{
+  "name": "tinytv-engine",
+  "version": "0.2.0",
+  "description": "tinyTV torrent engine: magnet -> sequential HTTP stream with buffer state, DLNA cast",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": { "start": "node server.mjs" },
+  "author": "Edwin Novak",
+  "license": "MIT",
+  "dependencies": {
+    "webtorrent": "^3.0.21"
+  }
+}

@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0e0f13">
+<title>Кіно · tinyTV</title>
+<style>
+:root{--bg:#0e0f13;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.09);--text:#f2f3f7;--mute:rgba(242,243,247,.55);--accent:#6b9eff;--green:#3ddc84}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 22px) 16px calc(env(safe-area-inset-bottom) + 90px)}
+.glow{position:fixed;inset:0 0 auto 0;height:280px;pointer-events:none;background:radial-gradient(ellipse at top,rgba(107,158,255,.22),transparent 70%)}
+main{max-width:720px;margin:0 auto;position:relative;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:center;gap:10px}
+header a{color:var(--mute);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:4px}
+header h1{font-size:22px;margin:0;flex:1;font-weight:700;letter-spacing:-.01em}
+button{font:inherit;color:inherit;border:0;background:var(--card);border-radius:12px;cursor:pointer;transition:transform .18s cubic-bezier(.3,1.6,.5,1),background .2s}
+button:active{transform:scale(.94);background:rgba(107,158,255,.3)}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.search{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:999px;padding:4px 4px 4px 14px}
+.search input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:inherit;font-size:16px;padding:9px 0}
+.search button{width:40px;height:36px;border-radius:999px;background:var(--accent);display:grid;place-items:center;color:#fff}
+.cont{display:flex;gap:12px;align-items:center;padding:12px;border-radius:18px;background:rgba(107,158,255,.12);border:1px solid rgba(107,158,255,.3);text-align:left;width:100%}
+.cont img,.cont .ph{width:48px;height:70px;border-radius:8px;object-fit:cover;background:var(--card);flex:none}
+.cont b{display:block;font-size:15px}.cont small{color:var(--mute);font-size:12px}
+.bar{height:3px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
+h2{font-size:15px;margin:0 0 10px;font-weight:600;display:flex;align-items:center;gap:6px}
+.row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}.row::-webkit-scrollbar{display:none}
+.tile{flex:none;width:104px;background:none;padding:0;text-align:left;border-radius:10px}
+.tile img,.tile .ph{width:104px;height:150px;border-radius:10px;object-fit:cover;background:var(--card);display:block}
+.tile span{display:block;font-size:12px;margin-top:6px;line-height:1.25;max-height:2.5em;overflow:hidden}
+.tile small{display:block;font-size:11px;color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:14px 10px}.grid .tile{width:auto}.grid .tile img,.grid .tile .ph{width:100%;height:auto;aspect-ratio:2/3}
+.empty{color:var(--mute);font-size:13px}
+.hero{display:flex;gap:14px}.hero img{width:110px;height:160px;border-radius:12px;object-fit:cover;flex:none;background:var(--card)}
+.hero h3{margin:0;font-size:20px;line-height:1.2}.hero p{margin:4px 0 0;color:var(--mute);font-size:13px}
+.star{margin-top:10px;padding:7px 12px;border-radius:999px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.star.on{background:rgba(255,201,77,.18);color:#ffc94d}.star.on svg{fill:#ffc94d;stroke:#ffc94d}
+.lbl{font-size:12px;color:var(--mute);margin:0 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 12px;border-radius:999px;font-size:13px}
+.chip.on{background:rgba(107,158,255,.3);box-shadow:inset 0 0 0 1px rgba(150,170,255,.7)}
+.eps{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
+.ep{height:44px;border-radius:10px;font-size:14px;position:relative}
+.ep.seen{color:var(--mute)}.ep.seen:after{content:"✓";position:absolute;top:3px;right:6px;font-size:10px;color:var(--green)}
+.ep.cur{background:rgba(107,158,255,.3);box-shadow:inset 0 0 0 1px rgba(150,170,255,.7);color:var(--text)}
+.act{display:flex;gap:8px;align-items:center}
+.act select{background:var(--card);color:var(--text);border:0;border-radius:12px;padding:12px;font:inherit;font-size:14px;-webkit-appearance:none}
+.play{flex:1;height:48px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+.play svg{fill:#fff;stroke:none}
+.dock-old{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 10px);max-width:696px;margin:0 auto;display:none;align-items:center;gap:10px;
+padding:10px 12px;border-radius:18px;background:rgba(30,32,40,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--line);z-index:5}
+.dock.show{display:flex}.dock b{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock button{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
+.dock .next{width:auto;border-radius:999px;padding:0 12px;font-size:12px;background:var(--accent);color:#fff}
+.spin{width:22px;height:22px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;margin:30px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.fade{animation:fade .3s ease-out both}@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translate(-50%,-30px);opacity:0;background:rgba(30,32,40,.95);border:1px solid var(--line);
+padding:9px 14px;border-radius:999px;font-size:13px;transition:.3s cubic-bezier(.3,1.4,.5,1);z-index:9}.toast.show{transform:translate(-50%,0);opacity:1}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{padding-bottom:calc(env(safe-area-inset-bottom) + 240px)}
+.dock{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 8px);max-width:700px;margin:0 auto;display:none;flex-direction:column;gap:8px;
+padding:10px 12px;border-radius:20px;background:rgba(26,28,36,.94);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid var(--line);z-index:5;animation:fade .3s ease-out}
+.dock.show{display:flex}
+.dk-top{display:flex;align-items:center;gap:10px}.dk-top img{width:34px;height:48px;border-radius:6px;object-fit:cover;background:var(--card);flex:none}
+.dk-t{flex:1;min-width:0}.dk-t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dk-t small{color:var(--mute);font-size:11px}
+.dk-top #dA{max-width:120px}
+.dk-top select{background:var(--card);color:var(--text);border:0;border-radius:10px;padding:7px 8px;font:inherit;font-size:12px;-webkit-appearance:none}
+.ic{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:12px}
+.dk-ctl{display:flex;align-items:center;gap:8px}
+.dock .pp{width:56px;height:56px;border-radius:50%;background:var(--accent);display:grid;place-items:center;color:#fff;flex:none}.dock .pp svg{fill:#fff;stroke:none}
+.dk-scrub{flex:1;min-width:0}.dk-scrub input{width:100%;accent-color:var(--accent)}
+.dk-vol{display:flex;align-items:center;gap:10px;margin-top:4px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}.dk-vol .spk{width:20px;height:20px;flex:none;color:var(--mute)}
+.dk-vol input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:30px;border-radius:999px;margin:0;outline:0;background:linear-gradient(90deg,#26272d,var(--accent));touch-action:pan-y}
+.dk-vol input::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 0 10px rgba(107,158,255,.8);transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
+.dk-vol input:active::-webkit-slider-thumb{transform:scale(1.15)}
+.dk-vol #dVolV{width:26px;text-align:right;font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}.dock .ic:disabled{opacity:.3}
+.dk-torb{display:none;gap:8px}.dk-torb.show{display:flex}.dock .dk-torb .dl-b{width:auto;height:34px;border-radius:999px;padding:0 14px;white-space:nowrap;font-size:13px;display:inline-flex;align-items:center}
+.dk-tor{font-size:11px;color:var(--mute);font-variant-numeric:tabular-nums}.dk-tor:empty{display:none}.dk-tor.slow{color:#f5c542}
+.dl{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:10px 12px;margin-bottom:8px}.dl.on{box-shadow:inset 0 0 0 1px var(--accent)}
+.dl-t{flex:1;min-width:0}.dl-t b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dl-t small{color:var(--mute);font-size:11px;font-variant-numeric:tabular-nums}
+.dl-b{flex:none;border-radius:999px;padding:8px 10px;font-size:12px;background:rgba(255,255,255,.08);color:var(--text)}.dl-b.on{background:var(--accent);color:#fff}.dl-b.del{color:#ff7b7b}
+.dk-vol input{height:40px!important}.dk-vol input::-webkit-slider-thumb{width:40px!important;height:40px!important}
+.dk-vol .vpair{display:flex;gap:2px;margin-left:8px;flex:none;border-radius:14px;overflow:hidden;background:var(--card)}
+.dock .dk-vol .vstep{width:46px;height:40px;border-radius:0;font-size:22px;font-weight:600;background:none}
+.dock .pp svg{width:24px;height:24px}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;justify-content:space-around;padding:6px 8px calc(env(safe-area-inset-bottom) + 6px);background:rgba(14,15,19,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid rgba(255,255,255,.06)}
+.tabs a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--mute);text-decoration:none;padding:4px 0}.tabs a svg{width:24px;height:24px}.tabs a.on{color:var(--accent)}
+.dock{bottom:calc(env(safe-area-inset-bottom) + 66px)!important}
+.who{margin:0 0 8px;color:var(--mute);font-size:13px}.who b{color:var(--text)}.pl{color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.avail{margin:12px 0 0;font-size:13px;color:var(--mute)}
+.drow .chip{padding:7px 12px;font-size:13px}
+.drow{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}.drow::-webkit-scrollbar{display:none}.drow .chip{flex:none}
+.fl .chip{font-size:12px;padding:6px 11px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.dc{background:var(--card);border-radius:14px;overflow:hidden;text-align:left;color:var(--text);display:flex;flex-direction:column}
+.dc .pv{position:relative;aspect-ratio:2/3;background:#1d1f26;display:grid;place-items:center;color:var(--mute);font-size:12px;padding:8px;text-align:center}
+.dc .pv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bdg{position:absolute;left:6px;display:flex;flex-direction:column;gap:4px;top:6px;align-items:flex-start}
+.bd{font-size:10px;font-weight:600;padding:3px 7px;border-radius:999px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.bd.gold{background:rgba(212,160,23,.9);color:#2b1d00}.bd.silver{background:rgba(200,204,212,.9);color:#1d2026}.bd.top{background:rgba(127,119,221,.9);color:#fff}.bd.new{background:rgba(76,217,100,.9);color:#05250d}
+.dc .tr-b{position:absolute;right:6px;bottom:6px;font-size:10px;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff}
+.dc .seen{position:absolute;right:6px;top:6px;font-size:10px;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.6);color:#9fe1cb}
+.dc .in{padding:8px 10px 10px}.dc .in b{display:block;font-size:13px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dc .in small{display:block;color:var(--mute);font-size:11px;margin-top:3px}.dc .rt{font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums}
+.dx-h{display:flex;gap:14px}.dx-h img{width:120px;border-radius:12px;flex:none;object-fit:cover;aspect-ratio:2/3}.dx-h p{margin:4px 0;color:var(--mute);font-size:13px}
+.dx-a{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.dx-a button{padding:12px;border-radius:12px;background:var(--card);color:var(--text);font-size:14px}.dx-a button.pri{background:var(--accent);color:#fff}.dx-a button.on{box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
+.dx-v{margin-top:14px;aspect-ratio:16/9;width:100%;border:0;border-radius:12px;background:#000}
+.choice{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;padding:16px}.choice.show{display:flex}
+.choice-c{width:100%;max-width:480px;background:#1b1d24;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:env(safe-area-inset-bottom)}
+.choice-c button{padding:14px;border-radius:12px;background:var(--card);color:var(--text);font-size:15px;width:100%}.choice-c button.pri{background:var(--accent);color:#fff}.choice-c .ch-x{background:none;color:var(--mute)}
+#chB{display:flex;flex-direction:column;gap:8px}
+.dock.mini{gap:6px;padding-top:8px;padding-bottom:8px}
+.dock.mini .dk-ctl,.dock.mini .dk-tor,.dock.mini .dk-torb,.dock.mini .dk-vol,.dock.mini #dQ,.dock.mini #dA,.dock.mini #dStop{display:none!important}
+.dock:not(.mini) .mini-pp,.dock:not(.mini) .dk-bar{display:none}
+.dock .mini-pp{width:44px!important;height:44px!important}.dock .mini-pp svg{width:20px;height:20px}
+.dock:not(.mini) #dExp svg{transform:rotate(180deg)}
+.dk-bar{height:3px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}.dk-bar i{display:block;height:100%;width:0;background:var(--accent)}
+.nprow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border-radius:14px;padding:12px 14px;margin-top:18px;font-size:13px}
+.avc{display:flex;gap:4px;margin-top:5px}.avc i{font-style:normal;font-size:10px;font-weight:600;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.08);color:var(--mute)}.avc .ua{background:#1e4fa0;color:#ffe066}.tr.ua{box-shadow:inset 3px 0 0 #ffd500}
+.dock .pp.playing,.ph-ctl .pp.playing{background:rgba(255,255,255,.14);border-radius:16px}.dock .pp:not(.playing){box-shadow:0 0 0 3px rgba(107,158,255,.25)}
+.avc .rz{background:rgba(107,158,255,.18);color:#9fc0ff}.avc .k4{background:rgba(212,160,23,.2);color:#f5c542}
+.why{font-size:11px;color:#c9b8ff;margin-top:5px;line-height:1.3}
+.dhead{display:flex;align-items:center;gap:8px;margin:-4px 0 10px}.dhead .grow{flex:1;font-size:12px;color:var(--mute)}.dhead button{padding:7px 12px;border-radius:999px;background:var(--card);color:var(--text);font-size:13px}
+.tq-steps{display:flex;gap:4px;margin:0 0 12px}.tq-steps i{flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,.1)}.tq-steps i.on{background:var(--accent)}
+#tqB h3{margin:4px 0 4px}#tqB p{margin:0 0 12px;color:var(--mute);font-size:13px}#tqB .chips{flex-wrap:wrap}
+.chip.like{background:rgba(76,217,100,.2);box-shadow:inset 0 0 0 1px #4cd964}.chip.dis{background:rgba(255,107,107,.18);box-shadow:inset 0 0 0 1px #ff6b6b;text-decoration:line-through}
+.tqf{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}.tqf div{background:var(--card);border-radius:12px;overflow:hidden;text-align:center;font-size:11px}
+.tqf img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block}.tqf .b{display:flex}.tqf .b button{flex:1;padding:8px 0;font-size:16px;background:none;color:var(--mute)}.tqf .b button.on{color:var(--text);background:rgba(255,255,255,.1)}
+.tq-nav{display:flex;gap:8px;margin-top:16px;position:sticky;bottom:0;padding:10px 0;background:var(--bg)}.tq-nav button{flex:1;padding:14px;border-radius:12px;background:var(--card);color:var(--text);font-size:15px}.tq-nav .pri{background:var(--accent);color:#fff}
+.srcs{display:flex;flex-direction:column;gap:6px}
+.dx-i{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.src{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:12px 14px;border-radius:14px;background:var(--card);color:var(--text);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);font:inherit}
+.src.on{box-shadow:inset 0 0 0 1.5px var(--accent)}.src .nm{flex:1;font-size:14px}.src .mt,.mt{font-size:12px;color:var(--mute)}
+.src .dot{font-size:10px}.dot.g{color:#4cd964}.dot.y{color:#f5c542}.dot.u{color:#9aa0a6}.dot.r{color:#ff6b6b}
+.ua-t{font-style:normal;font-size:10px;font-weight:600;padding:2px 6px;border-radius:6px;background:#1e4fa0;color:#ffe066;margin-right:6px}
+.src-all{background:none;color:var(--accent);font-size:13px;text-align:left;padding:6px 2px}
+.act2{display:flex;gap:8px;margin-top:14px}.act2 .play{flex:1}
+.ghost{background:none;color:var(--text);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);border-radius:12px;padding:8px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px}.ghost.big{padding:0 16px;font-size:14px}.ghost.on{color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.ghost svg{width:16px;height:16px}
+.wbtn svg{width:20px;height:20px}.wbtn.on{color:var(--accent)}.wbtn:not(.on){color:var(--mute)}.wbtn.on .wx{display:none}
+.hero-b{display:flex;gap:8px;flex-wrap:wrap}
+.tor{position:fixed;inset:0;background:var(--bg);z-index:21;display:none;flex-direction:column;gap:10px;padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 16px);overflow:auto;-webkit-overflow-scrolling:touch}.tor.show{display:flex}
+.tr{background:var(--card);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.tr .q{font-weight:700;font-size:12px;min-width:48px;text-align:center;padding:5px 6px;border-radius:8px;background:rgba(255,255,255,.08);flex:none}.tr .q i{display:block;font-style:normal;font-size:10px;color:#f5c542}
+.tr .t{flex:1;min-width:0;font-size:12px;line-height:1.3}.tr .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.tr .m{display:block;color:var(--mute);font-size:11px;margin-top:3px}
+.tr .m .nofit{color:#ff7b7b;font-weight:600}
+.tr .u{color:#9aa0a6}.tr .g{color:#4cd964}.tr .y{color:#f5c542}.tr .r{color:#ff6b6b}
+.tr .t.open .nm{-webkit-line-clamp:unset}.atags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.at{font-style:normal;font-size:10px;font-weight:600;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.08)}.at.ua{background:#1e4fa0;color:#ffe066}.at.en{background:#2b3c5a;color:#cfe0ff}.at.cm{background:#4a3a14;color:#f5c542}
+.tbtn{display:flex;gap:6px;flex:none}.tr .dl-add{width:40px;border-radius:999px;background:var(--card);color:var(--text);font-size:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.tr .use{background:var(--accent);color:#fff;border-radius:999px;padding:9px 12px;font-size:13px;flex:none}
+.dk-times{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);font-variant-numeric:tabular-nums}
+.dock .next{border-radius:999px;padding:9px 12px;font-size:13px;background:var(--accent);color:#fff}
+.phone{position:fixed;inset:0;background:#000;z-index:20;display:none;flex-direction:column;padding-top:env(safe-area-inset-top)}.phone.show{display:flex}
+.ph-bar{display:flex;align-items:center;gap:10px;padding:10px 14px}.ph-bar b{flex:1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phone video{flex:1;width:100%;min-height:0;background:#000}
+.ph-ctl{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 14px calc(env(safe-area-inset-bottom) + 12px)}
+.ph-ctl button{width:48px;height:48px;border-radius:50%;background:var(--card);color:var(--text);display:grid;place-items:center;font-size:14px}
+.ph-ctl .pp{width:58px;height:58px;background:var(--accent);color:#fff}.ph-ctl .pp svg{fill:#fff;stroke:none;width:24px;height:24px}
+.ph-ctl .wide{width:auto;border-radius:999px;padding:0 16px;display:flex;gap:8px}.ph-ctl svg{width:18px;height:18px}
+.alt{height:48px;border-radius:14px;padding:0 14px;display:flex;align-items:center;gap:6px;font-size:14px}
+/* Watched and started episodes (owner: другий колір і пам'ять де зупинились). */
+.ep.seen{background:rgba(61,220,132,.16);color:#9be8bf}.ep.seen:after{content:"✓";position:absolute;top:3px;right:6px;font-size:10px;color:var(--green)}
+.ep.part{background:rgba(255,201,77,.10)}
+.ep i{position:absolute;left:6px;right:6px;bottom:5px;height:3px;border-radius:3px;background:#ffc94d;max-width:calc(100% - 12px)}
+.ep.part:before{content:"";position:absolute;left:6px;right:6px;bottom:5px;height:3px;border-radius:3px;background:rgba(255,255,255,.12)}
+.ep.cur{box-shadow:inset 0 0 0 1.5px rgba(150,170,255,.9)}
+.legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mute);margin:10px 0 0}
+.lg{width:10px;height:10px;border-radius:3px;display:inline-block;margin-left:6px}.lg.seen{background:rgba(61,220,132,.5)}.lg.part{background:#ffc94d}
+/* Inside the Mac panel (?embed): the panel has its own "‹ Пульт · Кіно" bar. */
+.embed body{padding-top:8px}
+.embed header:has(a[href="/"]){display:none}
+.embed,.embed body{background:transparent}.embed .glow{display:none}
+.embed .dock{background:rgba(26,28,36,.72)}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<main id="view"></main>
+<nav class="tabs" id="tabs">
+  <a href="#/" data-t="home"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>Кіно</a>
+  <a href="#/d" data-t="d"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>Відкрити</a>
+  <a href="#/l" data-t="l"><svg viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4z"/></svg>Списки</a>
+  <a href="#/m" data-t="m"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg>Медіа</a>
+</nav>
+<div class="tor" id="dx"><div class="ph-bar"><b id="dxT"></b><button class="ic" id="dxX" aria-label="Закрити">✕</button></div><div id="dxB"></div></div>
+<div class="tor" id="tq"><div class="ph-bar"><b id="tqT">Ваш смак</b><button class="ic" id="tqX" aria-label="Закрити">✕</button></div>
+  <div class="tq-steps" id="tqS"></div><div id="tqB"></div>
+  <div class="tq-nav"><button id="tqPrev">Назад</button><button class="pri" id="tqNext">Далі</button></div></div>
+<div class="choice" id="choice"><div class="choice-c"><b id="chT"></b><div id="chB"></div><button class="ch-x" id="chX">Скасувати</button></div></div>
+<div class="dock" id="dock">
+  <div class="dk-top"><img id="dPoster" alt=""><div class="dk-t"><b id="dTitle"></b><small id="dSub"></small></div>
+    <select id="dQ" aria-label="Якість"></select>
+    <select id="dA" aria-label="Звукова доріжка"></select>
+    <button class="ic" id="dStop" aria-label="Зупинити на ТВ"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button class="pp mini-pp" id="dPP2" aria-label="Пауза або відтворення"></button>
+    <button class="ic wbtn" id="dWatch" aria-label="Керування з годинника"><svg viewBox="0 0 24 24"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3"/><path class="wx" d="M4 4l16 16"/></svg></button>
+    <button class="ic" id="dExp" aria-label="Розгорнути плеєр"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button></div>
+  <div class="dk-bar"><i id="dBar"></i></div>
+  <div class="dk-ctl"><button class="ic" id="dBack" aria-label="Назад 10 с">−10</button>
+    <button class="pp" id="dPP" aria-label="Пауза або відтворення"></button>
+    <button class="ic" id="dFwd" aria-label="Вперед 30 с">+30</button>
+    <div class="dk-scrub"><input type="range" id="dSeek" min="0" max="1" step="1" aria-label="Позиція"><div class="dk-times"><span id="dPos">0:00</span><span id="dDur"></span></div></div></div>
+  <div class="dk-tor" id="dTor"></div>
+  <div class="dk-torb" id="dTorB"><button class="dl-b" id="dPhone">📱 На телефоні</button><button class="dl-b" id="dBg">На фоні</button><button class="dl-b del" id="dRm">Стоп і видалити</button></div>
+  <div class="dk-vol"><button class="ic" id="dPrevEp" aria-label="Попередня серія"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg></button>
+    <input type="range" id="dVol" min="0" max="100" step="1" aria-label="Гучність"><span id="dVolV"></span>
+    <span class="vpair"><button class="ic vstep" id="dVolDn" aria-label="Тихіше">−</button><button class="ic vstep" id="dVolUp" aria-label="Гучніше">+</button></span>
+    <button class="ic" id="dNextEp" aria-label="Наступна серія"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button></div>
+  <button class="next" id="dNext" style="display:none"></button>
+</div>
+<div class="tor" id="tor"><div class="ph-bar"><b>Торенти</b><button class="ic" id="torX" aria-label="Закрити">✕</button></div><div class="chips" id="torQ"></div><div class="chips" id="torS"></div><div id="torL"></div></div>
+<div class="phone" id="phone"><div class="ph-bar"><b id="phT"></b><button class="ic" id="phX" aria-label="Закрити">✕</button></div><video id="phV" controls playsinline x-webkit-airplay="allow"></video><div class="ph-ctl"><button class="ic" id="phB" aria-label="Назад 10 с">−10</button><button class="pp" id="phP" aria-label="Пауза або відтворення"></button><button class="ic" id="phF" aria-label="Вперед 30 с">+30</button><button class="ic wide" id="phFS" aria-label="На весь екран"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>На весь екран</button></div></div>
+<div class="toast" id="toast"></div>
+<script>
+if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
+const $ = id => document.getElementById(id), view = $('view');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clock = t => { t = Math.max(0, Math.round(t || 0)); const h = Math.floor(t/3600), m = Math.floor(t/60)%60, s = t%60;
+  return (h ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(s).padStart(2,'0'); };
+const hap = (() => { const l = document.createElement('label'); l.style.cssText = 'position:fixed;left:-99px;opacity:0';
+  const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch',''); l.append(i); document.body.append(l); return l; })();
+const buzz = () => { try { navigator.vibrate ? navigator.vibrate(8) : hap.click(); } catch(e) {} };
+function toast(t){ const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800); }
+async function api(cmd, body){ const r = await fetch('/api/' + cmd, {method: body === undefined ? 'GET' : 'POST',
+  headers: {'Content-Type':'application/json'}, body: body === undefined ? undefined : JSON.stringify(body)}); return r.json(); }
+const poster = (p, cls='ph') => p ? `<img src="${esc(p)}" loading="lazy" alt="">` : `<div class="${cls}"></div>`;
+const playIcon = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>';
+const starIcon = '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>';
+function epLabel(h){ return h.season ? `S${h.season} · E${h.episode}` : 'Фільм'; }
+
+// Routing: #/ home, #/s/<query> search, #/t/<encoded url> title.
+window.addEventListener('hashchange', route);
+function go(h){ buzz(); location.hash = h; }
+function markTab(){ const h = location.hash.slice(1) || '/', t = h.startsWith('/d') ? 'd' : h === '/l' ? 'l' : h === '/m' ? 'm' : 'home';
+  document.querySelectorAll('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.t === t)); }
+addEventListener('hashchange', markTab);
+function route(){ markTab();
+  const h = location.hash.slice(1) || '/';
+  if (h.startsWith('/s/')) return search(decodeURIComponent(h.slice(3)));
+  if (h.startsWith('/t/')) return title(decodeURIComponent(h.slice(3)));
+  if (h === '/d' || h.startsWith('/d/')) return discover(h.split('/')[2] || 'foryou', decodeURIComponent(h.split('/')[3] || ''));
+  if (h === '/l') return lists();
+  if (h === '/m') return media();
+  home();
+}
+
+const head = (t, back) => `<header>${back ? `<a href="${back}"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Назад</a>` : `<a href="/"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Пульт</a>`}<h1>${t}</h1></header>`;
+const searchBox = (q='') => `<form class="search" id="sf"><svg viewBox="0 0 24 24" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <input id="q" placeholder="Пошук на HDRezka або вставте посилання" value="${esc(q)}" enterkeyhint="search" autocomplete="off"><button aria-label="Шукати"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>`;
+function bindSearch(){ $('sf').onsubmit = e => { e.preventDefault(); const q = $('q').value.trim(); if (!q) return;
+  if (/rezka/.test(q) && /^https?:/.test(q)) go('/t/' + encodeURIComponent(q)); else go('/s/' + encodeURIComponent(q)); }; }
+const tile = (x, sub) => `<button class="tile fade" data-url="${esc(x.url)}">${poster(x.poster)}<span>${esc(x.title)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
+function bindTiles(){ view.querySelectorAll('[data-url]').forEach(b => b.onclick = () => go('/t/' + encodeURIComponent(b.dataset.url))); }
+
+async function home(){
+  view.innerHTML = head('Кіно') + searchBox() + '<div class="spin"></div>'; bindSearch();
+  let d; try { d = await api('kino/home'); } catch(e) { view.querySelector('.spin').outerHTML = '<p class="empty">Ядро недоступне.</p>'; return; }
+  const h = d.history || [], b = d.bookmarks || [];
+  let html = '';
+  const c = h[0];
+  if (c) { const pct = c.duration ? Math.min(100, (c.position || 0) / c.duration * 100) : 0;
+    html += `<button class="cont fade" data-url="${esc(c.url)}">${poster(c.poster)}<div style="flex:1;min-width:0"><b>${S && S.cast && S.cast.title && S.kino && String(S.kino.id) === String(c.id) ? 'Зараз на ТВ' : 'Продовжити'}: ${esc(c.title)}</b>
+      <small>${epLabel(c)} · ${clock(c.position)}${c.duration ? ' з ' + clock(c.duration) : ''}${c.translatorName ? ' · ' + esc(c.translatorName) : ''}</small>
+      <div class="bar"><i style="width:${pct}%"></i></div></div>${playIcon}</button>`; }
+  html += `<section><h2>Історія</h2>${h.length ? `<div class="row">${h.map(x => tile(x, epLabel(x))).join('')}</div>` : '<p class="empty">Тут з\'являться переглянуті фільми й серії.</p>'}</section>`;
+  html += `<section><h2>${starIcon}Закладки</h2>${b.length ? `<div class="row">${b.map(x => tile(x, x.year)).join('')}</div>` : '<p class="empty">Додавайте зірочкою на картці фільму.</p>'}</section>`;
+  html += `<section><h2>Завантаження</h2><div id="dls"><p class="empty">…</p></div></section>`;
+  view.querySelector('.spin').outerHTML = html; bindTiles(); downloads();
+  const cont = view.querySelector('.cont'); if (cont) cont.onclick = () => go('/t/' + encodeURIComponent(c.url) + '?resume');
+}
+
+// Torrents on the core host (~/Downloads/Torrent), like qBittorrent: progress, speed, keep in background or delete with files.
+async function downloads(){
+  const box = $('dls'); if (!box) return;
+  const d = await api('kino/downloads').catch(() => null);
+  if (!$('dls')) return;
+  if (!d || d.error) { box.innerHTML = `<p class="empty">${esc((d && d.error) || 'Ядро недоступне')}</p>`; return; }
+  const gb = v => (v / 1073741824).toFixed(1).replace('.', ',') + ' ГБ', mb = v => (v / 1048576).toFixed(1).replace('.', ',');
+  const t = d.torrents || [];
+  box.innerHTML = (t.length ? t.map(x => `<div class="dl ${x.active ? 'on' : ''}"><div class="dl-t"><b>${esc(x.name)}</b>
+      <small>${x.done ? 'готово' : Math.floor((x.progress || 0) * 100) + '%'} з ${gb(x.size || 0)}${x.done ? '' : ' · ↓ ' + mb(x.down || 0) + ' МБ/с' + (x.eta > 0 ? ' · ще ' + (x.eta >= 3600 ? Math.floor(x.eta / 3600) + ' год ' : '') + Math.round(x.eta % 3600 / 60) + ' хв' : '')} · ${x.peers || 0} пір.</small>
+      <div class="bar"><i style="width:${Math.max(1, (x.progress || 0) * 100)}%"></i></div></div>
+    <button class="dl-b on" data-pl="${esc(x.magnet || '')}">${x.active ? 'на ТВ' : x.pos > 60 ? '▶ з ' + clock(x.pos) : '▶ Дивитись'}</button>
+    <button class="dl-b del" data-rm="${x.hash}">Видалити</button></div>`).join('')
+    : '<p class="empty">Нічого не качається.</p>') + `<p class="empty">${esc(d.folder || '')} · вільно ${gb(d.free || 0)}</p>`;
+  box.querySelectorAll('[data-pl]').forEach(b => b.onclick = async () => { buzz(); if (!b.dataset.pl) return;
+    const r = await api('kino/download/play', {magnet: b.dataset.pl}).catch(() => ({error: 'Ядро недоступне'})); toast(r.error || 'Запускаю на ТВ…'); });
+  box.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { buzz();
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Точно?'; return; }
+    await api('kino/download/remove', {hash: b.dataset.rm}); toast('Видалено разом з файлами'); downloads(); });
+}
+setInterval(() => { if (document.visibilityState === 'visible' && $('dls') && !document.querySelector('#dls [data-sure="1"]')) downloads(); }, 3000);
+
+async function search(q){
+  view.innerHTML = head('Пошук', '#/') + searchBox(q) + `<button class="ghost" id="qTor" style="margin:0 0 12px">Шукати «${esc(q)}» в торентах</button>` + '<div class="spin"></div>'; bindSearch();
+  $('qTor').onclick = async () => { buzz(); T = {title: q, original: q, series: false}; sel = {}; openTor(); };
+  // IMDb / Wikidata names (works when HDRezka is down); each card shows its sources; HDRezka adds its own hits if it answers.
+  const d = await api('kino/search2', {q}).catch(() => ({items: []}));
+  const box = view.querySelector('.spin'); if (!box) return;
+  box.outerHTML = '<div id="dbox"></div>';
+  if ((d.items || []).length) drawGrid($('dbox'), d.items); else $('dbox').innerHTML = '<p class="empty">Нічого не знайдено.</p>';
+  const rz = await api('kino/search', {q}).catch(() => []);
+  if (Array.isArray(rz) && rz.length && $('dbox')) {
+    $('dbox').insertAdjacentHTML('afterend', `<section><h2>Ще на HDRezka</h2><div class="grid">${rz.map(x => tile(x, x.info)).join('')}</div></section>`); bindTiles(); }
+}
+
+let T = null, sel = {};
+async function title(raw){
+  const resume = raw.endsWith('?resume'); const url = raw.replace(/\?resume$/, '');
+  view.innerHTML = head('', '#/') + '<div class="spin"></div>';
+  T = await api('kino/title', {url}).catch(() => null);
+  if (!T || T.error || !T.id) {
+    // HDRezka refuses: the same film as a card with torrents (owner was blocked on every action).
+    const h = await api('kino/home').catch(() => ({})), all = [...(h.history || []), ...(h.bookmarks || [])];
+    const e = all.find(x => x.url === url) || {};
+    const t0 = e.title || decodeURIComponent((url.match(/\/\d+-([^/]+?)(-\d{4})?(-latest)?\.html/) || [])[1] || '').replace(/-/g, ' ');
+    view.innerHTML = head('', '#/') + `<p class="empty">HDRezka зараз не відповідає, тому показую торенти цього фільму.</p>`;
+    T = null; RZDOWN = true;
+    detail({title: t0, ru: t0, orig: '', year: e.year || 0, poster: e.poster || '', imdb: e.id || url, rz: '', badges: [], dirs: [], av: null});
+    return;
+  }
+  RZDOWN = false;
+  const p = T.progress && T.progress.id ? T.progress : null;
+  // Not watched before: a Ukrainian voiceover when the site has one (owner: UA first).
+  const uaTr = (T.translators || []).find(t => isUAname(t.name));
+  sel = { translator: (p && p.translator) || (!T.series && uaTr && uaTr.id) || T.translator, season: (p && p.season) || T.linkSeason || (T.seasons[0] || {}).n,
+          episode: (p && p.episode) || T.linkEpisode || ((T.seasons[0] || {}).episodes || [])[0], quality: p && p.quality };
+  if (T.linkSeason) { sel.season = T.linkSeason; sel.episode = T.linkEpisode; }
+  draw(p);
+  // Already on the TV (owner): the card only opens the page (voiceover, quality), it must not restart the film.
+  const st = await fetch('/api/state', {cache: 'no-store'}).then(r => r.json()).catch(() => S) || {};
+  const onTV = st.cast && st.cast.title && st.kino && String(st.kino.id) === String(T.id);
+  if (resume && p && !onTV) start(p.position || 0);
+}
+
+function draw(p){
+  const seasons = T.seasons || [], cur = seasons.find(s => s.n === sel.season) || seasons[0];
+  const watched = new Set((p && p.watched) || []);
+  // Per-episode memory from the core: [position, duration] by "season:episode".
+  const epsMem = (p && p.eps) || {};
+  const memOf = (s, e) => { const m = epsMem[s + ':' + e]; return m && m[1] > 0 ? {pos: m[0], dur: m[1], f: m[0] / m[1]} : null; };
+  const isSeen = (s, e) => watched.has(s + ':' + e) || ((memOf(s, e) || {}).f >= 0.9);
+  const selMem = T.series ? memOf(sel.season, sel.episode) : (p && p.duration ? {pos: p.position, dur: p.duration, f: p.position / p.duration} : null);
+  const resumeAt = selMem && selMem.pos > 30 && !isSeen(sel.season, sel.episode) ? selMem.pos : 0;
+  // This very episode plays on the TV with another voiceover: the button switches it there from the same second.
+  const k = (S && S.kino) || {}, c = (S && S.cast) || {};
+  const switchAt = c.title && String(k.id) === String(T.id) && (!T.series || (k.season === sel.season && k.episode === sel.episode))
+    && String(k.translator) !== String(sel.translator) ? Math.max(1, c.position || 0) : 0;
+  const playingHere = !switchAt && c.title && String(k.id) === String(T.id) && (!T.series || (k.season === sel.season && k.episode === sel.episode));
+  view.innerHTML = head('', '#/') + `
+  <div class="hero fade">${T.poster ? `<img src="${esc(T.poster)}" alt="">` : ''}<div style="min-width:0">
+    <h3>${esc(T.title)}</h3><p>${esc([T.original, T.year, T.series ? 'серіал' : 'фільм'].filter(Boolean).join(' · '))}</p>
+    <div class="hero-b"><button class="ghost ${T.bookmarked ? 'on' : ''}" id="star">${starIcon}${T.bookmarked ? 'У закладках' : 'Закладка'}</button></div></div></div>
+  ${T.translators.length > 1 ? `<section><p class="lbl">Озвучка</p><div class="chips">${[...T.translators].sort((a, b) => isUAname(b.name) - isUAname(a.name)).map(t =>
+     `<button class="chip ${String(t.id) === String(sel.translator) ? 'on' : ''}" data-tr="${esc(t.id)}">${isUAname(t.name) ? '<i class="ua-t">UA</i>' : ''}${esc(t.name)}</button>`).join('')}</div></section>` : ''}
+  ${T.series ? `<section><p class="lbl">Сезон</p><div class="chips">${seasons.map(s =>
+     `<button class="chip ${s.n === sel.season ? 'on' : ''}" data-s="${s.n}">${s.n}</button>`).join('')}</div></section>
+  <section><p class="lbl">Серія</p><div class="eps">${(cur ? cur.episodes : []).map(e =>
+     { const m = memOf(sel.season, e), seen = isSeen(sel.season, e), part = !seen && m && m.f > 0.02;
+       return `<button class="ep ${e === sel.episode ? 'cur' : ''} ${seen ? 'seen' : ''} ${part ? 'part' : ''}" data-e="${e}"
+         ${m ? `title="${clock(m.pos)} з ${clock(m.dur)}"` : ''}>${e}${part ? `<i style="width:${Math.round(m.f * 100)}%"></i>` : ''}</button>`; }).join('')}</div>
+     <p class="legend"><span class="lg seen"></span>переглянуто <span class="lg part"></span>почато</p></section>` : ''}
+  <section><p class="lbl">Джерело · одна позиція для всіх</p><div class="srcs" id="srcs">${srcRows()}</div></section>
+  <div class="act2"><button class="play" id="play">${playIcon}${playingHere ? 'Грає на ТВ' : switchAt ? `Змінити озвучку · з ${clock(switchAt)}` : resumeAt ? `Продовжити ${T.series ? `S${sel.season}E${sel.episode} ` : ''}з ${clock(resumeAt)}` : `Дивитись ${T.series ? `S${sel.season}E${sel.episode}` : ''}`}</button>
+    ${resumeAt && !playingHere ? '<button class="ghost big" id="fromStart">З початку</button>' : ''}
+    <button class="ghost big" id="onPhone" aria-label="Дивитись на телефоні"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></button></div>`;
+  bindSrc(p);
+  $('star').onclick = async () => { buzz(); T.bookmarked = !T.bookmarked;
+    await api('kino/bookmark', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series, on: T.bookmarked}); draw(p); toast(T.bookmarked ? 'Додано в закладки' : 'Прибрано'); };
+  view.querySelectorAll('[data-tr]').forEach(b => b.onclick = async () => { buzz(); sel.translator = b.dataset.tr;
+    if (T.series) { const s = await api('kino/episodes', {id: T.id, translator: sel.translator}).catch(() => []); if (s.length) T.seasons = s;
+      if (!T.seasons.find(x => x.n === sel.season)) sel.season = T.seasons[0].n;
+      const ss = T.seasons.find(x => x.n === sel.season); if (!ss.episodes.includes(sel.episode)) sel.episode = ss.episodes[0]; }
+    draw(p); });
+  view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { buzz(); sel.season = +b.dataset.s; sel.episode = (T.seasons.find(x => x.n === sel.season).episodes || [])[0]; draw(p); });
+  view.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { buzz(); sel.episode = +b.dataset.e; draw(p); });
+  const go2 = from => SRC.sel && SRC.sel !== 'rz' ? playTorrent(SRC.list[+SRC.sel], from) : start(from);
+  $('play').onclick = () => playingHere ? toast('Вже грає на ТВ. Щоб змінити озвучку, виберіть іншу вище.') : go2(switchAt ? ((S && S.cast && S.cast.position) || switchAt) : resumeAt);
+  if ($('fromStart')) $('fromStart').onclick = () => go2(0);
+  $('onPhone').onclick = () => watchHere(resumeAt);
+}
+
+// ---------- One film, several sources (owner, 2026-10-21): HDRezka and torrents in the same rows, one position ----------
+const isUAname = n => /укр|україн|ukr/i.test(n || '');
+let SRC = {key: '', list: [], sel: 'rz', loading: false};
+function srcRows(){
+  const tr = T.translators.find(t => String(t.id) === String(sel.translator)), ua = isUAname(tr && tr.name);
+  const q = (SRC.list.length ? '' : '');
+  const rz = `<button class="src ${SRC.sel === 'rz' ? 'on' : ''}" data-src="rz"><span class="nm">HDRezka · ${esc(sel.quality || 'макс. якість')}</span>${ua ? '<i class="ua-t">UA</i>' : ''}<span class="mt">${esc((tr && tr.name) || '')} · одразу</span></button>`;
+  const rows = SRC.list.slice(0, 3).map((t, i) => `<button class="src ${SRC.sel === String(i) ? 'on' : ''}" data-src="${i}"><b class="dot ${t.grade || 'r'}">●</b>
+    <span class="nm">Торент · ${qName(t.quality)}${t.hdr ? ' HDR' : ''}</span>${audioTags(t.title).some(([n]) => n === 'UA') ? '<i class="ua-t">UA</i>' : ''}<span class="mt">${esc(t.size)} · ${t.seeds} сід.</span></button>`).join('');
+  return rz + (SRC.loading ? '<p class="mt" style="padding:6px 2px">Шукаю торенти…</p>' : rows) + (SRC.all ? `<button class="src-all" id="srcAll">Усі торенти (${SRC.all}) ›</button>` : '');
+}
+function bindSrc(p){
+  const key = T.id + '|' + (T.series ? sel.season : '');
+  if (SRC.key !== key) { SRC = {key, list: [], sel: 'rz', loading: true, all: 0};
+    api('kino/torrents', {title: T.title, original: T.original || ''}).then(r => { if (SRC.key !== key) return;
+      const GR = {g: 0, y: 1, u: 1, r: 2}, isUA = t => audioTags(t.title).some(([n]) => n === 'UA');
+      let l = Array.isArray(r) ? r : [];
+      if (T.series) l = l.filter(t => !(t.seasons || []).length || (t.seasons || []).includes(+sel.season));
+      l.sort((a, b) => (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || isUA(b) - isUA(a) || (b.quality || 0) - (a.quality || 0) || (b.seeds || 0) - (a.seeds || 0));
+      SRC.list = l; SRC.all = l.length; SRC.loading = false;
+      // Default source: Ukrainian sound that starts at once - HDRezka with a UA voiceover, else a green UA torrent.
+      const tr = T.translators.find(t => String(t.id) === String(sel.translator));
+      if (!isUAname(tr && tr.name) && l[0] && l[0].grade === 'g' && isUA(l[0])) SRC.sel = '0';
+      if ($('srcs')) { $('srcs').innerHTML = srcRows(); bindSrc(p); } }).catch(() => { SRC.loading = false; });
+  }
+  view.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { buzz(); SRC.sel = b.dataset.src; $('srcs').innerHTML = srcRows(); bindSrc(p); });
+  if ($('srcAll')) $('srcAll').onclick = () => { TOR = SRC.list; torF = {q: 'all', s: T.series && sel.season ? String(sel.season) : 'all'}; $('tor').classList.add('show'); drawTor(); };
+}
+const filmOf = () => T && T.id ? {id: String(T.id), url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series,
+  season: T.series ? sel.season : null, episode: T.series ? sel.episode : null, seasons: T.seasons} : null;
+async function playTorrent(t, from){
+  buzz(); toast('Запускаю торент на ТВ…');
+  const body = Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {film: filmOf()});
+  if (from != null) body.from = from;
+  const r = await api('kino/torrent/use', body).catch(() => ({error: 'Ядро недоступне'}));
+  if (r && r.error) toast(r.error);
+}
+
+async function start(from){
+  buzz(); toast('Запускаю на ТВ…');
+  const tr = T.translators.find(t => String(t.id) === String(sel.translator));
+  const r = await api('kino/play', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series,
+    translator: String(sel.translator), translatorName: tr ? tr.name : '', season: T.series ? sel.season : null, episode: T.series ? sel.episode : null,
+    seasons: T.seasons, quality: sel.quality, from}).catch(() => ({error: 'Ядро недоступне'}));
+  if (r.error) return toast(r.error);
+  toast('Грає на ТВ · ' + r.quality);
+}
+
+// Player on every screen: what the TV plays, with cover, quality, scrubber, ±, pause, stop, next episode.
+let S = null, seeking = false;
+async function poll(){
+  try { S = await (await fetch('/api/state')).json(); } catch(e) { return; }
+  const c = S.cast || {}, k = S.kino || {};
+  $('dock').classList.toggle('show', !!c.title);
+  if (!c.title) return;
+  $('dTitle').textContent = k.title || c.title;
+  $('dSub').textContent = [k.season ? `S${k.season} · E${k.episode}` : '', k.translatorName || '', c.status || ''].filter(Boolean).join(' · ');
+  const img = $('dPoster'); if (k.poster && img.src !== k.poster) img.src = k.poster; img.style.display = k.poster ? '' : 'none';
+  const qs = k.qualities || []; const qsel = $('dQ'); qsel.style.display = qs.length ? '' : 'none';
+  if (qsel._q !== qs.join()) { qsel._q = qs.join(); qsel.innerHTML = qs.map(q => `<option>${esc(q)}</option>`).join(''); }
+  if (document.activeElement !== qsel && k.quality) qsel.value = k.quality;
+  // The file's real audio tracks (torrents, files): the TV switches at the same second.
+  const tr = c.tracks || [], asel = $('dA'); asel.style.display = tr.length > 1 ? '' : 'none';
+  if (asel._k !== JSON.stringify(tr)) { asel._k = JSON.stringify(tr); asel.innerHTML = tr.map(t => `<option value="${t.i}">${esc(t.label || ('Доріжка ' + (t.i + 1)))}</option>`).join(''); }
+  if (document.activeElement !== asel) asel.value = String(c.track || 0);
+  $('dPP').classList.toggle('playing', !!c.playing); $('dPP2').classList.toggle('playing', !!c.playing);
+  $('dPP2').innerHTML = c.playing ? '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>' : playIcon;
+  $('dBar').style.width = c.duration > 0 ? Math.min(100, (c.position || 0) / c.duration * 100) + '%' : '0';
+  $('dPP').innerHTML = c.playing ? '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>' : playIcon;
+  if (!seeking) { $('dSeek').max = Math.max(1, Math.round(c.duration || 0)); $('dSeek').value = Math.round(c.position || 0); $('dPos').textContent = clock(c.position); }
+  $('dDur').textContent = c.duration > 0 ? clock(c.duration) : 'live';
+  // Episode steps only for a series; volume follows the TV unless the slider was just moved.
+  $('dPrevEp').style.display = $('dNextEp').style.display = k.season ? '' : 'none';
+  $('dPrevEp').disabled = !k.hasPrev; $('dNextEp').disabled = !k.hasNext;
+  if (Date.now() - volEdit > 2500 && S.volume != null) { $('dVol').value = S.volume; $('dVolV').textContent = S.volume; }
+  $('dTorB').classList.toggle('show', !!(c.torrent && c.torrent.rate > 0));
+  const tl = torLine(c.torrent); $('dTor').textContent = tl; $('dTor').classList.toggle('slow', !!tl && (!(c.torrent.down >= c.torrent.rate) || !!c.torrent.hold));
+  const n = k.next, nb = $('dNext');
+  if (n) { nb.style.display = ''; nb.textContent = `Далі S${n.season}E${n.episode} через ${Math.max(0, Math.round(n.at - Date.now() / 1000))} с · дивитись зараз`; }
+  else nb.style.display = 'none';
+}
+// Mini player by default (owner: the full one took half the screen); the arrow or the title opens it, choice remembered.
+const setMini = on => { $('dock').classList.toggle('mini', on); try { localStorage.setItem('kinoMini', on ? '1' : '0'); } catch (e) {} };
+let miniPref = '1'; try { miniPref = localStorage.getItem('kinoMini') ?? '1'; } catch (e) {}
+setMini(miniPref !== '0');
+// Apple Watch / lock screen control, on every screen (owner): blue = the watch drives the TV, grey = phone is free.
+const wSync = () => { const on = !window.tinyNP || window.tinyNP.on(); document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('on', on)); };
+$('dWatch').onclick = () => { buzz(); const on = !(window.tinyNP && window.tinyNP.on()); window.tinyNP && window.tinyNP.set(on); wSync();
+  toast(on ? 'Годинник і екран блокування керують ТВ' : 'Вимкнено: телефон вільний'); };
+setTimeout(wSync, 600);
+$('dExp').onclick = () => { buzz(); setMini(!$('dock').classList.contains('mini')); };
+document.querySelector('.dk-t').onclick = () => { buzz(); setMini(!$('dock').classList.contains('mini')); };
+$('dPP2').onclick = () => $('dPP').onclick();
+$('dPP').onclick = () => { buzz(); api('cast/pause', {play: !(S && S.cast && S.cast.playing)}); };
+$('dStop').onclick = () => { buzz(); api('kino/next/cancel', {}); api('cast/stop', {}); };
+$('dNext').onclick = () => { buzz(); api('kino/next/play', {}); };
+const stepEp = async dir => { buzz(); toast(dir > 0 ? 'Наступна серія…' : 'Попередня серія…'); const r = await api('kino/step', {dir}).catch(() => ({})); if (r && r.error) toast(r.error); };
+$('dPrevEp').onclick = () => stepEp(-1); $('dNextEp').onclick = () => stepEp(1);
+let volEdit = 0, volT;
+// Haptic on every 5 steps and on grab / release, like the remote.
+const kVolStep = d => { const v = Math.max(0, Math.min(100, +$('dVol').value + d)); $('dVol').value = v; $('dVolV').textContent = v; volEdit = Date.now(); buzz(); api('volume', {v}); };
+$('dVolDn').onclick = () => kVolStep(-2); $('dVolUp').onclick = () => kVolStep(2);
+let volTick = -1; $('dVol').addEventListener('pointerdown', () => buzz()); $('dVol').addEventListener('change', () => buzz());
+$('dVol').oninput = e => { volEdit = Date.now(); $('dVolV').textContent = e.target.value; const t = Math.floor(e.target.value / 5); if (t !== volTick) { volTick = t; buzz(); } clearTimeout(volT); volT = setTimeout(() => api('volume', {v: +e.target.value}), 80); };
+$('dBack').onclick = () => { buzz(); api('cast/seek', {t: ((S && S.cast.position) || 0) - 10}); };
+$('dFwd').onclick = () => { buzz(); api('cast/seek', {t: ((S && S.cast.position) || 0) + 30}); };
+$('dSeek').oninput = e => { seeking = true; $('dPos').textContent = clock(+e.target.value); };
+$('dSeek').onchange = e => { buzz(); api('cast/seek', {t: +e.target.value}); setTimeout(() => seeking = false, 2500); };
+$('dQ').onchange = async e => {
+  // New quality from the same second: restart the stream with the same choice.
+  const k = (S && S.kino) || {}; if (!k.id) return;
+  buzz(); toast('Якість ' + e.target.value + '…');
+  await api('kino/play', {id: k.id, url: k.url, title: k.title, poster: k.poster, series: !!k.season, translator: String(k.translator),
+    translatorName: k.translatorName, season: k.season || null, episode: k.episode || null, seasons: (T && T.id === k.id) ? T.seasons : undefined,
+    quality: e.target.value, from: (S.cast.position || 0)});
+};
+setInterval(() => { if (document.visibilityState === 'visible') poll(); }, 1500); poll();
+
+// Watch on the phone: the site's own stream in a native player; position is saved to the shared history.
+async function watchHere(from){
+  buzz(); toast('Відкриваю на телефоні…');
+  const tr = T.translators.find(t => String(t.id) === String(sel.translator));
+  const r = await api('kino/stream', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series,
+    translator: String(sel.translator), translatorName: tr ? tr.name : '', season: T.series ? sel.season : null, episode: T.series ? sel.episode : null,
+    quality: sel.quality, from}).catch(() => ({error: 'Ядро недоступне'}));
+  if (r.error) return toast(r.error);
+  const v = $('phV'); $('phT').textContent = T.title + (T.series ? ` · S${sel.season}E${sel.episode}` : '') + ' · ' + r.quality;
+  $('phone').classList.add('show'); window.npLocal = v; v.src = r.url;
+  v.onloadedmetadata = () => { if (from > 0) v.currentTime = from; v.play().catch(() => {}); };
+  clearInterval(v._t); v._t = setInterval(() => { if (!v.paused && v.duration) api('kino/progress', {id: T.id, position: v.currentTime, duration: v.duration}); }, 10000);
+}
+// Torrents for this title (jac.red index via the core): pick quality / season, then "Використати" sends the magnet to the TV.
+let RZDOWN = false;   // HDRezka refused a film page: its rows are hidden until a page opens again
+let TOR = [], torF = {q: 'all', s: 'all'}, TOR_FREE = 0;
+// "22.58 GB" / "11.38 ГБ" / "927.7 MB" -> bytes, to warn when a release does not fit on the torrent disk.
+const sizeBytes = t => { const m = /([\d.,]+)\s*([GMT])/i.exec(String(t || '').replace('Г', 'G').replace('М', 'M').replace('Т', 'T'));
+  return m ? parseFloat(m[1].replace(',', '.')) * {G: 1073741824, M: 1048576, T: 1099511627776}[m[2].toUpperCase()] : 0; };
+function torLine(t){ if (!t || !(t.rate > 0)) return ''; const mb = v => (v / 1048576).toFixed(1).replace('.', ',');
+  const ok = t.down >= t.rate, w = Math.round(t.wait || 0), mmss = v => `${Math.floor(v / 60)}:${String(Math.round(v) % 60).padStart(2, '0')}`;
+  if (t.hold) return `Буферизація: ${mmss(t.ahead || 0)} з ${mmss(t.target || 20)} · ↓ ${mb(t.down)} МБ/с · ${Math.round(t.peers||0)} пір.`;
+  return `↓ ${mb(t.down)} МБ/с · треба ${mb(t.rate)} · буфер ${Math.floor((t.ahead||0) / 60)}:${String(Math.round(t.ahead||0) % 60).padStart(2, '0')} · ${Math.round(t.peers||0)} пір. · `
+    + (ok ? 'встигає' : w > 0 ? `пауза ~${w >= 60 ? Math.ceil(w / 60) + ' хв' : w + ' с'}, далі без зупинок` : 'буфера досить'); }
+// Owner: see the sound before choosing - languages and extras read from the release name.
+const audioTags = t => { const s = ' ' + t + ' ', tags = [];
+  if (/укр|ukr|\bua\b|україн|украин/i.test(s)) tags.push(['UA', 'ua']);
+  if (/\beng\b|english|original|оригинал|оригінал/i.test(s)) tags.push(['EN', 'en']);
+  if (/\b(dub|mvo|dvo|avo|vo)\b|дубляж|многоголос|двухголос|рус|\brus\b|(^|[^а-яіїє])(дб|пм|лм|ао)([^а-яіїє]|$)/i.test(s)) tags.push(['RU', 'ru']);
+  if (/коммент|комент|comment/i.test(s)) tags.push(['Коментар', 'cm']);
+  if (/\bsub|субтит/i.test(s)) tags.push(['Суб', 'sb']);
+  return tags; };
+const qName = q => q >= 2160 ? '4K' : q >= 1080 ? '1080p' : q >= 720 ? '720p' : 'SD';
+async function openTor(){
+  buzz(); $('tor').classList.add('show'); $('torL').innerHTML = '<p class="lbl">Шукаю роздачі…</p>'; $('torQ').innerHTML = $('torS').innerHTML = '';
+  const r = await api('kino/torrents', {title: T.title, original: T.original || ''}).catch(() => ({error: 'Ядро недоступне'}));
+  if (!Array.isArray(r)) { $('torL').innerHTML = `<p class="lbl">${esc(r.error || 'Помилка')}</p>`; return; }
+  TOR = r; torF = {q: 'all', s: T.series && sel.season ? String(sel.season) : 'all'};
+  TOR_FREE = ((await api('kino/downloads').catch(() => ({}))) || {}).free || 0; drawTor();
+}
+function drawTor(){
+  const qs = [...new Set(TOR.map(t => qName(t.quality)))], ss = [...new Set(TOR.flatMap(t => t.seasons || []))].sort((a, b) => a - b);
+  if (!ss.includes(+torF.s)) torF.s = 'all';
+  const chips = (list, key) => ['all', ...list].map(v => `<button class="chip ${String(torF[key]) === String(v) ? 'on' : ''}" data-${key}="${v}">${v === 'all' ? 'Усі' : key === 's' ? 'Сезон ' + v : v}</button>`).join('');
+  $('torQ').innerHTML = chips(qs, 'q'); $('torS').innerHTML = ss.length ? chips(ss, 's') : '';
+  // Owner: Ukrainian sound first (within the same grade), marked with a colour edge.
+  const GR = {g: 0, y: 1, u: 1, r: 2}, isUA = t => audioTags(t.title).some(([n]) => n === 'UA');
+  const rows = TOR.filter(t => (torF.q === 'all' || qName(t.quality) === torF.q) && (torF.s === 'all' || (t.seasons || []).includes(+torF.s)))
+    .sort((a, b) => (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || isUA(b) - isUA(a) || (b.quality || 0) - (a.quality || 0) || (b.seeds || 0) - (a.seeds || 0));
+  $('torL').innerHTML = rows.length ? rows.map((t, i) => `<div class="tr ${isUA(t) ? 'ua' : ''}"><span class="q"><b class="${t.grade || 'r'}">●</b> ${qName(t.quality)}${t.hdr ? '<i>HDR</i>' : ''}</span>
+    <span class="t" data-x><span class="nm">${esc(t.title)}</span><span class="atags">${audioTags(t.title).map(([n, c]) => `<i class="at ${c}">${n}</i>`).join('')}</span><span class="m">${esc(t.size)}${TOR_FREE && sizeBytes(t.size) > TOR_FREE ? ' <b class="nofit">не влізе на диск</b>' : ''} · ${t.seeds} сід.${t.peers ? ' / ' + t.peers + ' пір.' : ''} · ${esc(t.tracker)}${(t.seasons || []).length ? ' · сезон ' + t.seasons.join(', ') : ''}</span></span>
+    <span class="tbtn"><button class="use" data-i="${TOR.indexOf(t)}">Дивитись</button><button class="dl-add" data-a="${TOR.indexOf(t)}" aria-label="Скачати на фоні">↓</button></span></div>`).join('') : '<p class="lbl">Нічого не знайшов</p>';
+  $('torQ').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { buzz(); torF.q = b.dataset.q; drawTor(); });
+  $('torS').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { buzz(); torF.s = b.dataset.s; drawTor(); });
+  $('torL').querySelectorAll('[data-x]').forEach(x => x.onclick = () => { buzz(); x.classList.toggle('open'); });
+  $('torL').querySelectorAll('[data-a]').forEach(b => b.onclick = async () => { buzz(); const t = TOR[+b.dataset.a];
+    const r = await api('kino/download/add', t.topic ? {topic: t.topic} : {magnet: t.magnet}).catch(() => ({error: 'Ядро недоступне'}));
+    toast(r && r.error ? r.error : 'Качається на фоні. Дивіться в «Медіа» → Завантаження'); if (!r.error) { b.textContent = '✓'; b.disabled = true; } });
+  $('torL').querySelectorAll('[data-i]').forEach(b => b.onclick = async () => { buzz(); const t = TOR[+b.dataset.i];
+    toast('Запускаю торент на ТВ…');
+    // rutracker rows carry the release id: the core takes the magnet from that page only now.
+    // HDRezka plays this title now: start the torrent at the same second, or from the beginning (owner).
+    const k = (S && S.kino) || {}, c = (S && S.cast) || {}, here = T && T.id && c.title && String(k.id) === String(T.id);
+    const body = Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, filmOf() ? {film: filmOf()} : {});
+    if (here && (c.position || 0) > 30) { const from = await choose('Перейти на торент', [[`З ${clock(c.position)}`, c.position, true], ['З початку', 0]]); if (from === null) return; body.from = from; }
+    const r = await api('kino/torrent/use', body).catch(() => ({error: 'Ядро недоступне'}));
+    if (r && r.error) return toast(r.error);
+    $('tor').classList.remove('show'); });
+}
+// The torrent the core host buffers, on this phone (HLS from the core), from the TV's second; AirPlay from the player.
+$('dPhone').onclick = async () => { buzz(); toast('Готую потік для телефона…');
+  const r = await api('kino/phone/torrent', {}).catch(() => ({error: 'Ядро недоступне'}));
+  if (r.error) return toast(r.error);
+  const v = $('phV'); clearInterval(v._t); $('phT').textContent = r.title || 'Торент'; $('phone').classList.add('show'); window.npLocal = v;
+  v.src = r.url; v.onloadedmetadata = () => v.play().catch(() => {}); };
+$('dBg').onclick = async () => { buzz(); const r = await api('kino/download/bg', {hash: 'active', on: true}); toast(r && r.error ? r.error : 'Качається на фоні, навіть після іншого фільму'); };
+$('dRm').onclick = async () => { buzz(); const b = $('dRm'); if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Точно видалити?'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Стоп і видалити'; }, 4000); return; }
+  const r = await api('kino/download/remove', {hash: 'active'}); toast(r && r.error ? r.error : 'Зупинено й видалено'); };
+// The dock grows (torrent line, buttons, volume): keep the page end above it.
+// Page end above the player AND the tab bar under it (owner: "кнопки під кнопками").
+const padBottom = () => { const d = $('dock'), t = $('tabs');
+  document.body.style.paddingBottom = ((t ? t.offsetHeight : 0) + (d.classList.contains('show') ? d.offsetHeight + 10 : 0) + 24) + 'px'; };
+const ro = new ResizeObserver(padBottom); ro.observe($('dock')); if ($('tabs')) ro.observe($('tabs')); padBottom();
+$('dA').onchange = e => { buzz(); toast('Перемикаю доріжку…'); api('cast/audio', {i: +e.target.value}); };
+$('torX').onclick = () => { buzz(); $('tor').classList.remove('show'); };
+// Own controls under the video, and real full screen: iPhone opens its system player, the Mac panel the element.
+const phV = $('phV'), phIcon = () => { $('phP').innerHTML = phV.paused ? playIcon : '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'; };
+['play', 'pause', 'loadedmetadata'].forEach(e => phV.addEventListener(e, () => { phIcon(); $('phP').classList.toggle('playing', !phV.paused); }));
+$('phP').onclick = () => { buzz(); phV.paused ? phV.play().catch(() => {}) : phV.pause(); };
+$('phB').onclick = () => { buzz(); phV.currentTime = Math.max(0, phV.currentTime - 10); };
+$('phF').onclick = () => { buzz(); phV.currentTime = Math.min(phV.duration || 1e9, phV.currentTime + 30); };
+$('phFS').onclick = () => { buzz();
+  if (phV.webkitEnterFullscreen && !document.fullscreenEnabled) { try { phV.webkitEnterFullscreen(); return; } catch (e) {} }
+  (phV.requestFullscreen || phV.webkitRequestFullscreen || (() => {})).call(phV); };
+$('phX').onclick = () => { const v = $('phV'); if (v.duration) api('kino/progress', {id: T.id, position: v.currentTime, duration: v.duration});
+  clearInterval(v._t); window.npLocal = null; v.pause(); v.removeAttribute('src'); v.load(); $('phone').classList.remove('show'); };
+// ---------- Відкрити (owner-approved concept 2026-10-21) ----------
+const DTABS = [['foryou', 'Для вас'], ['new', 'Новинки'], ['cannes', 'Канни'], ['festivals', 'Фестивалі'], ['year', 'Рік'], ['director', 'Режисери'], ['top', 'Топ IMDb'], ['genre', 'Жанри']];
+const GENRES = [['Drama', 'Драма'], ['Comedy', 'Комедія'], ['Thriller', 'Трилер'], ['Crime', 'Кримінал'], ['Sci-Fi', 'Фантастика'], ['Mystery', 'Детектив'],
+  ['Romance', 'Мелодрама'], ['Horror', 'Жахи'], ['Animation', 'Анімація'], ['Documentary', 'Документальне'], ['Adventure', 'Пригоди'], ['Action', 'Бойовик'],
+  ['Biography', 'Біографія'], ['History', 'Історія'], ['War', 'Війна'], ['Western', 'Вестерн'], ['Music', 'Музика'], ['Fantasy', 'Фентезі'], ['Family', 'Сімейне']];
+const FEST = [['oscar', 'Оскар'], ['lion', 'Венеція'], ['bear', 'Берлін']];
+const FILTERS = [['all', 'Усе'], ['best', 'Найкращі'], ['fresh', 'Свіжі'], ['palme', 'З пальмою'], ['unseen', 'Не бачив']];
+let DSORT = 'year';
+const sortPerson = l => [...l].sort((a, b) => DSORT === 'top' ? (b.imdbR || 0) - (a.imdbR || 0) : (b.year || 0) - (a.year || 0));
+let DF = 'all', DCACHE = {}, DLIST = [], DIRS = null, HOMELISTS = {fav: [], watch: []};
+const nowYear = new Date().getFullYear();
+const keep = x => DF === 'all' || (DF === 'best' && (x.gold || (x.imdbR || 0) >= 7.5)) || (DF === 'fresh' && (x.fresh || x.year >= nowYear - 1))
+  || (DF === 'palme' && (x.badges || []).some(b => /пальма/.test(b.n))) || (DF === 'unseen' && !x.seen);
+const inList = (l, x) => (HOMELISTS[l] || []).some(y => y.imdb === x.imdb);
+function card(x, i){
+  const b = (x.badges || []).slice(0, 2).map(b => `<span class="bd ${b.k}">${esc(b.n)}</span>`).join('');
+  return `<button class="dc fade" data-dx="${i}"><div class="pv">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : esc(x.title)}
+    <span class="bdg">${b}</span>${x.seen ? '<span class="seen">переглянуто</span>' : ''}<span class="tr-b">▶ трейлер</span></div>
+    <div class="in"><b>${esc(x.title)}</b><small>${x.year || ''}${(x.dirs || []).length ? ' · ' + esc(x.dirs[0]) : ''}</small>
+    <div class="avc">${x.av && x.av.ua ? '<i class="ua">UA</i>' : ''}${x.av && x.av.rz ? '<i class="rz">HDRezka</i>' : ''}${x.av && x.av.k4 ? '<i class="k4">4K</i>' : x.av && x.av.tor ? '<i>торент</i>' : ''}</div>
+    ${(x.why || []).length ? `<div class="why">${x.why.map(esc).join(' · ')}</div>` : ''}
+    <div class="rt">${x.imdbR ? 'IMDb ' + x.imdbR.toFixed(1) : ''}${x.rt ? ' · RT ' + esc(x.rt) : ''}${inList('watch', x) ? ' · <span style="color:var(--accent)">подивитись</span>' : ''}</div></div></button>`;
+}
+function drawGrid(box, list){
+  DLIST = list; const shown = list.map((x, i) => [x, i]).filter(([x]) => keep(x));
+  box.innerHTML = shown.length ? `<div class="dgrid">${shown.map(([x, i]) => card(x, i)).join('')}</div>` : '<p class="empty">За цим фільтром нічого.</p>';
+  box.querySelectorAll('[data-dx]').forEach(c => c.onclick = () => detail(DLIST[+c.dataset.dx]));
+  fillPosters(box);
+}
+// No poster from Wikipedia: take HDRezka's, one at a time (owner: "проходитись по постерам").
+async function fillPosters(box){
+  for (const c of box.querySelectorAll('[data-dx]')) {
+    const x = DLIST[+c.dataset.dx]; if (!x || x.poster || x._pt) continue; x._pt = 1;
+    const f = await api('kino/find', {imdb: x.imdb, ru: x.ru, title: x.title, orig: x.orig, year: x.year}).catch(() => null);
+    if (!document.body.contains(c)) return;
+    if (f && f.url) x.rz = f.url;
+    if (f && f.poster) { x.poster = f.poster; const pv = c.querySelector('.pv'); pv.insertAdjacentHTML('afterbegin', `<img src="${esc(f.poster)}" alt="">`); pv.childNodes.forEach(n => { if (n.nodeType === 3) n.remove(); }); }
+  }
+}
+async function discover(tab, param){
+  const sub = tab === 'festivals' ? FEST : tab === 'genre' ? GENRES : null;
+  if (tab === 'festivals' && !param) param = 'oscar';
+  if (tab === 'genre' && !param) param = 'Drama';
+  if (tab === 'year' && !param) param = String(nowYear - 1);
+  const person = tab === 'dop' || (tab === 'director' && param);
+  view.innerHTML = head('Відкрити') + `<div class="drow">${DTABS.map(([k, n]) => `<button class="chip ${k === tab ? 'on' : ''}" data-dt="${k}">${n}</button>`).join('')}</div>`
+    + (sub ? `<div class="drow">${sub.map(([k, n]) => `<button class="chip ${k === param ? 'on' : ''}" data-dp="${k}">${n}</button>`).join('')}</div>` : '')
+    + (tab === 'year' ? `<div class="drow"><select id="dy" class="chip">${Array.from({length: 80}, (_, i) => nowYear - i).map(y => `<option ${String(y) === param ? 'selected' : ''}>${y}</option>`).join('')}</select></div>` : '')
+    + (tab === 'director' && !param ? '<div class="drow" id="dirs"><span class="empty">Режисери…</span></div>' : '')
+    + (person ? `<p class="who">${tab === 'dop' ? 'Оператор' : 'Режисер'}: <b>${esc(param)}</b></p><div class="drow fl">${[['year', 'За роками'], ['top', 'Топ']].map(([k, n]) => `<button class="chip ${k === DSORT ? 'on' : ''}" data-ds="${k}">${n}</button>`).join('')}</div>` : '')
+    + `<div class="drow fl">${FILTERS.map(([k, n]) => `<button class="chip ${k === DF ? 'on' : ''}" data-df="${k}">${n}</button>`).join('')}</div>`
+    + `<div class="dhead"><span class="grow" id="dprog"></span>${tab === 'foryou' ? '<button id="dTaste">Мій смак</button>' : ''}<button id="dRef">↻ Оновити</button></div>`
+    + '<p class="lbl" id="dnote"></p><div id="dbox"><div class="spin"></div></div>';
+  view.querySelectorAll('[data-dt]').forEach(b => b.onclick = () => go('/d/' + b.dataset.dt));
+  view.querySelectorAll('[data-dp]').forEach(b => b.onclick = () => go('/d/' + tab + '/' + encodeURIComponent(b.dataset.dp)));
+  view.querySelectorAll('[data-df]').forEach(b => b.onclick = () => { buzz(); DF = b.dataset.df; view.querySelectorAll('[data-df]').forEach(x => x.classList.toggle('on', x === b)); drawGrid($('dbox'), DLIST); });
+  if ($('dy')) $('dy').onchange = e => go('/d/year/' + e.target.value);
+  $('dRef').onclick = async () => { buzz(); DCACHE = {}; await api('kino/refresh', {}).catch(() => {}); toast('Оновлюю списки й перевіряю доступність…'); pollAvail(tab, param, true); };
+  if ($('dTaste')) $('dTaste').onclick = () => openTaste();
+  view.querySelectorAll('[data-ds]').forEach(b => b.onclick = () => { buzz(); DSORT = b.dataset.ds; view.querySelectorAll('[data-ds]').forEach(x => x.classList.toggle('on', x === b)); drawGrid($('dbox'), sortPerson(DLIST)); });
+  if (tab === 'director' && !param) {
+    DIRS = DIRS || await api('kino/directors', {}).catch(() => []);
+    param = (DIRS || [])[0] || 'Alfred Hitchcock';
+    $('dirs').innerHTML = (DIRS || []).map(d => `<button class="chip ${d === param ? 'on' : ''}" data-dr="${esc(d)}">${esc(d)}</button>`).join('');
+    $('dirs').querySelectorAll('[data-dr]').forEach(b => b.onclick = () => go('/d/director/' + encodeURIComponent(b.dataset.dr)));
+  }
+  const key = tab + '|' + param;
+  const d = DCACHE[key] || await api('kino/discover', {tab, param}).catch(() => ({error: 'Ядро недоступне'}));
+  if (!$('dbox')) return;
+  if (!d || d.error) { $('dbox').innerHTML = `<p class="empty">${esc((d && d.error) || 'Помилка')}</p>`; return; }
+  if (d.needTaste) { $('dbox').innerHTML = `<div class="nprow" style="flex-direction:column;align-items:flex-start"><b>Налаштуйте смак</b>
+    <span style="color:var(--mute)">7 коротких кроків: жанри, епохи, країни, режисери, кілька відомих фільмів, мова, настрій. Потім тут будуть фільми саме для вас, з причинами.</span>
+    <button class="dl-b on" id="tqGo" style="margin-top:8px">Почати</button></div>`; $('tqGo').onclick = () => openTaste(); return; }
+  if (d.checking > 0 || (d.pending || []).length) pollAvail(tab, param, false);
+  $('dprog').textContent = (d.pending || []).length ? `Перевіряю, де подивитись: ще ${(d.pending || []).length}` : `${(d.items || []).length} доступних${d.hidden ? ' · ' + d.hidden + ' без джерел сховано' : ''}`;
+  DCACHE[key] = d; $('dnote').textContent = d.note || '';
+  drawGrid($('dbox'), person ? sortPerson(d.items || []) : (d.items || []));
+}
+function detail(x){
+  if (x.av && x.av.rzUrl) x.rz = x.av.rzUrl;
+  $('dxT').textContent = x.title;
+  const b = (x.badges || []).map(b => `<span class="bd ${b.k}" style="position:static;display:inline-block;margin:0 4px 4px 0">${esc(b.n)}</span>`).join('');
+  $('dxB').innerHTML = `<div class="dx-h">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : ''}<div><h3 style="margin:0">${esc(x.title)}</h3>
+    <p>${esc(x.orig || '')}${x.year ? ' · ' + x.year : ''}</p>
+    ${(x.dirs || []).length ? `<p>Режисер: ${(x.dirs || []).map((n, i) => `<a class="pl" data-pr="director" data-pn="${esc((x.dirsEn || [])[i] || n)}">${esc(n)}</a>`).join(', ')}</p>` : ''}
+    ${(x.dops || []).length ? `<p>Оператор: ${(x.dops || []).map((n, i) => `<a class="pl" data-pr="dop" data-pn="${esc((x.dopsEn || [])[i] || n)}">${esc(n)}</a>`).join(', ')}</p>` : ''}
+    <p style="color:var(--text)">${x.imdbR ? 'IMDb ' + x.imdbR.toFixed(1) + ' (' + Math.round((x.votes || 0) / 1000) + 'k)' : ''}${x.rt ? ' · Rotten Tomatoes ' + esc(x.rt) : ''}</p><div>${b}</div></div></div>
+    <div class="act2"><button class="play" id="dxPlay">${playIcon}Дивитись</button></div>
+    <p class="lbl" style="margin-top:14px">Джерело · одна позиція для всіх</p><div class="srcs" id="dxSrc"><p class="mt">Шукаю, де подивитись…</p></div>
+    <div class="dx-i"><button class="ghost" id="dxTv"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="m10 9 4 2-4 2z"/></svg>Трейлер на ТВ</button>
+    <button class="ghost" id="dxHere"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/></svg>Тут</button>
+    <button class="ghost ${inList('watch', x) ? 'on' : ''}" id="dxW">${inList('watch', x) ? '✓ Подивитись' : '+ Подивитись'}</button>
+    <button class="ghost ${inList('fav', x) ? 'on' : ''}" id="dxF">${inList('fav', x) ? '★ Закладка' : '☆ Закладка'}</button></div><div id="dxV"></div>`;
+  $('dx').classList.add('show');
+  const trailer = async tv => { buzz(); toast(tv ? 'Шукаю трейлер для ТВ…' : 'Шукаю трейлер…');
+    const r = await api('kino/trailer', {title: x.orig || x.title, year: x.year, tv}).catch(() => ({error: 'Ядро недоступне'}));
+    if (r.error) return toast(r.error);
+    if (!tv) $('dxV').innerHTML = `<iframe class="dx-v" src="https://www.youtube-nocookie.com/embed/${r.id}?autoplay=1&playsinline=1" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>`; };
+  $('dxTv').onclick = () => trailer(true); $('dxHere').onclick = () => trailer(false);
+  $('dxB').querySelectorAll('[data-pr]').forEach(a => a.onclick = () => { buzz(); $('dx').classList.remove('show'); go('/d/' + a.dataset.pr + '/' + encodeURIComponent(a.dataset.pn)); });
+  // Same source rows as the film page: HDRezka (opens the page with voiceovers) and the 3 best torrents.
+  let tors = [], dsel = null;
+  const rzId = () => ((x.rz || '').match(/\/(\d+)-/) || [])[1];
+  const film = () => ({id: rzId() || x.imdb, url: x.rz || '', title: x.ru || x.title, poster: x.poster, year: x.year, series: false});
+  const rows = () => (x.rz && !RZDOWN ? `<button class="src ${dsel === 'rz' ? 'on' : ''}" data-ds="rz"><span class="nm">HDRezka · озвучки на сторінці фільму</span><span class="mt">одразу</span></button>` : '')
+    + tors.slice(0, 3).map((t, i) => `<button class="src ${dsel === String(i) ? 'on' : ''}" data-ds="${i}"><b class="dot ${t.grade || 'r'}">●</b><span class="nm">Торент · ${qName(t.quality)}${t.hdr ? ' HDR' : ''}</span>${audioTags(t.title).some(([n]) => n === 'UA') ? '<i class="ua-t">UA</i>' : ''}<span class="mt">${esc(t.size)} · ${t.seeds} сід.</span></button>`).join('')
+    + (tors.length > 3 ? `<button class="src-all" id="dxAll">Усі торенти (${tors.length}) ›</button>` : '')
+    + (!x.rz && !tors.length ? '<p class="mt">Ніде не знайшов</p>' : '');
+  const bindRows = () => { $('dxSrc').innerHTML = rows();
+    $('dxSrc').querySelectorAll('[data-ds]').forEach(b => b.onclick = () => { buzz(); dsel = b.dataset.ds; bindRows(); });
+    if ($('dxAll')) $('dxAll').onclick = () => { T = {title: x.ru || x.title, original: x.orig || '', series: false, id: film().id, url: film().url, poster: x.poster, year: x.year}; sel = {}; TOR = tors; torF = {q: 'all', s: 'all'}; $('tor').classList.add('show'); drawTor(); }; };
+  $('dxPlay').onclick = () => { buzz();
+    if ((dsel === 'rz' || dsel === null) && x.rz && !RZDOWN) { $('dx').classList.remove('show'); return go('/t/' + encodeURIComponent(x.rz) + '?resume'); }
+    const t = tors[+(dsel ?? 0)]; if (!t) return toast('Ще шукаю джерела');
+    T = {title: x.ru || x.title, original: x.orig || '', series: false, id: film().id, url: film().url, poster: x.poster, year: x.year}; sel = {};
+    playTorrent(t, null); };
+  (async () => {
+    const [f, t] = await Promise.all([api('kino/find', {imdb: x.imdb, ru: x.ru, title: x.title, orig: x.orig, year: x.year}).catch(() => null),
+      api('kino/torrents', {title: x.ru || x.title, original: x.orig || ''}).catch(() => null)]);
+    if (!$('dxSrc')) return;
+    if (f && f.url) x.rz = f.url;
+    const GR = {g: 0, y: 1, u: 1, r: 2}, isUA = t => audioTags(t.title).some(([n]) => n === 'UA');
+    tors = (Array.isArray(t) ? t : []).sort((a, b) => (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || isUA(b) - isUA(a) || (b.quality || 0) - (a.quality || 0) || (b.seeds || 0) - (a.seeds || 0));
+    dsel = x.rz && !RZDOWN ? 'rz' : tors.length ? '0' : null; bindRows();
+  })();
+  const mark = async (l, el, onTxt, offTxt) => { buzz(); const on = !inList(l, x);
+    const h = await api('kino/list', {list: l, item: x, on}).catch(() => null); if (h) HOMELISTS = {fav: h.fav || [], watch: h.watch || []};
+    el.classList.toggle('on', on); el.textContent = on ? onTxt : offTxt; };
+  $('dxW').onclick = e => mark('watch', e.target, '✓ Подивитись', '+ Подивитись');
+  $('dxF').onclick = e => mark('fav', e.target, '★ У закладках', '☆ В закладки');
+}
+$('dxX').onclick = () => { buzz(); $('dx').classList.remove('show'); $('dxV') && ($('dxV').innerHTML = ''); };
+async function lists(){
+  view.innerHTML = head('Списки') + '<div class="spin"></div>';
+  const h = await api('kino/home').catch(() => ({}));
+  HOMELISTS = {fav: h.fav || [], watch: h.watch || []};
+  const all = [...HOMELISTS.watch, ...HOMELISTS.fav.filter(x => !HOMELISTS.watch.some(y => y.imdb === x.imdb))];
+  view.innerHTML = head('Списки') + `<section><h2>Подивитись</h2><div id="lw"></div></section><section><h2>${starIcon}В закладках</h2><div id="lf"></div></section>`;
+  const put = (id, l) => { const box = $(id); if (!l.length) { box.innerHTML = '<p class="empty">Додавайте з вкладки «Відкрити».</p>'; return; }
+    box.innerHTML = `<div class="dgrid">${l.map(x => card(x, all.indexOf(all.find(y => y.imdb === x.imdb)))).join('')}</div>`;
+    box.querySelectorAll('[data-dx]').forEach(c => c.onclick = () => detail(all[+c.dataset.dx])); };
+  DLIST = all; put('lw', HOMELISTS.watch); put('lf', HOMELISTS.fav);
+  view.insertAdjacentHTML('beforeend', `<label class="nprow"><span>Екран блокування й годинник керують ТВ</span><input type="checkbox" id="npOn" ${!window.tinyNP || window.tinyNP.on() ? 'checked' : ''}></label>`);
+  $('npOn').onchange = e => { buzz(); window.tinyNP && window.tinyNP.set(e.target.checked); toast(e.target.checked ? 'Увімкнено' : 'Вимкнено: телефон вільний'); };
+}
+function media(){ view.innerHTML = head('Медіа') + '<section><h2>Завантаження</h2><div id="dls"><p class="empty">…</p></div></section>'
+  + '<p class="empty">Фільми з дисків ядра з обкладинками з\'являться тут наступним кроком.</p>'; downloads(); }
+// Small sheet with choices; resolves with the chosen value, or null.
+function choose(title, opts){ return new Promise(res => { $('chT').textContent = title;
+  $('chB').innerHTML = opts.map(([n, v, pri], i) => `<button class="${pri ? 'pri' : ''}" data-ci="${i}">${esc(n)}</button>`).join('');
+  $('choice').classList.add('show');
+  const done = v => { $('choice').classList.remove('show'); res(v); };
+  $('chB').querySelectorAll('[data-ci]').forEach(b => b.onclick = () => { buzz(); done(opts[+b.dataset.ci][1]); });
+  $('chX').onclick = () => done(null); }); }
+// Availability check runs in the core; re-read this tab while it works (new films appear as they are confirmed).
+let POLL = null;
+function pollAvail(tab, param, refresh){
+  clearInterval(POLL); let last = -1;
+  POLL = setInterval(async () => {
+    if (!location.hash.startsWith('#/d')) return clearInterval(POLL);
+    const st = await api('kino/refresh/state', {}).catch(() => null); if (!st) return;
+    if ($('dprog')) $('dprog').textContent = st.building ? 'Оновлюю списки IMDb, Wikidata, фестивалів…' : st.queue ? `Перевіряю, де подивитись: черга ${st.queue}` : 'Готово';
+    if (st.building) return;
+    if (st.checked !== last) { last = st.checked; delete DCACHE[tab + '|' + param];
+      const d = await api('kino/discover', {tab, param}).catch(() => null);
+      if (d && !d.error && $('dbox')) { DCACHE[tab + '|' + param] = d; drawGrid($('dbox'), d.items || []); } }
+    if (!st.queue && !st.working) clearInterval(POLL);
+  }, 4000);
+}
+
+// ---------- Taste questionnaire (7 steps) ----------
+let TQ = {step: 0, seed: null, t: null};
+const ERAS = ['1950s', '1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'];
+const REG = [['hollywood', 'Англомовне'], ['europe', 'Європа'], ['asia', 'Азія'], ['ukraine', 'Україна'], ['nordic', 'Скандинавія'], ['latam', 'Латинська Америка']];
+const MOODS = [['light', 'Легке'], ['serious', 'Серйозне'], ['dark', 'Темне, напружене'], ['mind', 'Розриває мозок']];
+const LANGS = [['ua', 'Українська озвучка'], ['en', 'Оригінал EN'], ['ru', 'Російська озвучка']];
+async function openTaste(){
+  buzz(); $('tq').classList.add('show'); $('tqB').innerHTML = '<div class="spin"></div>';
+  const [seed, cur] = await Promise.all([TQ.seed || api('kino/seed', {}).catch(() => null), api('kino/taste', {}).catch(() => ({}))]);
+  TQ.seed = seed || {films: [], directors: [], genres: []};
+  const t = (cur && cur.taste) || {};
+  TQ.t = {genres: t.genres || {}, eras: t.eras || [], regions: t.regions || [], directors: t.directors || [], films: t.films || {}, langs: t.langs || ['ua'], mood: t.mood || [], maxlen: t.maxlen || 0};
+  TQ.step = 0; drawTaste();
+}
+function drawTaste(){
+  const t = TQ.t, sd = TQ.seed, N = 7;
+  $('tqS').innerHTML = Array.from({length: N}, (_, i) => `<i class="${i <= TQ.step ? 'on' : ''}"></i>`).join('');
+  const multi = (list, arr) => `<div class="chips">${list.map(([k, n]) => `<button class="chip ${arr.includes(k) ? 'on' : ''}" data-m="${esc(k)}">${esc(n)}</button>`).join('')}</div>`;
+  const steps = [
+    ['Жанри', 'Натискання: 👍 люблю → 👎 не моє → нейтрально.', `<div class="chips">${(sd.genres || []).map(([g, n]) => `<button class="chip ${t.genres[g] > 0 ? 'like' : t.genres[g] < 0 ? 'dis' : ''}" data-g="${g}">${esc(n)}</button>`).join('')}</div>`],
+    ['Епохи', 'Кіно яких десятиліть вам ближче.', multi(ERAS.map(e => [e, e.replace('s', '-ті')]), t.eras)],
+    ['Звідки кіно', 'Можна кілька.', multi(REG, t.regions)],
+    ['Режисери', 'Чиї фільми ви любите.', multi((sd.directors || []).map(d => [d, d]), t.directors)],
+    ['Відомі фільми', 'Оцініть ті, що бачили. Не бачили - пропускайте.', `<div class="tqf">${(sd.films || []).map(f => `<div>${f.poster ? `<img src="${esc(f.poster)}" alt="">` : ''}<span>${esc(f.title)}</span>
+      <div class="b"><button data-f="${f.imdb}" data-v="1" class="${t.films[f.imdb] > 0 ? 'on' : ''}">👍</button><button data-f="${f.imdb}" data-v="-1" class="${t.films[f.imdb] < 0 ? 'on' : ''}">👎</button></div></div>`).join('')}</div>`],
+    ['Мова', 'Яку озвучку шукати першою.', multi(LANGS, t.langs)],
+    ['Настрій і тривалість', 'Що зазвичай хочеться ввечері.', multi(MOODS, t.mood) + `<p style="margin-top:14px">Тривалість</p>` + `<div class="chips">${[[0, 'Будь-яка'], [120, 'До 2 год'], [150, 'До 2,5 год']].map(([v, n]) => `<button class="chip ${t.maxlen === v ? 'on' : ''}" data-l="${v}">${n}</button>`).join('')}</div>`]];
+  const [h, sub, body] = steps[TQ.step];
+  $('tqB').innerHTML = `<h3>${h}</h3><p>${sub}</p>${body}`;
+  $('tqPrev').style.visibility = TQ.step ? 'visible' : 'hidden'; $('tqNext').textContent = TQ.step === N - 1 ? 'Зберегти' : 'Далі';
+  const key = ['', 'eras', 'regions', 'directors', '', 'langs', 'mood'][TQ.step];
+  $('tqB').querySelectorAll('[data-g]').forEach(b => b.onclick = () => { buzz(); const g = b.dataset.g, v = t.genres[g] || 0; t.genres[g] = v === 0 ? 1 : v > 0 ? -1 : 0; if (!t.genres[g]) delete t.genres[g]; drawTaste(); });
+  $('tqB').querySelectorAll('[data-m]').forEach(b => b.onclick = () => { buzz(); const a = t[key], k = b.dataset.m; const i = a.indexOf(k); i < 0 ? a.push(k) : a.splice(i, 1); b.classList.toggle('on'); });
+  $('tqB').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { buzz(); const f = b.dataset.f, v = +b.dataset.v; t.films[f] = t.films[f] === v ? 0 : v; if (!t.films[f]) delete t.films[f]; drawTaste(); });
+  $('tqB').querySelectorAll('[data-l]').forEach(b => b.onclick = () => { buzz(); t.maxlen = +b.dataset.l; drawTaste(); });
+}
+$('tqPrev').onclick = () => { buzz(); TQ.step = Math.max(0, TQ.step - 1); drawTaste(); };
+$('tqNext').onclick = async () => { buzz();
+  if (TQ.step < 6) { TQ.step++; drawTaste(); $('tq').scrollTop = 0; return; }
+  await api('kino/taste', {taste: TQ.t}).catch(() => {}); $('tq').classList.remove('show'); DCACHE = {}; toast('Смак збережено. Підбираю фільми…');
+  if (location.hash === '#/d/foryou' || location.hash === '#/d') route(); else go('/d/foryou'); };
+$('tqX').onclick = () => { buzz(); $('tq').classList.remove('show'); };
+
+api('kino/home').then(h => { HOMELISTS = {fav: (h && h.fav) || [], watch: (h && h.watch) || []}; }).catch(() => {});
+
+route();
+</script>
+<script>
+// A new core build reloads this page by itself (home-screen app and the Mac panel keep it open for hours).
+(() => { let mine = null;
+  const check = async () => { try { const v = (await (await fetch('/api/version', {cache: 'no-store'})).json()).v;
+    if (mine === null) mine = v; else if (v !== mine && !document.querySelector('#phone.show, #tor.show')) location.reload(); } catch (e) {} };
+  check(); setInterval(check, 15000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); }); })();
+</script>
+<script src="/np.js"></script>
+<script>
+// iOS: no auto-zoom on focus (maximum-scale), and when the keyboard closes put the page back where it was,
+// otherwise a standalone app keeps the shift (top cut off, empty strip at the bottom).
+document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) window.scrollTo(0, 0); }, 120));
+</script>
+</body>
+</html>

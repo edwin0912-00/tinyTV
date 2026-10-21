@@ -1,0 +1,19 @@
+# build
+build/
+engine/node_modules/
+*.o
+.DS_Store
+
+# secrets: never commit (see docs/hisense-pairing.md)
+certs/
+*.p12
+*.pem
+*.cer
+*.key
+*.pkcs8
+pin.txt
+session.json
+config.json
+.env
+token
+__pycache__/

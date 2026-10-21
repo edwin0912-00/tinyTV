@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">tinyTV</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d1f2b"/>
+      <stop offset="1" stop-color="#0c0d13"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb35c"/>
+      <stop offset="0.55" stop-color="#ff5f6d"/>
+      <stop offset="1" stop-color="#7b5cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- antenna -->
+  <path d="M104 52 L128 76 L152 52" fill="none" stroke="#f4f1ea" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- set -->
+  <rect x="40" y="76" width="176" height="128" rx="30" fill="#f4f1ea"/>
+  <rect x="54" y="90" width="148" height="100" rx="20" fill="url(#screen)"/>
+  <!-- play -->
+  <path d="M116 118 L152 140 L116 162 Z" fill="#f4f1ea" stroke="#f4f1ea" stroke-width="8" stroke-linejoin="round"/>
+  <!-- feet -->
+  <path d="M84 204 v14 M172 204 v14" stroke="#f4f1ea" stroke-width="10" stroke-linecap="round"/>
+</svg>

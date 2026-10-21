@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="tinyTV">
+<meta name="theme-color" content="#0e0f13">
+<link rel="manifest" href="/manifest.json">
+<title>tinyTV</title>
+<style>
+:root{--bg:#0e0f13;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.09);--text:#f2f3f7;--mute:rgba(242,243,247,.55);
+--accent:#6b9eff;--green:#3ddc84;--red:#ff5a5f;--r:16px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+body{padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 24px)}
+.glow{position:fixed;inset:0 0 auto 0;height:320px;pointer-events:none;
+background:radial-gradient(ellipse at top,rgba(107,158,255,.28),transparent 70%);transition:opacity .5s}
+.wrap{max-width:460px;margin:0 auto;position:relative;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:#888;transition:background .3s,box-shadow .3s;flex:none}
+.on .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
+.connecting .dot{background:#ffa53d}
+.title{flex:1;min-width:0}.title b{display:block;font-size:17px}
+.sub{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;color:inherit;border:0;background:var(--card);border-radius:12px;cursor:pointer;
+transition:transform .18s cubic-bezier(.3,1.6,.5,1),background .2s}
+button:active{transform:scale(.92);background:rgba(107,158,255,.35)}
+.power{width:44px;height:44px;border-radius:50%;background:var(--accent);display:grid;place-items:center}
+.on .power{background:rgba(255,90,95,.85)}
+svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pill{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:999px;padding:5px 5px 5px 14px}
+.pill input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:inherit;font-size:16px;padding:8px 0;-webkit-user-select:text;user-select:text}
+.pill input::placeholder{color:var(--mute)}
+.send{width:44px;height:36px;border-radius:999px;background:var(--accent);display:grid;place-items:center}
+.send.ok{background:var(--green)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:9px 13px;border-radius:999px;font-size:13px;display:flex;align-items:center;gap:6px;animation:pop .35s cubic-bezier(.3,1.5,.5,1) both}
+.chip.on{background:rgba(120,140,255,.32);box-shadow:inset 0 0 0 1px rgba(150,170,255,.7)}
+.chip i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2)}.chip i.sig{background:var(--green)}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+.label{font-size:13px;color:var(--mute);display:flex;justify-content:space-between;margin-bottom:8px}
+.label span:last-child{color:var(--text);font-variant-numeric:tabular-nums}
+.pad{height:230px;border-radius:22px;background:var(--card);border:1px solid var(--line);position:relative;overflow:hidden;touch-action:none;
+display:grid;place-items:center;transition:border-color .3s}
+.pad.live{border-color:rgba(107,158,255,.7)}
+.padhud{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:8px 16px;border-radius:999px;background:rgba(0,0,0,.5);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;opacity:0;transition:opacity .25s;pointer-events:none}.padhud.on{opacity:1}
+.pad .hint{color:var(--mute);font-size:13px;text-align:center;pointer-events:none;transition:opacity .3s}
+.pad.live .hint{opacity:0}
+.blob{position:absolute;width:160px;height:160px;margin:-80px 0 0 -80px;border-radius:50%;pointer-events:none;opacity:0;
+background:radial-gradient(circle,rgba(107,158,255,.45),transparent 70%);transition:opacity .25s}
+.pad.live .blob{opacity:1}
+.arrow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;opacity:0}
+.arrow svg{width:44px;height:44px;color:var(--accent);stroke-width:2.6}
+.arrow.flash{animation:flash .35s ease-out}
+@keyframes flash{0%{opacity:1;transform:scale(1.25)}100%{opacity:0;transform:scale(1)}}
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.keys button{height:50px;display:grid;place-items:center}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;border-radius:999px;outline:0;margin:0;
+background:linear-gradient(90deg,#26272d,var(--accent));touch-action:pan-y}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--accent);
+border:2px solid #fff;box-shadow:0 0 10px rgba(107,158,255,.8);transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2)}
+.vol{display:flex;align-items:center;gap:10px}.vol button{width:44px;height:36px;flex:none;display:grid;place-items:center}
+details summary{list-style:none;display:flex;justify-content:space-between;color:var(--mute);font-size:13px;padding:6px 0;cursor:pointer}
+details summary::-webkit-details-marker{display:none}
+details summary:after{content:"›";transition:transform .3s;font-size:18px;line-height:1}
+details[open] summary:after{transform:rotate(90deg)}
+details .rows{display:flex;flex-direction:column;gap:16px;padding-top:10px;animation:drop .35s ease-out}
+@keyframes drop{from{opacity:0;transform:translateY(-8px)}}
+.cast{display:none;flex-direction:column;gap:6px;padding:0 8px;animation:drop .35s ease-out}.cast.show{display:flex}
+.cs{font-size:12px;color:var(--mute)}.cast.fail .cs{color:#ffa53d}
+.bar{height:4px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}.bar i{display:block;height:100%;width:0;
+background:var(--accent);box-shadow:0 0 8px var(--accent);border-radius:9px;transition:width .3s ease-out}
+.now{display:none;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:rgba(107,158,255,.1);border:1px solid rgba(107,158,255,.3);animation:drop .35s ease-out}
+.now.show{display:flex}.nt{display:flex;align-items:center;gap:8px;font-size:14px}.nt b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.wave{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}.now.playing .wave{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.6);opacity:.5}}
+.x{width:32px;height:32px;border-radius:50%;font-size:13px;color:var(--mute)}
+.nc{display:flex;align-items:center;gap:8px}.pp{width:58px;height:58px;border-radius:50%;background:var(--accent);flex:none;font-size:16px}
+.tinfo{font-size:11px;color:var(--mute);margin-top:6px;font-variant-numeric:tabular-nums}.tinfo:empty{display:none}.tinfo.slow{color:#f5c542}
+.sk{height:36px;padding:0 9px;font-size:12px;flex:none}.sk.ep{width:32px;padding:0;display:none;place-items:center}.sk.ep svg{width:16px;height:16px}.sk.ep.on{display:grid}.sk.ep:disabled{opacity:.3}.scrub{flex:1;min-width:0}
+.times{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-top:4px;font-variant-numeric:tabular-nums}
+#vset select{width:100%;background:var(--card);color:var(--text);border:0;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;-webkit-appearance:none}
+#audio{display:none;width:100%;background:var(--card);color:var(--text);border:0;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;-webkit-appearance:none}
+#audio.show{display:block}
+.files{display:flex;flex-direction:column;gap:6px;padding-top:8px}.file{display:flex;justify-content:space-between;gap:10px;text-align:left;padding:12px 14px;font-size:14px}
+.file span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file small{color:var(--mute);flex:none}
+.dim{opacity:.4;filter:saturate(0);pointer-events:none;transition:opacity .4s,filter .4s}
+.body{display:flex;flex-direction:column;gap:16px;transition:opacity .4s,filter .4s}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translate(-50%,40px);opacity:0;
+background:rgba(30,32,40,.95);border:1px solid var(--line);padding:10px 16px;border-radius:999px;font-size:13px;transition:.35s cubic-bezier(.3,1.4,.5,1)}
+.toast.show{transform:translate(-50%,0);opacity:1}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* One screen, no page scroll: the trackpad takes the free height, extras live in bottom sheets. */
+html,body{height:100%;overflow:hidden}
+.wrap{height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 38px);gap:10px}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+.pad{flex:1;min-height:110px;height:auto}
+#shortcuts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}#shortcuts::-webkit-scrollbar{display:none}
+#shortcuts .chip{flex:none}
+.keys button{height:46px}
+.dock{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex:none}
+.dock button{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--mute)}
+.dock button svg{width:20px;height:20px;color:var(--text)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s;z-index:20}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:78dvh;overflow-y:auto;overscroll-behavior:contain;background:#16171d;
+border-radius:24px 24px 0 0;padding:10px 16px calc(env(safe-area-inset-bottom) + 20px);transform:translateY(105%);
+transition:transform .42s cubic-bezier(.2,.9,.25,1);box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+.sheet.open{transform:none}
+.sheet .grab{width:40px;height:5px;border-radius:9px;background:rgba(255,255,255,.2);margin:0 auto 12px}
+.sheet h3{margin:0 0 12px;font-size:15px;font-weight:600}
+#sheetBody{display:flex;flex-direction:column;gap:14px}
+#store{display:none}
+/* Polish (owner: "гарно зроби"). */
+body{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}
+.wrap{height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 22px)}
+.title b{font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+.now{gap:8px;padding:10px 12px}
+.pp{display:grid;place-items:center;color:#fff}.pp svg{width:26px;height:26px;fill:currentColor;stroke:none}
+.now .pp.playing{background:rgba(255,255,255,.14);border-radius:18px}.now .pp:not(.playing){box-shadow:0 0 0 3px rgba(107,158,255,.25)}
+.wbtn svg{width:20px;height:20px}.wbtn.on{color:var(--accent)}.wbtn:not(.on){opacity:.5}.wbtn.on .wx{display:none}
+.eq{display:flex;justify-content:space-between;gap:6px;padding:10px 2px 4px}.eq div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--mute)}
+.eq input[type=range]{writing-mode:vertical-lr;direction:rtl;width:30px;height:130px;background:linear-gradient(0deg,#26272d,var(--accent))}
+.volrow #vol{height:40px}.volrow #vol::-webkit-slider-thumb{width:40px;height:40px}
+.volrow .vpair{display:flex;gap:2px;margin-left:10px;flex:none;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.06)}
+.volrow .vstep{width:46px;height:40px;font-size:22px;font-weight:600;display:grid;place-items:center;background:none;border-radius:0}
+.livetag{display:none;align-items:center;gap:10px;font-size:13px;color:var(--mute);flex:1}
+.now.live .livetag{display:flex}.now.live .scrub,.now.live #back10,.now.live #fwd30{display:none}
+.eq{display:inline-flex;align-items:flex-end;gap:3px;height:16px}.eq i{width:3px;height:30%;border-radius:2px;background:var(--accent)}
+.now.playing .eq i{animation:eq 1s ease-in-out infinite}.eq i:nth-child(2){animation-delay:.2s}.eq i:nth-child(3){animation-delay:.45s}.eq i:nth-child(4){animation-delay:.1s}
+@keyframes eq{0%,100%{height:25%}50%{height:100%}}
+.chip svg.bolt{width:13px;height:13px;color:#ffc94d;fill:currentColor;stroke:none}
+.pad{background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.2px);background-size:18px 18px;background-position:center}
+.pad .hint{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;letter-spacing:.01em}
+.hint-ic{width:30px;height:30px;stroke:var(--mute);stroke-width:1.6;opacity:.8}
+.volrow{display:flex;align-items:center;gap:10px}.volrow .val{min-width:26px;text-align:right;font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}
+/* Real iPhone (standalone, iOS 26): size from the actual viewport, not 100dvh, and keep the header out of
+   the system blur under the status bar. */
+html,body{height:100%}
+body{display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 26px) 16px env(safe-area-inset-bottom)}
+.wrap{flex:1;height:auto!important;min-height:0;max-width:460px;width:100%;margin:0 auto}
+.dock{margin-bottom:6px}
+#nowCover{width:36px;height:52px;border-radius:6px;object-fit:cover;flex:none;margin:-2px 2px -2px -2px}
+.nt:has(#nowCover[style*="none"]) .wave{display:inline-block}
+.nt #nowCover:not([style*="none"]) + .wave{display:none}
+</style>
+</head>
+<body>
+<div class="glow" id="glow"></div>
+<div class="wrap connecting" id="app">
+  <header>
+    <div class="dot"></div>
+    <div class="title"><b>Hisense TV</b><div class="sub" id="sub">Connecting…</div></div>
+    <button class="power" id="power" aria-label="Power"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
+  </header>
+
+  <div class="body" id="body">
+    <div class="pill">
+      <svg viewBox="0 0 24 24" style="color:var(--mute);width:18px"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+      <input id="link" type="url" inputmode="url" placeholder="Paste a video link (YouTube and more)" autocomplete="off" autocapitalize="off">
+      <button class="send" id="send" aria-label="Open on TV"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button>
+    </div>
+    <div class="cast" id="cast"><div class="cs" id="castText"></div><div class="bar"><i id="castBar"></i></div></div>
+    <div class="now" id="now">
+      <div class="nt"><img id="nowCover" alt=""><span class="wave"></span><b id="nowTitle"></b><button class="x wbtn" id="nowWatch" aria-label="Керування з годинника"><svg viewBox="0 0 24 24"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3"/><path class="wx" d="M4 4l16 16"/></svg></button><button class="x" id="nowStop" aria-label="Stop on TV">✕</button></div>
+      <div class="nc">
+        <button class="pp" id="nowPP" aria-label="Play or pause"></button>
+        <div class="livetag"><span class="eq"><i></i><i></i><i></i><i></i></span><span>Live on TV</span></div>
+        <button class="sk ep" id="prevEp" aria-label="Попередня серія"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg></button>
+        <button class="sk" id="back10" aria-label="Back 10 seconds">−10</button>
+        <div class="scrub"><input type="range" min="0" max="1" step="1" id="nowSeek" aria-label="Position">
+          <div class="times"><span id="nowPos">0:00</span><span id="nowDur">live</span></div></div>
+        <button class="sk" id="fwd30" aria-label="Forward 30 seconds">+30</button>
+        <button class="sk ep" id="nextEp" aria-label="Наступна серія"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button>
+      </div>
+      <div class="tinfo" id="torInfo"></div>
+      <select id="audio" aria-label="Audio track"></select>
+    </div>
+    <div class="chips" id="shortcuts"></div>
+    <div><div class="label"><span>Screen to TV</span><span id="scrLive"></span></div>
+      <div class="chips" id="screenBox"><button class="chip" id="scrMac">💻 Mac screen</button><button class="chip" id="scrExt">🪟 Extend</button><button class="chip" id="scrAudio">🔊 Mac audio</button><button class="chip" id="scrCore">🖥 the core host screen</button></div>
+      <select id="scrPreset" style="margin-top:8px"><option value="fast">Fast · 720p · lowest delay</option><option value="balanced">Balanced · 1080p</option><option value="quality">Quality · 4K HEVC</option></select></div>
+
+    <div class="pad" id="pad" aria-label="Trackpad for the TV">
+      <div class="blob" id="blob"></div>
+      <div class="arrow" id="arrow"><svg viewBox="0 0 24 24" id="arrowSvg"><path d="m9 6 6 6-6 6"/></svg></div>
+      <div class="hint"><svg viewBox="0 0 24 24" class="hint-ic"><path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 9a2 2 0 0 1 4 0v4a7 7 0 0 1-7 7H9a5 5 0 0 1-4.5-2.8L3 14a1.8 1.8 0 0 1 3-1.8L9 15"/></svg>Swipe to move · tap for OK · hold for Back</div>
+    </div>
+
+    <div class="keys">
+      <button data-key="KEY_RETURNS" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button data-key="KEY_HOME" aria-label="Home"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></button>
+      <button data-key="KEY_MENU" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button data-key="KEY_PLAY" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path d="m6 4 8 8-8 8z"/><path d="M17 5v14M21 5v14"/></svg></button>
+      <button data-key="KEY_LEFTMOUSEKEYS" aria-label="TV cursor on or off"><svg viewBox="0 0 24 24"><path d="m4 4 7 17 2.5-7.5L21 11z"/></svg></button>
+    </div>
+
+    <div class="pill">
+      <svg viewBox="0 0 24 24" style="color:var(--mute);width:18px"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+      <input id="type" placeholder="Type into the TV field" autocomplete="off" enterkeyhint="send">
+    </div>
+
+    <div class="vol volrow">
+      <button data-key="KEY_MUTE" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></button>
+      <input type="range" min="0" max="100" step="1" id="vol" aria-label="Volume">
+      <span class="val" id="volv">0</span>
+      <span class="vpair"><button class="vstep" id="volDn" aria-label="Тихіше">−</button><button class="vstep" id="volUp" aria-label="Гучніше">+</button></span>
+    </div>
+
+    <div id="appsBox"><div class="label"><span>Apps</span></div><div class="chips" id="apps"></div></div>
+    <details id="vset"><summary>Video to TV <span id="vsum" style="margin-left:auto;margin-right:8px"></span></summary><div class="rows">
+      <select id="vmode"><option value="auto">Auto: encode only heavy files</option><option value="original">Original: never encode</option><option value="encode">Always encode</option></select>
+      <select id="vheight"><option value="2160">4K</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option></select>
+      <select id="vhdr"><option value="1">HDR · 10-bit</option><option value="0">SDR · 8-bit</option></select>
+      <div><div class="label"><span>Bitrate</span><span id="vmbv"></span></div><input type="range" min="4" max="40" step="1" id="vmbps"></div>
+    </div></details>
+    <details id="sset"><summary>Звук ТВ <span id="ssum" style="margin-left:auto;margin-right:8px"></span></summary><div class="rows">
+      <div class="chips" id="spre"></div>
+      <details id="scus"><summary style="font-size:13px">Налаштувати смуги</summary><div class="eq" id="seq"></div></details>
+    </div></details>
+    <label class="label" style="align-items:center"><span>Movie light · dims while a cast plays</span><input type="checkbox" id="movie" style="width:auto"></label>
+    <label class="label" style="align-items:center"><span>Екран блокування й годинник · керують ТВ (вимкни, щоб телефон грав своє)</span><input type="checkbox" id="npOn" style="width:auto"></label>
+    <details id="movies"><summary>Movies on the core</summary><div class="files" id="files"></div></details>
+    <div id="srcBox"><div class="label"><span>Inputs</span></div><div class="chips" id="sources"></div></div>
+
+  </div>
+  <nav class="dock" id="dock">
+    <button data-sheet="apps"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Apps</button>
+    <button data-sheet="inputs"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>Inputs</button>
+    <button data-sheet="screen"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg>Screen</button>
+    <button id="kinoBtn" onclick="location.href='/kino'"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></svg>Кіно</button>
+    <button data-sheet="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><h3 id="sheetTitle"></h3><div id="sheetBody"></div></div>
+<div id="store"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let S = {connected:false, offline:false, picture:{}, apps:[], sources:[], shortcuts:[]};
+let lastEdit = 0, allApps = false;
+
+async function api(cmd, body){
+  try{
+    const r = await fetch('/api/'+cmd, body===undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(await r.text());
+    render(await r.json());
+  }catch(e){ toast(cmd==='state' ? 'Core unreachable' : 'Failed: '+e.message); }
+}
+function torLine(t){ if (!t || !(t.rate > 0)) return ''; const mb = v => (v / 1048576).toFixed(1).replace('.', ',');
+  const ok = t.down >= t.rate, w = Math.round(t.wait || 0), mmss = v => `${Math.floor(v / 60)}:${String(Math.round(v) % 60).padStart(2, '0')}`;
+  if (t.hold) return `Буферизація: ${mmss(t.ahead || 0)} з ${mmss(t.target || 20)} · ↓ ${mb(t.down)} МБ/с · ${Math.round(t.peers||0)} пір.`;
+  return `↓ ${mb(t.down)} МБ/с · треба ${mb(t.rate)} · буфер ${Math.floor((t.ahead||0) / 60)}:${String(Math.round(t.ahead||0) % 60).padStart(2, '0')} · ${Math.round(t.peers||0)} пір. · `
+    + (ok ? 'встигає' : w > 0 ? `пауза ~${w >= 60 ? Math.ceil(w / 60) + ' хв' : w + ' с'}, далі без зупинок` : 'буфера досить'); }
+setTimeout(() => { const t = $('npOn'); if (!t) return; t.checked = !window.tinyNP || window.tinyNP.on();
+  t.onchange = () => { buzz(); window.tinyNP && window.tinyNP.set(t.checked); toast(t.checked ? 'Керування з екрана блокування увімкнено' : 'Вимкнено: телефон вільний'); }; }, 500);
+const wSync = () => { const on = !window.tinyNP || window.tinyNP.on(); document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('on', on)); if ($('npOn')) $('npOn').checked = on; };
+setTimeout(() => { wSync(); $('nowWatch').onclick = () => { buzz(); const on = !(window.tinyNP && window.tinyNP.on()); window.tinyNP && window.tinyNP.set(on); wSync();
+  toast(on ? 'Годинник і екран блокування керують ТВ' : 'Вимкнено: телефон вільний'); }; }, 600);
+// Sound to the TV: presets first; the five bands only under "Налаштувати смуги" (owner: hidden smartly).
+const SPRE = [['flat', 'Рівно'], ['soft', 'Менше високих'], ['dialog', 'Діалоги'], ['night', 'Нічний'], ['bass', 'Більше басу'], ['custom', 'Свій']];
+const SF = ['60', '250', '1k', '4k', '12k'];
+let soundEdit = 0, soundCur = null;
+function renderSound(snd){
+  if (!snd || Date.now() - soundEdit < 2500) return; soundCur = snd;
+  $('ssum').textContent = (SPRE.find(([k]) => k === snd.preset) || ['', ''])[1];
+  $('spre').innerHTML = SPRE.map(([k, n]) => `<button class="chip ${k === snd.preset ? 'on' : ''}" data-sp="${k}">${n}</button>`).join('');
+  $('spre').querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { buzz(); soundEdit = Date.now(); post('sound', {preset: b.dataset.sp});
+    soundCur = Object.assign({}, soundCur, {preset: b.dataset.sp}); soundEdit = 0; renderSound(soundCur); if (b.dataset.sp === 'custom') $('scus').open = true; });
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#seq')) return;
+  const bands = snd.preset === 'custom' ? snd.custom : snd.bands;
+  $('seq').innerHTML = SF.map((f, i) => `<div><span>${bands[i] > 0 ? '+' : ''}${Math.round(bands[i])}</span><input type="range" min="-12" max="8" step="1" value="${bands[i]}" data-band="${i}"><span>${f}</span></div>`).join('');
+  $('seq').querySelectorAll('[data-band]').forEach(r => { r.oninput = () => { r.previousElementSibling.textContent = (r.value > 0 ? '+' : '') + r.value; };
+    r.onchange = () => { buzz(); soundEdit = Date.now(); const c = [...$('seq').querySelectorAll('[data-band]')].map(x => +x.value); post('sound', {preset: 'custom', custom: c}); }; });
+}
+const post = (cmd, body={}) => { buzz(); return api(cmd, body); };
+const key = k => post('key', {key:k});
+// iOS Safari has no navigator.vibrate. Since iOS 18 a native switch control gives a system haptic when it toggles,
+// so a hidden one is clicked from inside the touch handler. Android keeps navigator.vibrate.
+const hap = (() => { const l = document.createElement('label'); l.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none';
+  const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.append(i); document.body.append(l); return l; })();
+function buzz(ms=8){ try{ if (navigator.vibrate) navigator.vibrate(ms); else hap.click(); }catch(e){} }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),1600); }
+function chip(text, onClick, dot){ const b=document.createElement('button'); b.className='chip';
+  if(dot!==undefined){ const i=document.createElement('i'); if(dot) i.className='sig'; b.append(i); }
+  b.append(document.createTextNode(text)); b.onclick=onClick; return b; }
+// Swift serializes object keys in random order: compare with sorted keys.
+function norm(v){ return Array.isArray(v) ? v.map(norm) : v && typeof v==='object' ? Object.keys(v).sort().map(k=>[k,norm(v[k])]) : v; }
+function same(a,b){ return JSON.stringify(norm(a))===JSON.stringify(norm(b)); }
+
+function render(s){
+  const prev = S; S = s;
+  const app = $('app');
+  app.classList.toggle('on', s.connected); app.classList.toggle('connecting', !s.connected && !s.offline);
+  $('sub').textContent = s.connected ? (s.nowPlaying || s.host) : s.offline ? 'Off or asleep · power wakes it' : 'Connecting…';
+  $('power').setAttribute('aria-label', s.connected ? 'Turn the TV off' : 'Wake the TV');
+  $('body').classList.toggle('dim', !s.connected);
+  $('glow').style.opacity = s.connected ? 1 : .25;
+  const fresh = Date.now() - lastEdit > 1500;
+  if(fresh){ $('vol').value = s.volume; $('volv').textContent = s.volume; }
+  if(!same(prev.shortcuts, s.shortcuts) || !$('shortcuts').children.length){
+    const box=$('shortcuts'); box.replaceChildren();
+    s.shortcuts.forEach(sc => { const b=chip(sc.name, () => { post('open',{url:sc.url}); toast('Opening '+sc.name); });
+      let t; b.addEventListener('touchstart',()=>{ t=setTimeout(()=>{ if(confirm('Delete "'+sc.name+'"?')) post('shortcut/delete',{id:sc.id}); },650) },{passive:true});
+      b.insertAdjacentHTML('afterbegin','<svg class="bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>');
+      b.addEventListener('touchend',()=>clearTimeout(t)); box.append(b); });
+    box.append(chip('+', () => { const u=$('link').value.trim(); if(!u){ toast('Paste a link first'); return; }
+      const n=prompt('Shortcut name'); if(n) post('shortcut',{name:n,url:u}); }));
+  }
+  if(!same(prev.apps, s.apps) || $('apps')._all!==allApps){
+    const box=$('apps'); box.replaceChildren(); box._all=allApps;
+    (allApps ? s.apps : s.apps.slice(0,6)).forEach(a => box.append(chip(a.name, () => { post('launch',{id:a.id}); toast('Opening '+a.name); })));
+    if(s.apps.length>6) box.append(chip(allApps ? 'Less' : '+'+(s.apps.length-6), () => { allApps=!allApps; render(S); }));
+  }
+  $('appsBox').style.display = s.apps.length ? '' : 'none';
+  if(!same(prev.sources, s.sources)){
+    const box=$('sources'); box.replaceChildren();
+    s.sources.forEach(x => box.append(chip(x.name, () => post('source',{id:x.id}), x.signal)));
+  }
+  $('srcBox').style.display = s.sources.length ? '' : 'none';
+  const c=s.cast||{status:''}, cb=$('cast');
+  cb.classList.toggle('show', !!c.status); cb.classList.toggle('fail', !!c.failed);
+  $('castText').textContent=c.status;
+  $('castBar').parentElement.style.display = c.progress>=0 ? '' : 'none';
+  if(c.progress>=0) $('castBar').style.width=Math.max(2,c.progress*100)+'%';
+  if(c.status && !c.failed) fast();
+  const now=$('now'); now.classList.toggle('show', !!c.title); now.classList.toggle('playing', !!c.playing);
+  const kk=s.kino||{}; const cov=$('nowCover'); cov.style.display = kk.poster ? '' : 'none'; if (kk.poster && cov.src!==kk.poster) cov.src=kk.poster;
+  $('nowTitle').textContent=(kk.title ? kk.title + (kk.season ? ` · S${kk.season}E${kk.episode}` : '') : c.title)||'';
+  $('nowPP').classList.toggle('playing', !!c.playing);
+  $('nowPP').innerHTML = c.playing ? '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>';
+  now.classList.toggle('live', !(c.duration>0));
+  { const tl = torLine(c.torrent); $('torInfo').textContent = tl; $('torInfo').classList.toggle('slow', !!tl && (!(c.torrent.down >= c.torrent.rate) || !!c.torrent.hold)); }
+  for (const [id, has] of [['prevEp', kk.hasPrev], ['nextEp', kk.hasNext]]) { $(id).classList.toggle('on', !!kk.season); $(id).disabled = !has; }
+  if(!seeking){ $('nowSeek').max=Math.max(1,Math.round(c.duration||0)); $('nowSeek').value=Math.round(c.position||0); $('nowPos').textContent=clock(c.position||0); }
+  $('nowDur').textContent = c.duration>0 ? clock(c.duration) : 'live';
+  const au=$('audio'), tr=c.tracks||[];
+  au.classList.toggle('show', tr.length>1);
+  if(!same(au._tr, tr)){ au._tr=tr; au.replaceChildren(...tr.map(t=>{ const o=document.createElement('option'); o.value=t.i; o.textContent='🔊 '+t.label; return o; })); }
+  if(document.activeElement!==au) au.value=c.track;
+  $('scrMac').classList.toggle('on', c.screen==='mac'); $('scrCore').classList.toggle('on', c.screen==='core');
+  $('scrExt').classList.toggle('on', c.screen==='mac-extend'); $('scrAudio').classList.toggle('on', c.screen==='mac-audio');
+  if(c.screenPreset && document.activeElement!==$('scrPreset')) $('scrPreset').value=c.screenPreset;
+  $('scrLive').textContent = c.screen ? (c.screenLatency>0 ? 'live · '+c.screenLatency.toFixed(1)+' s delay' : 'live') : '';
+  if(s.movie && document.activeElement!==$('movie')) $('movie').checked = !!s.movie.on;
+  const v=c.video; if(v){ const busy=['vmode','vheight','vhdr','vmbps'].includes(document.activeElement?.id);
+    if(!busy && Date.now()-vEdit>1500){ $('vmode').value=v.mode; $('vheight').value=v.height; $('vhdr').value=v.hdr?1:0; $('vmbps').value=v.mbps; }
+    $('vmbv').textContent=Math.round(v.mbps)+' Mbit/s';
+    renderSound(c.sound);
+    $('vsum').textContent = v.mode==='original' ? 'Original' : (v.height===2160?'4K':v.height+'p')+' · '+(v.hdr?'HDR':'SDR')+' · '+Math.round(v.mbps)+' Mb'; }
+}
+
+$('scrMac').onclick=()=>{ post('screen',{from:'mac'}); toast('Mac screen → TV'); };
+$('scrCore').onclick=()=>{ post('screen',{from:'core'}); toast('Core screen → TV'); };
+$('scrExt').onclick=()=>{ post('screen',{from:'mac-extend'}); toast('TV as a second Mac display'); };
+$('scrAudio').onclick=()=>{ post('screen',{from:'mac-audio'}); toast('Mac audio → TV'); };
+$('scrPreset').onchange=e=>post('screen/preset',{id:e.target.value});
+$('movie').onchange=e=>post('movie',{on:e.target.checked});
+function clock(t){ t=Math.max(0,Math.round(t)); const h=Math.floor(t/3600), m=Math.floor(t/60)%60, s=t%60;
+  return (h? h+':'+String(m).padStart(2,'0') : m)+':'+String(s).padStart(2,'0'); }
+let seeking=false;
+let vEdit=0;
+const vs=()=>{ vEdit=Date.now(); api('settings',{mode:$('vmode').value, height:+$('vheight').value, hdr:$('vhdr').value==='1', mbps:+$('vmbps').value}); };
+['vmode','vheight','vhdr'].forEach(id=>$(id).onchange=vs); $('vmbps').onchange=vs; $('vmbps').oninput=e=>{ vEdit=Date.now(); $('vmbv').textContent=e.target.value+' Mbit/s'; };
+$('audio').onchange=e=>{ post('cast/audio',{i:+e.target.value}); toast('Switching audio…'); };
+$('nowPP').onclick=()=>post('cast/pause'); $('nowStop').onclick=()=>post('cast/stop');
+$('prevEp').onclick=()=>post('kino/step',{dir:-1}); $('nextEp').onclick=()=>post('kino/step',{dir:1});
+$('back10').onclick=()=>post('cast/seek',{t:(S.cast?.position||0)-10}); $('fwd30').onclick=()=>post('cast/seek',{t:(S.cast?.position||0)+30});
+$('nowSeek').oninput=e=>{ seeking=true; $('nowPos').textContent=clock(+e.target.value); };
+$('nowSeek').onchange=e=>{ post('cast/seek',{t:+e.target.value}); setTimeout(()=>seeking=false,1500); };
+$('movies').ontoggle=async()=>{ if(!$('movies').open) return;
+  try{ const list=await (await fetch('/api/files')).json(); const box=$('files'); box.replaceChildren();
+    if(!list.length) box.textContent='No videos in Movies or Downloads';
+    list.forEach(f=>{ const b=document.createElement('button'); b.className='file';
+      b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=f.name; b.lastChild.textContent=f.mb>=1000?(f.mb/1000).toFixed(1)+' GB':f.mb+' MB';
+      b.onclick=()=>{ post('cast/file',{path:f.path}); toast('Sending to TV'); }; box.append(b); });
+  }catch(e){ toast('Mac unreachable'); } };
+$('power').onclick = () => { post('power'); toast(S.connected ? 'Power' : 'Waking the TV…'); };
+document.querySelectorAll('[data-key]').forEach(b => b.onclick = () => key(b.dataset.key));
+$('send').onclick = async () => {
+  let u=$('link').value.trim();
+  if(!u && navigator.clipboard?.readText){ try{ u=(await navigator.clipboard.readText()).trim(); $('link').value=u; }catch(e){} }
+  if(!u){ toast('Paste a link first'); return; }
+  post('open',{url:u}); const s=$('send'); s.classList.add('ok'); setTimeout(()=>s.classList.remove('ok'),1200); fast();
+};
+$('link').onkeydown = e => { if(e.key==='Enter') $('send').click(); };
+$('type').onkeydown = e => { if(e.key==='Enter' && e.target.value){ post('type',{text:e.target.value}); e.target.value=''; toast('Sent'); } };
+// −/+ next to the slider: one step each tap (owner).
+const volStep = d => { const v=Math.max(0,Math.min(100,+$('vol').value+d)); $('vol').value=v; $('volv').textContent=v; lastEdit=Date.now(); buzz(); api('volume',{v}); };
+$('volDn').onclick=()=>volStep(-2); $('volUp').onclick=()=>volStep(2);
+let vt, vtick=-1; $('vol').addEventListener('pointerdown',()=>buzz()); $('vol').addEventListener('change',()=>buzz());
+$('vol').oninput = e => { lastEdit=Date.now(); $('volv').textContent=e.target.value; const t=Math.floor(e.target.value/5); if(t!==vtick){ vtick=t; buzz(); } clearTimeout(vt); vt=setTimeout(()=>api('volume',{v:+e.target.value}),80); };
+
+// Trackpad: swipe -> arrow keys (one per STEP px, repeats while you keep moving), tap -> OK, hold -> Back.
+const pad=$('pad'), blob=$('blob'), arrow=$('arrow'), STEP=34;
+// Owner: while a video plays, two fingers on the pad: up / down = volume, left / right = seek (a long, fast swipe jumps further).
+let two=null;
+const padHud=document.createElement('div'); padHud.className='padhud'; pad.appendChild(padHud);
+const hud=t=>{ padHud.textContent=t; padHud.classList.add('on'); clearTimeout(padHud._t); padHud._t=setTimeout(()=>padHud.classList.remove('on'),1100); };
+const mid=ts=>({x:(ts[0].clientX+ts[1].clientX)/2, y:(ts[0].clientY+ts[1].clientY)/2});
+const swipeSecs=()=>{ const b=Math.abs(two.dx)/40*10*(two.peak>18?3:1); return Math.sign(two.dx)*Math.min(600,Math.round(b/5)*5); };
+pad.addEventListener('touchstart', e=>{
+  if(e.touches.length!==2 || !(S && S.cast && S.cast.title)) return;
+  clearTimeout(hold); moved=true; pad.classList.remove('live');
+  const m=mid(e.touches); two={x:m.x, y:m.y, lx:m.x, vol:+$('vol').value, axis:0, dx:0, peak:0, tick:-1};
+}, {passive:true});
+pad.addEventListener('touchmove', e=>{
+  if(!two || e.touches.length<2) return;
+  const m=mid(e.touches), dx=m.x-two.x, dy=m.y-two.y;
+  if(!two.axis && Math.max(Math.abs(dx),Math.abs(dy))>8) two.axis=Math.abs(dx)>Math.abs(dy)?1:2;
+  if(two.axis===2){ const v=Math.max(0,Math.min(100,Math.round(two.vol-dy/10)));
+    if(+$('vol').value!==v){ $('vol').value=v; $('volv').textContent=v; lastEdit=Date.now(); api('volume',{v}); const t=Math.floor(v/5); if(t!==two.tick){ two.tick=t; buzz(); } } hud('Гучність '+v); }
+  else if(two.axis===1){ two.peak=Math.max(two.peak,Math.abs(m.x-two.lx)); two.lx=m.x; two.dx=dx; const s=swipeSecs();
+    hud((s<0?'−':'+')+(Math.abs(s)>=60?Math.floor(Math.abs(s)/60)+':'+String(Math.abs(s)%60).padStart(2,'0'):Math.abs(s)+' с')); }
+}, {passive:true});
+pad.addEventListener('touchend', e=>{
+  if(!two || e.touches.length) return;
+  if(two.axis===1){ const s=swipeSecs(); if(Math.abs(s)>=5){ post('cast/seek',{t:Math.max(0,(S.cast.position||0)+s)}); } }
+  two=null;
+}, {passive:true});
+const PATHS={KEY_RIGHT:'m9 6 6 6-6 6',KEY_LEFT:'m15 6-6 6 6 6',KEY_UP:'m6 15 6-6 6 6',KEY_DOWN:'m6 9 6 6 6-6',KEY_OK:'M12 12h.01',KEY_RETURNS:'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11'};
+let sx, sy, ax, ay, moved, hold, start;
+function flash(k){ $('arrowSvg').innerHTML='<path d="'+PATHS[k]+'"/>'; arrow.classList.remove('flash'); void arrow.offsetWidth; arrow.classList.add('flash'); }
+function send(k){ key(k); flash(k); }
+pad.addEventListener('pointerdown', e => {
+  pad.setPointerCapture(e.pointerId); pad.classList.add('live');
+  const r=pad.getBoundingClientRect(); sx=ax=e.clientX; sy=ay=e.clientY; moved=false; start=Date.now();
+  blob.style.left=(e.clientX-r.left)+'px'; blob.style.top=(e.clientY-r.top)+'px';
+  hold=setTimeout(()=>{ if(!moved){ send('KEY_RETURNS'); buzz(20); moved=true; } },550);
+});
+pad.addEventListener('pointermove', e => {
+  if(two || !pad.classList.contains('live')) return;
+  const r=pad.getBoundingClientRect(); blob.style.left=(e.clientX-r.left)+'px'; blob.style.top=(e.clientY-r.top)+'px';
+  const dx=e.clientX-ax, dy=e.clientY-ay;
+  if(Math.abs(dx)<STEP && Math.abs(dy)<STEP) return;
+  moved=true; clearTimeout(hold);
+  if(Math.abs(dx)>Math.abs(dy)){ send(dx>0?'KEY_RIGHT':'KEY_LEFT'); ax+=Math.sign(dx)*STEP; ay=e.clientY; }
+  else { send(dy>0?'KEY_DOWN':'KEY_UP'); ay+=Math.sign(dy)*STEP; ax=e.clientX; }
+});
+function end(){ clearTimeout(hold); if(two) return; if(pad.classList.contains('live') && !moved && Date.now()-start<550) send('KEY_OK'); pad.classList.remove('live'); }
+pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', () => { clearTimeout(hold); pad.classList.remove('live'); });
+
+// Live state while the page is visible.
+let timer, fastT;
+// Poll faster while a video is being fetched, so the progress bar moves.
+function fast(){ if(fastT) return; fastT=setInterval(()=>api('state'),400); setTimeout(()=>{clearInterval(fastT); fastT=null},2000); }
+function loop(){ clearInterval(timer); if(document.visibilityState==='visible'){ api('state'); timer=setInterval(()=>api('state'),1500); } }
+document.addEventListener('visibilitychange', loop); loop();
+</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const typePill = $('type').closest('.pill');
+  const cursorKey = document.querySelector('[data-key="KEY_LEFTMOUSEKEYS"]');
+  const cursorRow = document.createElement('div'); cursorRow.className = 'chips';
+  const cursorChip = document.createElement('button'); cursorChip.className = 'chip'; cursorChip.textContent = '🖱 TV cursor on / off';
+  cursorChip.onclick = () => cursorKey.click(); cursorRow.append(cursorChip);
+  // Keyboard takes the cursor key's slot on the main screen: typing is common, the TV cursor is rare.
+  const kb = document.createElement('button'); kb.setAttribute('aria-label', 'Keyboard');
+  kb.innerHTML = '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>';
+  cursorKey.replaceWith(kb); $('store').append(cursorKey);
+  // TV page (low-latency player in TV Browser, see LowLatency.swift on the core).
+  const tvPage = document.createElement('div'); tvPage.className = 'tvpage';
+  tvPage.innerHTML = '<div class="label"><span>TV page · low delay</span><span id="tpState">…</span></div>'
+    + '<div class="chips"><button class="chip" id="tpScreen">Screen, low delay</button><button class="chip" id="tpIdle">Stop on TV</button></div>'
+    + '<div class="pill" style="margin-top:8px"><input id="tpUrl" placeholder="https:// link to open on the TV page" autocomplete="off" inputmode="url">'
+    + '<button class="send" id="tpOpen" aria-label="Open on TV page"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button></div>';
+  $('store').append(tvPage);
+  let tpOpen = false;
+  async function tpPoll(){ try{ const j = await (await fetch('/api/page')).json(); tpOpen = !!j.open; }catch(e){ tpOpen = false; }
+    $('tpState').textContent = tpOpen ? '● open' : 'closed: open http://'+location.hostname+':8895 in TV Browser';
+    $('tpState').style.color = tpOpen ? 'var(--green)' : 'var(--mute)';
+    ['tpScreen','tpOpen'].forEach(id => $(id).style.opacity = tpOpen ? 1 : .4); }
+  setInterval(() => { if (document.visibilityState === 'visible') tpPoll(); }, 3000); tpPoll();
+  const tpPost = (cmd, body) => fetch('/api/' + cmd, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {})});
+  $('tpScreen').onclick = () => tpOpen ? tpPost('page/screen') : null;
+  $('tpIdle').onclick = () => tpPost('page/idle');
+  $('tpOpen').onclick = () => { const u = $('tpUrl').value.trim(); if (tpOpen && /^https?:\/\//.test(u)) tpPost('page/open', {url: u}); };
+  const verEl = document.createElement('div'); verEl.id = 'ver'; verEl.style.cssText = 'font-size:11px;color:var(--mute);text-align:center';
+  $('store').append(verEl);
+  const groups = {
+    apps: ['Apps', [$('appsBox')]],
+    inputs: ['Inputs', [$('srcBox')]],
+    screen: ['Screen to TV', [$('screenBox').parentElement, tvPage]],
+    more: ['More', [typePill, $('movies'), $('vset'), $('sset'), $('movie').closest('label'), $('npOn').closest('label'), cursorRow, verEl]],
+  };
+  Object.values(groups).forEach(([, els]) => els.forEach(e => e && $('store').append(e)));
+  let current = null;
+  function close(){ $('sheet').classList.remove('open'); $('scrim').classList.remove('open');
+    setTimeout(() => { if (!$('sheet').classList.contains('open')) { [...$('sheetBody').children].forEach(e => $('store').append(e)); current = null; } }, 420); }
+  function open(name, focus){
+    if (current === name) return close();
+    [...$('sheetBody').children].forEach(e => $('store').append(e));
+    const [title, els] = groups[name]; current = name;
+    $('sheetTitle').textContent = title; els.forEach(e => e && $('sheetBody').append(e));
+    if (name === 'more') $('vset').open = true;
+    $('sheet').classList.add('open'); $('scrim').classList.add('open');
+    if (focus) setTimeout(() => focus.focus(), 350);
+  }
+  document.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => open(b.dataset.sheet));
+  kb.onclick = () => open('more', $('type'));
+  $('scrim').onclick = close;
+  // Swipe the sheet down to close it.
+  let y0 = null;
+  $('sheet').addEventListener('touchstart', e => { y0 = $('sheet').scrollTop <= 0 ? e.touches[0].clientY : null; }, {passive: true});
+  $('sheet').addEventListener('touchmove', e => { if (y0 !== null && e.touches[0].clientY - y0 > 70) { y0 = null; close(); } }, {passive: true});
+  // Launching an app or switching input closes its sheet.
+  ['apps', 'sources'].forEach(id => $(id).addEventListener('click', e => { if (e.target.closest('.chip')) setTimeout(close, 250); }));
+})();
+</script>
+<script src="/np.js"></script>
+<script>
+// Home-screen apps on iOS resume an old copy: compare the page version with the core and reload when it changed.
+(() => {
+  let mine = null;
+  async function check(){
+    try {
+      const v = (await (await fetch('/api/version', {cache: 'no-store'})).json()).v;
+      if (mine === null) { mine = v; const el = document.getElementById('ver'); if (el) el.textContent = 'tinyTV · ' + new Date(v * 1000).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}); }
+      else if (v !== mine) location.reload();
+    } catch(e) {}
+  }
+  check(); setInterval(check, 15000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+})();
+</script>
+<script>
+// iOS: no auto-zoom on focus (maximum-scale), and when the keyboard closes put the page back where it was,
+// otherwise a standalone app keeps the shift (top cut off, empty strip at the bottom).
+document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) window.scrollTo(0, 0); }, 120));
+</script>
+</body>
+</html>

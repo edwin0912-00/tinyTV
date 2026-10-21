@@ -1,0 +1,8 @@
+{
+  "tv": "192.168.0.2",
+  "client_id": "tinytv_core",
+  "tv_mac": "aabbccddeeff,112233445566",
+  "tvcast": "http://127.0.0.1:8890",
+  "light_url": "",
+  "rutracker_chrome_profile": ""
+}
