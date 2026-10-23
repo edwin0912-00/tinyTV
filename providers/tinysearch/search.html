@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Пошук">
+<meta name="theme-color" content="#0e0f12"><meta name="color-scheme" content="dark"><title>Пошук торентів</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#0e0f12;--card:#17191e;--line:#2a2d35;--tx:#eceef2;--mut:#8b909c;--g:#3ecf6e;--y:#f2c14e;--r:#ff5d5d;--b:#5aa9ff;--u:#9b8cff;color-scheme:dark}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0 auto;max-width:760px;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,system-ui,sans-serif;padding:max(12px,env(safe-area-inset-top)) 14px 40px}
+[hidden]{display:none!important}
+h2{font-size:13px;font-weight:600;color:var(--mut);margin:20px 0 8px}
+button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit;font-size:14px;min-height:44px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.5;cursor:default}
+button.go{background:var(--b);border-color:var(--b);color:#fff;font-weight:600;min-width:64px}
+button.pri{background:#24364d;border-color:var(--b);color:#cfe4ff;font-weight:600}
+button.have{background:#11351f;border-color:#1f6b3a;color:#7ff0a4;font-weight:600}
+button.red{background:#3a1212;border-color:#7a2323;color:#ffb3b3}
+button.red.solid{background:var(--r);border-color:var(--r);color:#fff;font-weight:700}
+button.dang{color:#ff9a9a}
+/* top bar: tabs + server chip */
+.top{display:flex;gap:8px;align-items:stretch;margin:0 0 12px}
+.seg{flex:1;min-width:0;display:flex;gap:3px;padding:3px;background:var(--card);border:1px solid var(--line);border-radius:13px}
+.seg button{flex:1 1 0;border:0;background:transparent;color:var(--mut);font-weight:600;border-radius:10px;padding:8px 4px;white-space:nowrap}
+.seg button.on{background:#24364d;color:#cfe4ff}
+.n{display:inline-block;min-width:17px;height:17px;padding:0 4px;margin-left:4px;border-radius:9px;background:var(--b);color:#fff;font-size:11px;font-weight:700;line-height:17px;text-align:center;vertical-align:1px}
+.srv{display:flex;align-items:center;gap:6px;padding:0 11px;border-radius:13px;max-width:38%;font-weight:600}
+.srv .d{margin:0;flex:none}.sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.car{color:var(--mut);font-size:11px}
+@media (max-width:359px){.seg button{flex:1 1 auto;font-size:13px;padding:8px 3px}.n{min-width:16px;height:16px;line-height:16px;margin-left:3px;padding:0 3px;font-size:10px}.car{display:none}.srv{padding:0 9px}}
+/* search */
+form{display:flex;gap:8px}input[type=search]{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:12px 14px;font-size:17px}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}.pill{padding:5px 12px;border-radius:22px;font-size:13px}.pill.on,.cats button.on{background:#24364d;border-color:var(--b);color:#cfe4ff}
+.cats{display:flex;gap:6px;overflow-x:auto;margin:8px -14px 0;padding:0 14px;scrollbar-width:none}.cats::-webkit-scrollbar{display:none}
+.cats button{flex:none;padding:5px 13px;border-radius:22px}.cats button.z{opacity:.45}.cats small{color:var(--mut);margin-left:5px;font-size:12px}.cats button.on small{color:#9cc4ef}
+.src{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0 0;font-size:11px;color:var(--mut)}.src span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:2px 6px}.src .d{width:6px;height:6px;margin-right:4px}
+.d{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:var(--mut)}.d.ok{background:var(--g)}.d.err{background:var(--r)}.d.run,.d.wait{background:var(--y);animation:p 1s infinite}@keyframes p{50%{opacity:.3}}
+.card,.row,.tor{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin:8px 0}.row.bad{opacity:.62}
+.card{margin:10px 0}.card .t{font-size:17px}.card .row{background:#121418;border-radius:12px}.rows{margin-top:10px;border-top:1px solid var(--line);padding-top:2px}
+.sub.rn{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.t{font-weight:600;font-size:15px;word-break:break-word}.sub{color:var(--mut);font-size:12px;margin-top:2px;word-break:break-word}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 0}.tag{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:#22252c;color:#c9cdd6}
+.tag.ok{background:#11351f;color:#7ff0a4}.tag.dv5{background:#3a0b0b;color:#ff8a8a}.tag.enc{background:#3a300b;color:#ffd77a}.tag.ua{background:#14305a;color:#ffd84d}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.acts button{min-height:44px;flex:1 1 auto}
+.g{color:var(--g)}.y{color:var(--y)}.r{color:var(--r)}.u{color:var(--u)}.b{color:var(--b)}
+.job{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer;min-height:44px}.job small{color:var(--mut)}
+.msg{color:var(--mut);font-size:13px;margin:10px 0}.msg.r{color:var(--r)}
+/* downloads */
+.tor{transition:border-color .3s,box-shadow .3s}.tor.hl{border-color:var(--b);box-shadow:0 0 0 2px #24364d}
+.tor .h{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}.tor .nm{font-weight:600;word-break:break-word;min-width:0}
+.eng{flex:none;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:#22252c;color:#c9cdd6;margin-top:2px}.eng.tv{background:#14305a;color:#cfe4ff}
+.bar{height:6px;background:#22252c;border-radius:3px;margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--g);transition:width .5s}.bar.p i{background:var(--mut)}.bar.s i{background:var(--b)}.bar.e i{background:var(--r)}
+.stat{color:var(--mut);font-size:12px;margin-top:6px}.stat .st{font-weight:700}.tor .err{color:var(--r);font-size:12px;margin-top:4px;word-break:break-word}
+.empty{text-align:center;color:var(--mut);padding:36px 12px}.empty b{display:block;color:var(--tx);font-size:16px;margin-bottom:4px}
+.foot{margin-top:18px}.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;border-radius:14px;padding:8px 14px}
+.sw small{display:block;color:var(--mut);font-size:12px;font-weight:400}.sw span{font-weight:600}
+.knob{flex:none;position:relative;width:46px;height:28px;border-radius:14px;background:#3a3e48;transition:background .2s}
+.knob::after{content:'';position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw[aria-checked=true] .knob{background:var(--g)}.sw[aria-checked=true] .knob::after{transform:translateX(18px)}
+/* bottom sheet */
+.shade{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.55);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.panel{width:100%;max-width:560px;max-height:84vh;max-height:84dvh;background:#1b1e24;border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0;padding:8px 14px max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:hidden}
+.grab{flex:none;width:40px;height:4px;border-radius:2px;background:#3a3e48;margin:2px auto 10px}
+.sh-t{flex:none;font-size:17px;font-weight:700;margin:0 0 2px;word-break:break-word}.sh-s{flex:none;color:var(--mut);font-size:13px;margin-bottom:8px;word-break:break-word}
+.list{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}
+.fr{display:flex;gap:12px;align-items:center;min-height:48px;padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.fr input{flex:none;width:24px;height:24px;accent-color:var(--b)}.fr .fn{flex:1;min-width:0;word-break:break-word;font-size:14px}
+.fr small{display:block;color:var(--mut);font-size:11px;word-break:break-all}.fr .fz{flex:none;color:var(--mut);font-size:12px;text-align:right}
+.qa{flex:none;color:var(--mut);font-size:13px;margin:0 0 6px}
+.bt{flex:none;display:flex;gap:8px;margin-top:10px}.bt button{flex:1}.bt.col{flex-direction:column}.bt.col button small{display:block;color:var(--mut);font-size:12px;font-weight:400}.bt.col .red small{color:#e79a9a}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:8px 0;border-bottom:1px solid var(--line);color:var(--tx);text-decoration:none}
+.srow small{display:block;color:var(--mut);font-size:12px;word-break:break-all}.srow .go2{color:var(--mut);font-size:20px}
+.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 28px);text-align:center;background:#2b2f38;padding:10px 16px;border-radius:12px;font-size:14px;display:none;z-index:30}
+</style></head><body>
+<div class="top">
+ <div class="seg" role="tablist" aria-label="Розділи">
+  <button type="button" role="tab" data-tab="search" class="on" aria-selected="true">Пошук</button>
+  <button type="button" role="tab" data-tab="dl" aria-selected="false">Завантаження<b class="n" id="dlN" hidden></b></button>
+ </div>
+ <button type="button" class="srv" id="srv" aria-label="Сервер"><i class="d" id="srvDot"></i><span class="sn" id="srvName">…</span><span class="car">▾</span></button>
+</div>
+
+<main id="vSearch">
+<form id="f"><input id="q" type="search" placeholder="фільм, музика, книга, гра, софт, tt0944947…" autocomplete="off" enterkeyhint="search"><button class="go">Шукати</button></form>
+<div class="pills">
+ <button type="button" class="pill" data-k="film" title="лише релізи, де назва збігається точно">Точна назва</button>
+ <span style="width:8px"></span>
+ <button type="button" class="pill" data-f="tv">TV ✓</button><button type="button" class="pill" data-f="ua">UA</button>
+ <button type="button" class="pill" data-f="2160">4K</button><button type="button" class="pill" data-f="1080">1080</button>
+</div>
+<div class="cats" id="cats" hidden></div>
+<div class="src" id="src"></div>
+<div id="res"></div>
+<h2>Останні пошуки (агенти, телефон, Мак)</h2><div id="jobs"></div>
+</main>
+
+<main id="vDl" hidden>
+<div class="msg" id="dinfo">Завантажую…</div>
+<div id="dlist"></div>
+<div class="empty" id="dempty" hidden><b>Нічого не качається</b>Знайдіть щось у вкладці «Пошук» і натисніть «Скачати».</div>
+<div class="foot">
+ <button type="button" class="sw" id="quiet" role="switch" aria-checked="false" disabled><span>Тихий режим<small>обмежує швидкість завантаження</small></span><i class="knob"></i></button>
+ <div class="msg" id="free"></div>
+</div>
+</main>
+
+<div class="shade" id="shade" hidden><div class="panel" id="panel" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id), sleep = ms => new Promise(r => setTimeout(r, ms));
+// Every call returns JSON; a network failure or timeout becomes {error, net:true}, so callers never need try/catch.
+async function api(p, b, ms) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms || 30000);
+  try {
+    const r = await fetch('api/' + p, b ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b), signal: c.signal} : {signal: c.signal});
+    return await r.json();
+  } catch (e) { return {error: e.name === 'AbortError' ? 'Сервер не відповів вчасно' : 'Немає звʼязку з сервером', net: true}; }
+  finally { clearTimeout(t); }
+}
+const KIND = {film: 'Фільм', series: 'Серіал', music: 'Музика', book: 'Книга', game: 'Гра', software: 'Софт', other: 'Інше'};
+const CATS = [['all', 'Усе'], ['film', 'Кіно'], ['series', 'Серіали'], ['music', 'Музика'], ['book', 'Книги'], ['game', 'Ігри'], ['software', 'Софт']];
+const STW = {downloading: 'Качається', paused: 'Пауза', queued: 'У черзі', checking: 'Перевірка', seeding: 'Роздає', done: 'Готово', error: 'Помилка'};
+const opt = {film: false}, flt = {}, open = new Set(), added = {}, pending = {}, busy = new Set(), scrollAt = {search: 0, dl: 0};
+let job = null, jobGen = 0, timer = 0, shownId = '', tab = 'search', srv = null, cat = 'all', views = [], reg = [], sig = '';
+let torrents = null, tErr = '', mine = {}, client = null, clientAt = 0, tTimer = 0, tGen = 0, tSeq = 0, tApplied = 0;
+let sheetActs = {}, sheetChange = null;
+
+// ---------- small helpers ----------
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const toast = (t, ms) => { const e = $('toast'); clearTimeout(e.t); if (!t) { e.style.display = 'none'; return; } e.textContent = t; e.style.display = 'block'; e.t = setTimeout(() => e.style.display = 'none', ms || 2600); };
+const ago = t => { const s = Date.now() / 1000 - t; return s < 60 ? 'щойно' : s < 3600 ? Math.round(s / 60) + ' хв тому' : s < 86400 ? Math.round(s / 3600) + ' год тому' : Math.round(s / 86400) + ' дн тому'; };
+const num = v => String(v).replace('.', ',');
+const gb = v => v ? (v >= 1 ? num(v.toFixed(1)) + ' ГБ' : Math.round(v * 1024) + ' МБ') : '';
+const size = v => v >= 1073741824 ? num((v / 1073741824).toFixed(1)) + ' ГБ' : v >= 1048576 ? Math.round(v / 1048576) + ' МБ' : Math.round((v || 0) / 1024) + ' КБ';
+const mbs = v => v >= 1048576 ? num((v / 1048576).toFixed(1)) + ' МБ/с' : Math.round((v || 0) / 1024) + ' КБ/с';
+const eta = s => s < 0 ? '' : s < 60 ? 'ще <1 хв' : s < 3600 ? 'ще ' + Math.floor(s / 60) + ' хв' : s < 86400 ? 'ще ' + Math.floor(s / 3600) + ' год ' + Math.floor(s % 3600 / 60) + ' хв' : 'ще ' + Math.floor(s / 86400) + ' дн ' + Math.floor(s % 86400 / 3600) + ' год';
+const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c; };
+const rel = n => n + ' ' + plural(n, 'реліз', 'релізи', 'релізів');
+const host = u => String(u || '').replace(/^https?:\/\//, '').replace(/[\/?#].*$/, '');
+// Readable name: the part after the first " / " in Russian-style titles, without the bracket tail.
+const nice = t => { const p = t.split(' / '); let n = p.length > 1 ? p.slice(1).join(' / ') : t; n = n.replace(/\s*[\[(|].*$/, '').trim(); return n.length > 3 ? n : t; };
+const readable = n => { let s = nice(String(n || '')); if (!/\s/.test(s)) s = s.replace(/[._]+/g, ' ').trim(); return s || 'Без назви'; };
+const TV = () => !!(srv && srv.tv);
+
+// ---------- bottom sheet ----------
+const shade = $('shade'), panel = $('panel');
+function sheet(html, acts, change) { panel.innerHTML = '<div class="grab"></div>' + html; sheetActs = acts || {}; sheetChange = change || null; shade.hidden = false; document.body.style.overflow = 'hidden'; }
+function closeSheet() { shade.hidden = true; document.body.style.overflow = ''; panel.innerHTML = ''; sheetActs = {}; sheetChange = null; }
+shade.addEventListener('click', e => { if (e.target === shade) return closeSheet(); const b = e.target.closest('[data-x]'); if (b && sheetActs[b.dataset.x]) sheetActs[b.dataset.x](b); });
+shade.addEventListener('change', e => { if (sheetChange) sheetChange(e); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !shade.hidden) closeSheet(); });
+
+// ---------- server chip ----------
+async function loadServer() {
+  const s = await api('server'); srv = s.error ? null : s;
+  $('srvName').textContent = srv ? srv.name : 'Сервер'; $('srvDot').className = 'd ' + (srv ? 'ok' : 'err');
+  draw();
+}
+function openServers() {
+  const peers = (srv && srv.peers || []).filter(p => p && p.url);
+  sheet(`<h3 class="sh-t">Сервери</h3><div class="sh-s">Натисніть на інший сервер, щоб відкрити його сторінку.</div><div class="list">
+    <div class="srow"><span><b>${esc(srv ? srv.name : 'Сервер')}</b> · цей сервер<small>${srv ? (srv.tv ? 'є ТВ' : 'без ТВ') + (srv.public_url ? ' · ' + esc(host(srv.public_url)) : '') : 'не відповідає'}</small></span><i class="d ${srv ? 'ok' : 'err'}"></i></div>
+    ${peers.map(p => /^https?:\/\//.test(p.url) ? `<a class="srow" href="${esc(p.url.replace(/\/+$/, ''))}/"><span><b>${esc(p.name || host(p.url))}</b><small>${esc(host(p.url))}</small></span><span class="go2">›</span></a>`
+      : `<div class="srow"><span><b>${esc(p.name || '')}</b><small>адреса ще не задана</small></span></div>`).join('')}
+    ${peers.length ? '' : '<div class="msg">Інших серверів не задано</div>'}</div>
+    <div class="bt"><button type="button" data-x="close">Закрити</button></div>`, {close: closeSheet});
+}
+
+// ---------- search tab: filters, work cards, rows ----------
+const pass = t => (!flt.tv || t.tv_ok) && (!flt.ua || t.ua || (t.audio || []).includes('UA')) &&
+  (!(flt['2160'] || flt['1080']) || (flt['2160'] && t.quality == 2160) || (flt['1080'] && t.quality == 1080));
+const filtered = () => !!(flt.tv || flt.ua || flt['2160'] || flt['1080']);
+const GR = {g: 0, y: 1, u: 1, r: 2};
+// the same order as picker.py: grade, TV-ready, UA, quality, seeds (used only when a filter removes the server's best)
+const score = (r, k) => { const g = GR[r.grade] ?? 2, s = r.seeds || 0;
+  return k === 'film' || k === 'series' ? [g, r.tv_ok ? 0 : r.dv5 ? 3 : 1, r.ua || (r.audio || []).includes('UA') ? 0 : 1, -(r.quality || 0), -s] : [g, -s]; };
+const cmp = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1; return 0; };
+function view(w) {
+  const rows = filtered() ? w.rows.filter(pass) : w.rows;
+  const best = w.best && pass(w.best) ? w.best : rows.length ? rows.reduce((a, b) => cmp(score(b, w.kind), score(a, w.kind)) < 0 ? b : a) : null;
+  return best ? {w, rows, best} : null;
+}
+function tagsOf(t) { const g = [];
+  if (t.quality) g.push(`<span class="tag">${t.quality == 2160 ? '4K' : t.quality + 'p'}</span>`);
+  if (t.dv5) g.push('<span class="tag dv5" title="Dolby Vision без HDR10: на ТВ кольори зламаються">DV5 ✕</span>');
+  else if (t.tv_ok) g.push(`<span class="tag ok" title="ТВ грає без перекодування">TV ✓${t.tenbit ? ' 10-біт' : ''}</span>`);
+  else if (t.mbps > 36) g.push(`<span class="tag enc" title="перекодую під Wi-Fi ТВ">~${t.mbps} Мбіт/с</span>`);
+  if (t.codec) g.push(`<span class="tag">${t.codec.toUpperCase()}</span>`); if (t.hdr && !t.dv5) g.push('<span class="tag">HDR</span>');
+  (t.audio || []).forEach(a => g.push(`<span class="tag ${a == 'UA' ? 'ua' : ''}">${esc(a)}</span>`));
+  if (t.category) g.push(`<span class="tag">${esc(t.category.slice(0, 28))}</span>`);
+  if (t.size_gb) g.push(`<span class="tag">${gb(t.size_gb)}</span>`);
+  if (t.tracker !== 'audiobookbay') g.push(`<span class="tag"><b class="${t.grade}">●</b> ${t.seeds} сід</span>`);
+  return g.join(''); }
+// "is it already here": the live torrent list wins; before it loads, the mark the server put on the row
+const rid = t => t.hash || (t.topic ? 't' + t.topic : '') || t.page || t.magnet || t.title || '';
+const hashOf = t => (added[rid(t)] || t.hash || '').toLowerCase();   // the hash Transmission reported for this row wins
+const haveOf = t => { const h = hashOf(t); return (h && mine[h]) || (torrents === null && t.have) || null; };
+const pct = h => Math.floor((h.progress || 0) * 100);
+const dlBtn = (t, i) => { const h = haveOf(t);
+  return h ? `<button type="button" class="have" data-a="goto" data-i="${i}">є тут ${pct(h)} %</button>` : `<button type="button" class="pri" data-a="dl" data-i="${i}">Скачати</button>`; };
+function row(t) { const i = reg.push(t) - 1, tv = TV();
+  return `<div class="row ${t.dv5 ? 'bad' : ''}"><div class="t">${esc(nice(t.title))}</div><div class="sub">${esc(t.tracker)}${t.also ? ' + ' + esc(t.also.join(', ')) : ''} · ${esc(t.title)}</div>
+  <div class="tags">${tagsOf(t)}</div><div class="acts">${tv ? `<button type="button" data-a="tv" data-i="${i}">На ТВ</button>` : ''}${dlBtn(t, i)}
+  <button type="button" data-a="copy" data-i="${i}">Магнет</button>${tv ? `<button type="button" data-a="inbox" data-i="${i}">У список</button>` : ''}</div></div>`; }
+function rowsHtml(v) { return v.rows.map(row).join('') + (v.w.count > v.w.rows.length ? `<div class="msg">Показано ${v.w.rows.length} з ${v.w.count}</div>` : ''); }
+function card(v) {
+  const {w, best} = v, k = w.key, bi = reg.push(best) - 1, isOpen = open.has(k);
+  const n = filtered() ? `${v.rows.length} з ${w.count} релізів` : rel(w.count);
+  return `<div class="card" data-w="${esc(k)}"><div class="t">${esc(w.title || nice(best.title))}</div>
+    <div class="sub">${[esc(w.year), KIND[w.kind] || KIND.other, n].filter(Boolean).join(' · ')}</div>
+    <div class="tags">${tagsOf(best)}</div><div class="sub rn" title="${esc(best.title)}">${esc(best.tracker)}${best.also ? ' + ' + esc(best.also.join(', ')) : ''} · ${esc(best.title)}</div>
+    <div class="acts">${TV() ? `<button type="button" data-a="tv" data-i="${bi}">На ТВ</button>` : ''}${dlBtn(best, bi)}<button type="button" data-a="more" data-w="${esc(k)}" aria-expanded="${isOpen}">Усі релізи ${isOpen ? '▴' : '▾'}</button></div>
+    <div class="rows"${isOpen ? '' : ' hidden'}>${isOpen ? rowsHtml(v) : ''}</div></div>`;
+}
+function toggleMore(k) {
+  const c = [...$('res').querySelectorAll('.card')].find(x => x.dataset.w === k), v = views.find(x => x.w.key === k); if (!c || !v) return;
+  const rows = c.querySelector('.rows'), b = c.querySelector('[data-a="more"]'), now = !open.has(k);
+  if (now) { open.add(k); rows.innerHTML = rowsHtml(v); } else { open.delete(k); rows.textContent = ''; }
+  rows.hidden = !now; b.textContent = 'Усі релізи ' + (now ? '▴' : '▾'); b.setAttribute('aria-expanded', now);
+}
+function updateCats() {
+  const cnt = {all: views.length}; views.forEach(v => cnt[v.w.kind] = (cnt[v.w.kind] || 0) + 1);
+  $('cats').querySelectorAll('button').forEach(b => { const k = b.dataset.c, n = cnt[k] || 0;
+    b.classList.toggle('on', k === cat); b.classList.toggle('z', !n); b.querySelector('small').textContent = n || ''; b.setAttribute('aria-pressed', k === cat); });
+}
+const emptyMsg = () => job.state === 'done' ? 'Нічого не знайшов' + (job.count ? ' з цими фільтрами' : '') : 'Шукаю…';
+function draw() {
+  if (!job) return;
+  // The server republishes the job every 0.7 s while it searches: redraw only when something visible changed,
+  // so a tap is never eaten by a DOM that was rebuilt under the finger.
+  const sg = [job.id, job.state, job.count, Object.values(job.sources).map(s => s.state + ':' + (s.n ?? '') + (s.translated || '')).join(','), TV(), cat, JSON.stringify(flt), (job.works || []).length].join('|');
+  if (sg === sig) return; sig = sg;
+  $('src').innerHTML = Object.entries(job.sources).map(([k, s]) => `<span title="${esc(s.err || '')}"><i class="d ${s.state}"></i>${esc(s.label)} ${s.translated ? '«' + esc(s.translated) + '» ' : ''}${s.state === 'ok' ? s.n + (s.cached ? ' · кеш' : ' · ' + (s.ms / 1000).toFixed(1) + ' с') : s.state === 'err' ? 'помилка' : s.state === 'wait' ? 'чекає 10 с' : '…'}</span>`).join('');
+  reg = []; let html;
+  if (job.works && job.works.length) {
+    $('cats').hidden = false; views = job.works.map(view).filter(Boolean); updateCats();
+    const shown = cat === 'all' ? views : views.filter(v => v.w.kind === cat);
+    html = (shown.length ? '' : `<div class="msg">${views.length ? 'У цьому розділі нічого - спробуйте «Усе»' : emptyMsg()}</div>`) + shown.map(card).join('');
+  } else {   // an old job without work cards (or a grouping failure): the plain list of releases
+    $('cats').hidden = true; views = []; const it = (job.items || []).filter(pass);
+    html = (it.length ? '' : `<div class="msg">${emptyMsg()}</div>`) + it.slice(0, 50).map(row).join('');
+  }
+  $('res').innerHTML = html + (job.state === 'done' && job.count ? `<div class="msg">${rel(job.count)} · ${num((job.ms / 1000).toFixed(1))} с</div>` : '');
+}
+// patch the Скачати / є тут buttons in place (the torrent list changed) without rebuilding the cards
+function markHave() {
+  $('res').querySelectorAll('button[data-a="dl"],button[data-a="goto"]').forEach(b => {
+    if (b.dataset.busy) return; const t = reg[+b.dataset.i]; if (!t) return;
+    const h = haveOf(t); if (b.textContent !== (h ? 'є тут ' + pct(h) + ' %' : 'Скачати')) b.outerHTML = dlBtn(t, +b.dataset.i);
+  });
+}
+$('res').addEventListener('click', e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return; const a = b.dataset.a;
+  if (a === 'more') return toggleMore(b.dataset.w);
+  const t = reg[+b.dataset.i]; if (!t) return;
+  if (a === 'dl') return download(t, b);
+  if (a === 'goto') { setTab('dl'); const h = hashOf(t); return flash(mine[h] && mine[h].id); }
+  act(t, a);
+});
+
+// ---------- search: query, job polling, recent jobs ----------
+document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { opt[b.dataset.k] = !opt[b.dataset.k]; b.classList.toggle('on'); });
+document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { flt[b.dataset.f] = !flt[b.dataset.f]; b.classList.toggle('on'); draw(); });
+$('cats').innerHTML = CATS.map(([k, l]) => `<button type="button" data-c="${k}"${k === 'all' ? ' class="on"' : ''}>${l}<small></small></button>`).join('');
+$('cats').onclick = e => { const b = e.target.closest('button[data-c]'); if (b) { cat = b.dataset.c; draw(); } };
+$('f').onsubmit = async e => { e.preventDefault(); const q = $('q').value.trim(); if (!q) return; $('q').blur();
+  const j = await api('jobs', {q, film: opt.film, from: /iPhone|Android/.test(navigator.userAgent) ? 'телефон' : 'браузер'});
+  if (j.error) return toast(j.error); openJob(j.id); };
+function openJob(id) { location.hash = id; clearTimeout(timer); sig = ''; open.clear(); cat = 'all'; poll(id, ++jobGen); }
+async function poll(id, g) {
+  g = g || ++jobGen;
+  const j = await api('jobs/' + id); if (g !== jobGen) return;   // a newer search took over
+  if (j.net) { timer = setTimeout(() => poll(id, g), 2000); return; }
+  if (j.error) { job = null; sig = ''; $('res').innerHTML = `<div class="msg">${esc(j.error)}</div>`; return; }
+  job = j; if (shownId !== job.id) { shownId = job.id; $('q').value = job.q; }
+  draw(); if (job.state !== 'done') timer = setTimeout(() => poll(id, g), 700); else jobs();
+}
+async function jobs() { const l = await api('jobs');
+  $('jobs').innerHTML = Array.isArray(l) && l.length ? l.slice(0, 12).map(j => `<div class="job" data-job="${esc(j.id)}"><span><b>${esc(j.q)}</b><br><small>${esc(j.from)} · ${ago(j.created)}</small></span><small>${j.count}</small></div>`).join('') : '<div class="msg">Ще нічого</div>'; }
+$('jobs').onclick = e => { const j = e.target.closest('[data-job]'); if (j) openJob(j.dataset.job); };
+
+// ---------- search actions: TV, magnet, inbox, download ----------
+async function act(t, to) {
+  if (to === 'copy') { let m = t.magnet; if (!m) { toast('Беру магнет…'); const r = await api('act', {to: 'magnet', page: t.page, topic: t.topic}); if (r.error) return toast(r.error); m = t.magnet = r.magnet; }
+    try { await navigator.clipboard.writeText(m); } catch (e) { prompt('Магнет', m); } return toast('Магнет скопійовано'); }
+  toast(to === 'tv' ? 'Відправляю на ТВ…' : 'Додаю в «Від агентів»…');
+  const r = await api('act', {to, magnet: t.magnet, topic: t.topic, page: t.page, title: nice(t.title), from: 'Пошук'}, 60000);
+  toast(r.error ? 'Не вийшло: ' + r.error : to === 'tv' ? 'На ТВ' : 'У списку «Від агентів»', r.error ? 5000 : 0); }
+// A season in the query or in the title ("S02", "season 2", "Сезон 2"); a range ("S01-S08") means the whole series.
+const seasonHint = s => { s = String(s || '');
+  const D = '[-' + String.fromCharCode(0x2013, 0x2014) + ']';   // the dash between two seasons: hyphen or a long dash typed by a tracker
+  if (new RegExp('(^|[^a-z0-9])s\\d{1,2}\\s*' + D + '\\s*s?\\d{1,2}', 'i').test(s) || new RegExp('(сезон|season)[a-zа-яіїє]*\\s*\\d{1,2}\\s*' + D + '\\s*\\d{1,2}', 'i').test(s)) return 0;
+  const m = s.match(/(^|[^a-z0-9])s(\d{1,2})(e\d{1,3})?(?![0-9a-z])/i) || s.match(/(сезон|season)[a-zа-яіїє]*[ ._-]*(\d{1,2})(?![0-9])/i);
+  return m ? +m[2] : 0; };
+const inSeason = (name, n) => new RegExp('(^|[^a-z0-9])s0?' + n + '(?![0-9])', 'i').test(name) || new RegExp('(season|сезон)[a-zа-яіїє]*[ ._-]*0?' + n + '(?![0-9])', 'i').test(name)
+  || new RegExp('(^|[^0-9])0?' + n + '[xх]\\d{2}', 'i').test(name);
+async function download(t, b) {
+  const k = rid(t); if (busy.has(k)) return; busy.add(k);
+  b.disabled = true; b.dataset.busy = 1; b.textContent = 'Додаю…';
+  const title = nice(t.title);
+  const r = await api('torrents/add', {magnet: t.magnet || undefined, page: t.page || undefined, topic: t.topic || undefined, title}, 60000);   // a RuTracker topic or a release page is resolved first
+  busy.delete(k); delete b.dataset.busy; b.disabled = false;
+  if (r.error) { b.textContent = 'Скачати'; return toast('Не вийшло: ' + r.error, 5000); }
+  added[k] = r.hash; pending[r.hash] = {at: Date.now(), t: {id: r.id, hash: r.hash, engine: 'transmission', progress: 0, state: 'downloading', name: r.name}};
+  mine[r.hash] = mine[r.hash] || pending[r.hash].t; markHave(); loadTorrents();
+  if (r.duplicate) return toast('Уже є в завантаженнях');
+  await offerFiles(r, title, t);
+}
+// A magnet delivers its file list a few seconds after it was added: wait for it, and ask only when there is a choice to make.
+async function offerFiles(r, title, t) {
+  if (r.warning) return toast(r.warning, 6000);
+  toast('Додано. Читаю список файлів…', 14000);
+  let fl = [];
+  for (let i = 0; i < 18; i++) {
+    fl = await api('torrents/' + encodeURIComponent(r.id) + '/files', null, 8000);
+    if (!Array.isArray(fl)) return toast('Не вдалося прочитати файли: ' + (fl.error || ''), 5000);
+    if (fl.length) break; await sleep(700);
+  }
+  if (!fl.length) return toast('Додано. Список файлів ще не прийшов - дивіться «Файли» у Завантаженнях', 6000);
+  if (fl.length === 1) return toast('Качається');
+  toast('');
+  openFiles({id: r.id, title: r.name || title, files: fl, add: true, season: seasonHint(job && job.q) || seasonHint(t.title)});
+}
+
+// ---------- files sheet (after "Скачати" and from the Downloads tab) ----------
+function openFiles(o) {
+  const fl = o.files, by = {}; fl.forEach(f => by[f.index] = f);
+  const sel = new Set(fl.filter(f => f.wanted).map(f => f.index));
+  const ssn = o.season && fl.some(f => inSeason(f.name, o.season)) ? o.season : 0;
+  if (o.add && ssn) { sel.clear(); fl.forEach(f => { if (inSeason(f.name, ssn)) sel.add(f.index); }); }
+  const parts = fl.map(f => f.name.split('/')); let cut = 0;   // the folder every file shares is the torrent's own name: show only what is below it
+  while (parts.every(p => p.length > cut + 1 && p[cut] === parts[0][cut])) cut++;
+  const line = f => { const p = f.name.split('/'), base = p[p.length - 1], dir = p.slice(cut, -1).join('/');
+    return `<label class="fr"><input type="checkbox" data-f="${f.index}"${sel.has(f.index) ? ' checked' : ''}><span class="fn">${esc(base)}${dir ? `<small>${esc(dir)}</small>` : ''}</span><span class="fz">${size(f.size)}${!o.add && f.size ? `<small>${Math.floor(100 * f.done / f.size)} %</small>` : ''}</span></label>`; };
+  const info = () => { const tot = [...sel].reduce((s, i) => s + (by[i] ? by[i].size : 0), 0);
+    $('selInfo').textContent = 'Вибрано ' + sel.size + ' з ' + fl.length + ' · ' + size(tot); $('fdone').disabled = !sel.size; };
+  const setAll = fn => panel.querySelectorAll('input[data-f]').forEach(c => { const i = +c.dataset.f, on = fn(i); c.checked = on; on ? sel.add(i) : sel.delete(i); });
+  sheet(`<h3 class="sh-t">Файли</h3><div class="sh-s">${esc(readable(o.title))}${o.add ? '<br>Вже качається. Зніміть зайве й натисніть «Готово».' : ''}</div>
+    <div class="qa" id="selInfo"></div>
+    <div class="bt" style="margin:0 0 6px"><button type="button" data-x="all">Усі</button><button type="button" data-x="none">Жодного</button>${ssn ? `<button type="button" data-x="season">Лише сезон ${ssn}</button>` : ''}</div>
+    <div class="list">${fl.map(line).join('')}</div>
+    <div class="bt"><button type="button" data-x="close">${o.add ? 'Качати все' : 'Закрити'}</button><button type="button" class="go" id="fdone" data-x="done">Готово</button></div>`,
+  {close: () => { closeSheet(); if (o.add) toast('Качається все'); }, all: () => { setAll(() => true); info(); }, none: () => { setAll(() => false); info(); },
+   season: () => { setAll(i => inSeason(by[i].name, ssn)); info(); },
+   done: async b => { b.disabled = true; const all = fl.map(f => f.index);
+     const r = await api('torrents/' + encodeURIComponent(o.id), {action: 'files', wanted: all.filter(i => sel.has(i)), unwanted: all.filter(i => !sel.has(i))});
+     if (r.error) { b.disabled = false; return toast('Не вийшло: ' + r.error, 5000); }
+     closeSheet(); toast('Вибрано файлів: ' + sel.size + ' з ' + all.length); loadTorrents(); }},
+  e => { const c = e.target; if (c.dataset.f === undefined) return; c.checked ? sel.add(+c.dataset.f) : sel.delete(+c.dataset.f); info(); });
+  info();
+}
+
+// ---------- downloads tab ----------
+const group = t => ['downloading', 'checking', 'queued'].includes(t.state) && t.progress < 1 ? 0 : t.state === 'error' || (t.state === 'paused' && t.progress < 1) ? 1 : 2;
+const idn = t => t.engine === 'tv' ? -1 : parseInt(t.id.slice(3), 10) || 0;
+const stateWord = t => t.state !== 'error' && t.progress >= 1 && (t.state === 'paused' || t.state === 'done') ? 'Готово' : STW[t.state] || t.state;
+const stateCls = t => ({downloading: 'g', seeding: 'b', done: 'g', paused: 'y', error: 'r'}[t.state] || '');
+const btns = t => [
+  t.engine === 'transmission' && t.state !== 'done' ? (['downloading', 'seeding', 'queued', 'checking'].includes(t.state) ? ['pause', 'Пауза'] : ['resume', 'Продовжити']) : null,
+  t.engine === 'tv' ? ['keep', 'Залишити собі'] : null, t.engine === 'transmission' ? ['files', 'Файли'] : null, ['rm', 'Видалити']].filter(Boolean);
+const SKEL = '<div class="h"><div class="nm"></div><span class="eng"></span></div><div class="bar"><i></i></div><div class="stat"><b class="st"></b><span class="sx"></span></div><div class="err" hidden></div><div class="acts"></div>';
+function patchTor(n, t) {   // update one row in place: its buttons are rebuilt only when the set of buttons changes
+  const q = s => n.querySelector(s), tx = (e, v) => { if (e.textContent !== v) e.textContent = v; };
+  const nm = q('.nm'), rn = readable(t.name); if (nm.textContent !== rn) { nm.textContent = rn; nm.title = t.name || ''; }
+  const eg = q('.eng'); tx(eg, t.engine === 'tv' ? 'ТВ' : 'Transmission'); eg.className = 'eng' + (t.engine === 'tv' ? ' tv' : '');
+  const p = Math.floor((t.progress || 0) * 100), bar = q('.bar');
+  bar.className = 'bar' + (t.state === 'error' ? ' e' : t.state === 'paused' ? ' p' : t.progress >= 1 ? ' s' : ''); bar.firstChild.style.width = p + '%';
+  const st = q('.st'); tx(st, stateWord(t)); st.className = 'st ' + stateCls(t);
+  const parts = [t.size > 0 ? p + ' % з ' + size(t.size) : 'Отримую метадані…'];
+  if (t.down >= 1024) parts.push('↓ ' + mbs(t.down)); if (t.up >= 1024) parts.push('↑ ' + mbs(t.up));   // under 1 KB/s is noise
+  if (t.state === 'downloading' && t.eta >= 0) parts.push(eta(t.eta));
+  if (t.engine === 'transmission' && t.size > 0) parts.push('рейтинг ' + num(Number(t.ratio || 0).toFixed(2)));
+  tx(q('.sx'), ' · ' + parts.join(' · '));
+  const er = q('.err'); er.hidden = !(t.state === 'error' && t.error); tx(er, t.error || '');
+  const bs = btns(t), key = bs.map(b => b[0]).join();
+  if (n.dataset.bs !== key) { n.dataset.bs = key; q('.acts').innerHTML = bs.map(([a, l]) => `<button type="button" data-a="${a}"${a === 'rm' ? ' class="dang"' : ''}>${l}</button>`).join(''); }
+}
+function drawDl() {
+  const box = $('dlist'), info = $('dinfo');
+  if (torrents === null) { info.hidden = false; info.textContent = tErr || 'Завантажую…'; info.classList.toggle('r', !!tErr); box.textContent = ''; $('dempty').hidden = true; return; }
+  const act = torrents.filter(t => group(t) === 0), dn = act.reduce((s, t) => s + (t.down || 0), 0), up = torrents.reduce((s, t) => s + (t.up || 0), 0);
+  info.classList.toggle('r', !!tErr);
+  info.textContent = tErr || [act.length ? 'Качається: ' + act.length : '', dn >= 1024 ? '↓ ' + mbs(dn) : '', up >= 1024 ? '↑ ' + mbs(up) : ''].filter(Boolean).join(' · '); info.hidden = !info.textContent;
+  const list = torrents.slice().sort((a, b) => group(a) - group(b) || idn(b) - idn(a)), have = new Map([...box.children].map(n => [n.dataset.id, n])), keep = new Set(list.map(t => t.id));
+  have.forEach((n, id) => { if (!keep.has(id)) n.remove(); });
+  let prev = null;
+  list.forEach(t => {
+    let n = have.get(t.id); if (!n) { n = document.createElement('div'); n.className = 'tor'; n.dataset.id = t.id; n.innerHTML = SKEL; }
+    patchTor(n, t); const want = prev ? prev.nextSibling : box.firstChild; if (n !== want) box.insertBefore(n, want); prev = n;
+  });
+  $('dempty').hidden = list.length > 0 || !!tErr;
+}
+function flash(id) { const n = id && document.querySelector('.tor[data-id="' + id + '"]'); if (n) { n.scrollIntoView({block: 'center'}); n.classList.add('hl'); setTimeout(() => n.classList.remove('hl'), 1600); } }
+function badge() { const n = torrents ? torrents.filter(t => group(t) === 0).length : 0, e = $('dlN'); e.textContent = n || ''; e.hidden = !n; }
+async function loadTorrents() {
+  const my = ++tSeq, l = await api('torrents', null, 8000);
+  if (my < tApplied) return; tApplied = my;   // an older answer that arrived late
+  if (Array.isArray(l)) {
+    torrents = l; tErr = ''; mine = {}; l.forEach(t => { mine[t.hash] = t; });
+    for (const h in pending) { if (Date.now() - pending[h].at > 15000 || mine[h]) delete pending[h]; else mine[h] = pending[h].t; }   // just added, not listed yet
+  } else tErr = l.error || 'Немає відповіді';
+  if (tab === 'dl') drawDl(); badge(); markHave();
+}
+// 2 s on the Downloads tab, 5 s on Search (marks and the badge); nothing while the page is hidden
+function tick() {
+  clearTimeout(tTimer); const g = ++tGen; if (document.hidden) return;
+  loadTorrents().catch(e => console.error(e)).then(() => { if (tab === 'dl' && Date.now() - clientAt > 10000) loadClient(); if (g === tGen && !document.hidden) tTimer = setTimeout(tick, tab === 'dl' ? 2000 : 5000); });
+}
+document.addEventListener('visibilitychange', tick);
+function setTab(t) {
+  scrollAt[tab] = window.scrollY; tab = t; $('vSearch').hidden = t !== 'search'; $('vDl').hidden = t !== 'dl';
+  document.querySelectorAll('.seg button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  if (t === 'dl') { drawDl(); loadClient(); } window.scrollTo(0, scrollAt[t] || 0); tick();
+}
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+const ctl = async (id, body) => { const r = await api('torrents/' + encodeURIComponent(id), body); if (r.error) toast('Не вийшло: ' + r.error, 5000); return !r.error; };
+function gone(t, msg) { torrents = (torrents || []).filter(x => x.id !== t.id); delete mine[t.hash]; drawDl(); badge(); markHave(); toast(msg); loadTorrents(); }
+function openDelete(t) {
+  const nm = esc(readable(t.name));
+  const ask = () => sheet(`<h3 class="sh-t">Видалити?</h3><div class="sh-s">${nm}</div><div class="bt col">
+      <button type="button" data-x="list">Лише зі списку<small>файли на диску лишаться</small></button>
+      <button type="button" class="red" data-x="ask">Разом з файлами<small>файли зникнуть з диска</small></button>
+      <button type="button" data-x="close">Скасувати</button></div>`,
+    {close: closeSheet, ask: sure, list: async () => { closeSheet(); if (await ctl(t.id, {action: 'remove'})) gone(t, 'Прибрано зі списку'); }});
+  const sure = () => sheet(`<h3 class="sh-t">Видалити файли з диска?</h3><div class="sh-s">${nm}${t.size ? ' · ' + size(t.size) : ''}<br>Це не можна скасувати.</div><div class="bt col">
+      <button type="button" class="red solid" data-x="rm">Так, видалити разом з файлами</button><button type="button" data-x="back">Назад</button></div>`,
+    {back: ask, close: closeSheet, rm: async b => { b.disabled = true; closeSheet(); if (await ctl(t.id, {action: 'remove_data'})) gone(t, 'Видалено разом з файлами'); }});
+  ask();
+}
+$('dlist').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const id = b.closest('.tor').dataset.id, t = (torrents || []).find(x => x.id === id), a = b.dataset.a; if (!t) return;
+  if (a === 'rm') return openDelete(t);
+  b.disabled = true;
+  try {
+    if (a === 'files') {
+      const fl = await api('torrents/' + encodeURIComponent(id) + '/files');
+      if (!Array.isArray(fl)) toast(fl.error || 'Не вийшло', 5000); else if (!fl.length) toast('Список файлів ще не прийшов - спробуйте за хвилину');
+      else openFiles({id, title: t.name, files: fl, add: false});
+    } else if (a === 'pause' || a === 'resume') { if (await ctl(id, {action: a})) await loadTorrents(); }
+    else if (a === 'keep') { toast('Переношу в Transmission…'); if (await ctl(id, {action: 'keep'})) { toast('Залишив собі'); await loadTorrents(); } }
+  } finally { b.disabled = false; }
+});
+// footer: quiet mode and free space
+async function loadClient() { clientAt = Date.now(); const c = await api('client', null, 8000); if (!c.error) client = c; drawFoot(c.error); }
+function drawFoot(err) {
+  const sw = $('quiet'), f = $('free'); sw.disabled = !client;
+  if (client) sw.setAttribute('aria-checked', !!client.alt_speed);
+  const low = client && client.free_gb != null && client.free_gb < 10;
+  f.className = 'msg' + (low || (err && !client) ? ' r' : '');
+  f.textContent = err && !client ? err : client && client.free_gb != null ? 'вільно ' + num(client.free_gb.toFixed(1)) + ' ГБ' + (low ? ' - нові завантаження стануть на паузу' : '') : '';
+}
+$('quiet').onclick = async () => {
+  const sw = $('quiet'), on = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', on); sw.disabled = true;
+  const r = await api('client', {alt_speed: on}); sw.disabled = false;
+  if (r.error) { sw.setAttribute('aria-checked', !on); return toast('Не вийшло: ' + r.error, 5000); }
+  client = r; clientAt = Date.now(); drawFoot(); toast(on ? 'Тихий режим увімкнено' : 'Тихий режим вимкнено');
+};
+$('srv').onclick = openServers;
+
+loadServer(); jobs(); tick();
+if (location.hash === '#dl') setTab('dl'); else if (location.hash.length > 1) poll(location.hash.slice(1));
+</script></body></html>

@@ -1,0 +1,11 @@
+{
+  "name": "Core",
+  "port": 8896,
+  "public_url": "",
+  "download_dir": "~/Downloads/Torrent",
+  "incomplete_dir": "~/Downloads/Torrent/.incomplete",
+  "engine": "http://127.0.0.1:8890",
+  "core": "http://127.0.0.1:8891",
+  "peers": [],
+  "transmission": {"speed_down": 0, "speed_up": 2000, "alt_down": 3000, "alt_up": 300, "ratio": 1.0, "idle_min": 60, "queue": 3}
+}
