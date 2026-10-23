@@ -21,10 +21,7 @@ final class MQTT {
     }
 
     static func identity() -> SecIdentity? {
-        // Your own copy of the client certificate (not shipped with tinyTV, see docs/hisense-pairing.md):
-        // ~/Library/Application Support/tinyTV/remotenow.p12 first, then one bundled at build time.
-        let own = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/tinyTV/remotenow.p12")
-        guard let url = FileManager.default.fileExists(atPath: own.path) ? own : Bundle.main.url(forResource: "remotenow", withExtension: "p12"),
+        guard let url = Bundle.main.url(forResource: "remotenow", withExtension: "p12"),
               let data = try? Data(contentsOf: url) else { return nil }
         var items: CFArray?
         let st = SecPKCS12Import(data as CFData, [kSecImportExportPassphrase as String: "tinytv"] as CFDictionary, &items)

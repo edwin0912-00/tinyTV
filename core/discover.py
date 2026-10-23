@@ -2,7 +2,7 @@
 """tinyTV Discover: film lists for the Kino page (owner-approved concept, 2026-10-21).
 
 Sources without keys: IMDb datasets (ratings, titles), Wikidata (awards, directors, labels, Rotten Tomatoes,
-new releases), Wikipedia page images (posters). Stdlib only (the core host has Python 3.9).
+new releases), Wikipedia page images (posters). Stdlib only (core host has Python 3.9).
 
   discover.py build              daily: IMDb index + awards (run in the background by the core)
   discover.py list TAB [PARAM]   JSON list for a tab: top, new, cannes, festivals, year, genre, director, foryou
@@ -11,7 +11,7 @@ new releases), Wikipedia page images (posters). Stdlib only (the core host has P
 import gzip, json, os, re, sys, time, datetime, urllib.parse, urllib.request
 
 UA = 'tinyTV/1.0 (personal home media remote; low-volume film lookups; Python-urllib)'
-SSD = os.environ.get('TINYTV_EXTERNAL', '')   # optional external disk for the cache
+SSD = os.environ.get('TINYTV_EXTERNAL', '')   # optional external disk
 CACHE = os.path.join(SSD, 'tinyTV-cache', 'discover') if SSD and os.access(SSD, os.W_OK) else os.path.expanduser('~/Library/Caches/tinyTV/discover')
 os.makedirs(CACHE, exist_ok=True)
 KINO = os.path.expanduser('~/Library/Application Support/tinyTV/kino.json')
@@ -215,9 +215,9 @@ def item(i, movies, awards, inf, top250, newset, seen, av=None):
     if a2 and time.time() - a2.get('at', 0) > AVAIL_DAYS * 86400: a2 = None
     badges = []
     for code in ('palme', 'oscar', 'cannes_gp', 'cannes_dir', 'lion', 'bear'):
-        if code in a: badges.append({'k': AWARDS[code][1], 'n': AWARD_NAME[code] + (' %d' % a[code] if a[code] else '')})
-    if i in top250: badges.append({'k': 'top', 'n': 'Топ-250 IMDb'})
-    if i in newset: badges.append({'k': 'new', 'n': 'новий'})
+        if code in a: badges.append({'k': AWARDS[code][1], 'c': code, 'n': AWARD_NAME[code] + (' %d' % a[code] if a[code] else '')})
+    if i in top250: badges.append({'k': 'top', 'c': 'top', 'n': 'Топ-250 IMDb'})
+    if i in newset: badges.append({'k': 'new', 'c': 'new', 'n': 'новий'})
     names = [d.get('uk'), d.get('ru'), d.get('en'), m.get('t'), m.get('o')]
     clean = lambda t: re.sub(r'\s*\((фільм|film|фильм)[^)]*\)$', '', t or '')
     return {'imdb': i, 'title': clean(d.get('uk') or d.get('en') or m.get('t') or i), 'ru': d.get('ru') or '', 'orig': d.get('en') or m.get('o') or '',
@@ -393,8 +393,6 @@ def lst(tab, param):
     if tab == 'foryou':
         for x in items: x['why'] = reasons.get(x['imdb'], [])
     # Owner: only what can be watched. Checked and found = shown; not checked yet = "pending" for the core's checker.
-    if not av:   # no source provider checks availability: show everything
-        return {'items': items, 'pending': [], 'hidden': 0, 'total': len(items), 'note': note}
     ok = [x for x in items if x['av'] and (x['av']['rz'] or x['av']['tor'] > 0)]
     pending = [{'imdb': x['imdb'], 'title': x['title'], 'ru': x['ru'], 'orig': x['orig'], 'year': x['year']} for x in items if not x['av']]
     return {'items': ok, 'pending': pending, 'hidden': len(items) - len(ok) - len(pending), 'total': len(items), 'note': note}
@@ -468,6 +466,56 @@ def search(q):
     return {'items': [item(i, movies, awards, inf, set(), {x['imdb'] for x in new}, seen, av) for i in ids]}
 
 
+JUNK = re.compile(r'\b(2160p|1080p|1080i|720p|480p|4k|uhd|bd ?remux|remux|bdrip|bluray|blu ray|web ?dl|webrip|hdrip|dvdrip|dvd9|dvd5|hdtv|x264|x265|h ?264|h ?265|hevc|avc|'
+                  r'truehd|dts(?: hd)?|ac3|aac|ddp?5 1|5 1|7 1|hdr10?|dv|proper|repack|extended|unrated|criterion|imax|rutracker|yts(?: mx)?)\b.*$', re.I)
+
+
+def parse_name(n):
+    """'Mulholland.Dr.2001.UK.STUDIOCANAL.UHD.BDRemux' -> ('mulholland dr', 2001)."""
+    s = re.sub(r'[._\[\]()]+', ' ', n); s = re.sub(r'_(\d{4})г\b', r' \1', s)
+    y = 0
+    for m in re.finditer(r'(?<!\d)(19[2-9]\d|20[0-3]\d)(?!\d)', s):
+        if m.start() > 0: y = int(m.group(1)); s = s[:m.start()]; break
+    s = JUNK.sub('', s)
+    return re.sub(r'\s+', ' ', s).strip(' -'), y
+
+
+def match(names):
+    """File names -> catalogue cards (poster, Ukrainian title, rating). Results cached in files.json."""
+    cache = load('files.json', {})
+    todo = [n for n in names if n not in cache]
+    if todo:
+        movies = load('movies.json', {})
+        want = {}
+        for n in todo:
+            t, y = parse_name(n)
+            if len(norm(t)) >= 2: want.setdefault(norm(t), []).append((n, y))
+        hits = {}
+        for i, m in movies.items():
+            for k in {norm(m.get('t')), norm(m.get('o'))}:
+                if k in want: hits.setdefault(k, []).append(i)
+        for k, files in want.items():
+            for n, y in files:
+                c = [i for i in hits.get(k, []) if not y or abs(movies[i].get('y', 0) - y) <= 1]
+                cache[n] = max(c, key=lambda i: movies[i]['v']) if c else ''
+        # Short or long forms ("Mulholland Dr" = "Mulholland Drive", "Hana The Tale of..." = "Hana"): same year, prefix match.
+        loose = [(k, n, y) for k, files in want.items() for n, y in files if not cache.get(n) and y]
+        if loose:
+            for i, m in movies.items():
+                for k, n, y in loose:
+                    if m.get('y') != y: continue
+                    for t in (norm(m.get('t')), norm(m.get('o'))):
+                        if len(t) >= 4 and (t.startswith(k) and len(k) >= 6 or k.startswith(t)):
+                            if not cache.get(n) or movies[cache[n]]['v'] < m['v']: cache[n] = i
+        for n in todo: cache.setdefault(n, '')
+        save('files.json', cache)
+    ids = [cache[n] for n in names if cache.get(n)]
+    if not ids: return {}
+    movies = load('movies.json', {}); awards = load('awards.json', {})
+    inf = info(ids); av = availability()
+    return {n: item(cache[n], movies, awards, inf, set(), set(), set(), av) for n in names if cache.get(n)}
+
+
 def directors():
     """Directors with festival wins: the "Режисери" tab's picker."""
     awards = load('awards.json', {})
@@ -488,4 +536,5 @@ if __name__ == '__main__':
     elif cmd == 'search': print(json.dumps(search(' '.join(sys.argv[2:])), ensure_ascii=False))
     elif cmd == 'seed': print(json.dumps(seed(), ensure_ascii=False))
     elif cmd == 'avail-path': print(path('avail.json'))
+    elif cmd == 'match': print(json.dumps(match(json.load(open(sys.argv[2]))), ensure_ascii=False))
     else: print(__doc__); sys.exit(2)

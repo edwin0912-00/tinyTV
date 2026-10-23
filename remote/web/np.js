@@ -64,7 +64,7 @@
     const art = k.poster ? [{src: k.poster, sizes: '512x768', type: 'image/jpeg'}] : [];
     ms.metadata = new MediaMetadata({
       title: k.title ? k.title + (k.season ? ` · S${k.season}E${k.episode}` : '') : (c.title || st.nowPlaying || 'Hisense TV'),
-      artist: k.translatorName || 'tinyTV', album: c.title ? 'On TV' : 'Remote', artwork: art });
+      artist: k.translatorName || 'tinyTV', album: c.title ? 'На ТВ' : 'Пульт', artwork: art });
     if (!armed) return;
     if (dur) {
       // Follow the TV: same second (correct drift over 3 s), same play / pause.

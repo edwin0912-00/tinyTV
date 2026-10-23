@@ -1,6 +1,6 @@
-// Remote mode (this Mac): the tinyTV core runs permanently on the core host (MQTT, casting, media server, phone API).
+// Remote mode (this Mac): the tinyTV core runs permanently on core host (MQTT, casting, media server, phone API).
 // The menu bar app mirrors the core's /api/state once a second and sends every command to its API.
-// Owner's decision 2026-10-20: "all media servers permanently on the core host, not here".
+// Owner's decision 2026-10-20: "all media servers permanently on core host, not here".
 import Foundation
 
 @MainActor
@@ -33,19 +33,19 @@ final class Remote {
     private func got(_ o: [String: Any]?) {
         inFlight = false
         guard let o else {
-            // the core host unreachable: show the TV as unreachable instead of stale state.
+            // core host unreachable: show the TV as unreachable instead of stale state.
             misses += 1
-            if misses >= 3 { tv?.apply(["connected": false, "offline": true]) }
+            if misses >= 3 { tv?.apply(["connected": false, "offline": true]); tv?.serverUp = false }
             return
         }
-        misses = 0
+        misses = 0; tv?.serverUp = true
         tv?.apply(o)
         if let c = o["cast"] as? [String: Any] { Caster.shared.apply(c) }
         if let m = o["movie"] as? [String: Any], let on = m["on"] as? Bool { Caster.shared.applyMovie(on) }
         syncScreen()
     }
 
-    // MARK: Mac screen -> the core host relay
+    // MARK: Mac screen -> core host relay
 
     private var capture: ScreenCapture?
     private var starting = false
@@ -58,18 +58,18 @@ final class Remote {
         let key = "\(c.screen)|\(c.screenWindow.map(String.init) ?? "")|\(c.screenPreset)"
         if want, !starting, capture?.running != true || sent != key {
             capture?.stop()
-            guard let ff = Caster.tool("ffmpeg") else { return c.uploadStatus("ffmpeg is missing on this Mac", nil, failed: true) }
+            guard let ff = Caster.tool("ffmpeg") else { return c.uploadStatus("На цьому Mac немає ffmpeg", nil, failed: true) }
             let cap = ScreenCapture(); capture = cap; starting = true; sent = key
             let mode = ScreenCapture.Mode(rawValue: String(c.screen.split(separator: "-").dropFirst().first ?? "")) ?? .mirror
             let dest = TV.config["ingest"] ?? "\(core.host ?? "127.0.0.1"):8893"
             cap.onEnd = { err in Task { @MainActor in
-                if let err { Caster.shared.uploadStatus("Screen: \(err)", nil, failed: true) }
+                if let err { Caster.shared.uploadStatus("Показ екрана: \(err)", nil, failed: true) }
             } }
             Task {
                 do { try await cap.start(window: c.screenWindow, mode: mode, preset: ScreenPreset.named(c.screenPreset), to: dest, ffmpeg: ff) }
                 catch {
                     NSLog("tinyTV screen capture failed: %@", error.localizedDescription)
-                    c.uploadStatus("Can't capture this screen: allow Screen Recording for tinyTV (System Settings › Privacy)", nil, failed: true)
+                    c.uploadStatus("Немає доступу до екрана: дозвольте запис екрана для tinyTV (Налаштування › Приватність)", nil, failed: true)
                     Remote.post("cast/stop")
                 }
                 starting = false
@@ -91,13 +91,13 @@ final class Remote {
         }.resume()
     }
 
-    /// A file dropped on this Mac: stream it to the core host (~/Movies/tinyTV), then the core casts it.
+    /// A file dropped on this Mac: stream it to core host (~/Movies/tinyTV), then the core casts it.
     func upload(_ file: URL) {
         guard let core, !uploading else { return }
         let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        guard size > 0 else { return Caster.shared.uploadStatus("Can't read that file", nil, failed: true) }
+        guard size > 0 else { return Caster.shared.uploadStatus("Не можу прочитати цей файл", nil, failed: true) }
         uploading = true
-        Caster.shared.uploadStatus("Sending to the core…", 0)
+        Caster.shared.uploadStatus("Надсилаю на tinyTV Core…", 0)
         var r = URLRequest(url: core.appendingPathComponent("api/upload")); r.httpMethod = "POST"
         r.timeoutInterval = 3600
         r.setValue(file.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "file", forHTTPHeaderField: "X-Name")
@@ -106,7 +106,7 @@ final class Remote {
             let ok = (resp as? HTTPURLResponse)?.statusCode == 200
             Task { @MainActor in
                 Remote.shared.uploading = false
-                Caster.shared.uploadStatus(ok ? "" : "Upload to the core failed", nil, failed: !ok)
+                Caster.shared.uploadStatus(ok ? "" : "Не вдалося надіслати на tinyTV Core", nil, failed: !ok)
             }
         }
         task.delegate = delegate
@@ -120,6 +120,6 @@ private final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked
         guard Date().timeIntervalSince(last) > 0.3, total > 0 else { return }
         last = Date()
         let p = Double(sent) / Double(total)
-        Task { @MainActor in Caster.shared.uploadStatus("Sending to the core… \(Int(p * 100))%", p) }
+        Task { @MainActor in Caster.shared.uploadStatus("Надсилаю на tinyTV Core… \(Int(p * 100))%", p) }
     }
 }

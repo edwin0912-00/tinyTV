@@ -1,8 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="uk">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<!-- Owner 2026-10-22 "чому хаптік пропав всюди": with zoom allowed iOS holds the click for its double-tap check and the
+     hidden-switch haptic no longer fires inside the touch. Haptics win over pinch zoom; touch-action keeps taps instant. -->
+<style>html{touch-action:manipulation}</style>
+<!-- Owner 2026-10-24 «меню і розмір екрану ui не завжди внизу і в масштабі»: iOS zooms the page when a field under 16 px
+     gets focus, and the fixed tab bar / dock stay pinned to the zoomed layout. 16 px everywhere, and the scale snaps back
+     to 1 when the keyboard or a picker closes (re-applying the viewport makes iOS re-read maximum-scale=1). -->
+<style>input,select,textarea{font-size:16px!important}</style>
+<script>(() => { const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c = m.content;
+  const snap = () => { m.content = c + ', width=device-width'; requestAnimationFrame(() => { m.content = c; }); };
+  addEventListener('focusout', e => { if (e.target.matches && e.target.matches('input,select,textarea')) setTimeout(snap, 60); }, true);
+  addEventListener('orientationchange', () => setTimeout(snap, 300));
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (visualViewport.scale > 1.01 && !document.activeElement.matches('input,select,textarea')) snap(); });
+})();</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="tinyTV">
@@ -11,10 +24,12 @@
 <title>tinyTV</title>
 <style>
 :root{--bg:#0e0f13;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.09);--text:#f2f3f7;--mute:rgba(242,243,247,.55);
---accent:#6b9eff;--green:#3ddc84;--red:#ff5a5f;--r:16px}
+--accent:#6b9eff;--green:#3ddc84;--red:#ff5a5f;--r:16px;color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
--webkit-user-select:none;user-select:none;overscroll-behavior:none}
+overscroll-behavior:none}
+/* Text can be selected (titles, addresses); only controls and the trackpad are not selectable. */
+button,.pad,.dock,.keys,.chip,.seg,summary,input[type=range]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body{padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 24px)}
 .glow{position:fixed;inset:0 0 auto 0;height:320px;pointer-events:none;
 background:radial-gradient(ellipse at top,rgba(107,158,255,.28),transparent 70%);transition:opacity .5s}
@@ -30,14 +45,18 @@ transition:transform .18s cubic-bezier(.3,1.6,.5,1),background .2s}
 button:active{transform:scale(.92);background:rgba(107,158,255,.35)}
 .power{width:44px;height:44px;border-radius:50%;background:var(--accent);display:grid;place-items:center}
 .on .power{background:rgba(255,90,95,.85)}
-svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .pill{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:999px;padding:5px 5px 5px 14px}
-.pill input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:inherit;font-size:16px;padding:8px 0;-webkit-user-select:text;user-select:text}
+.pill input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:inherit;font-size:16px;padding:0;min-height:44px;-webkit-user-select:text;user-select:text}
 .pill input::placeholder{color:var(--mute)}
-.send{width:44px;height:36px;border-radius:999px;background:var(--accent);display:grid;place-items:center}
+.send{width:44px;height:44px;border-radius:999px;background:var(--accent);display:grid;place-items:center}
 .send.ok{background:var(--green)}
+.pill .save{display:none;flex:none;min-height:44px;padding:0 10px;border-radius:999px;background:none;color:var(--accent);font-size:15px;font-weight:600}.pill.has .save{display:block}
+.hbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{padding:9px 13px;border-radius:999px;font-size:13px;display:flex;align-items:center;gap:6px;animation:pop .35s cubic-bezier(.3,1.5,.5,1) both}
+.chip{min-height:44px;min-width:0;max-width:100%;padding:9px 14px;border-radius:999px;font-size:14px;display:flex;align-items:center;gap:6px;animation:pop .35s cubic-bezier(.3,1.5,.5,1) both}
+.chip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip svg{width:18px;height:18px;flex:none}
 .chip.on{background:rgba(120,140,255,.32);box-shadow:inset 0 0 0 1px rgba(150,170,255,.7)}
 .chip i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2)}.chip i.sig{background:var(--green)}
 @keyframes pop{from{transform:scale(.6);opacity:0}}
@@ -63,57 +82,79 @@ background:linear-gradient(90deg,#26272d,var(--accent));touch-action:pan-y}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--accent);
 border:2px solid #fff;box-shadow:0 0 10px rgba(107,158,255,.8);transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
 input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2)}
-.vol{display:flex;align-items:center;gap:10px}.vol button{width:44px;height:36px;flex:none;display:grid;place-items:center}
-details summary{list-style:none;display:flex;justify-content:space-between;color:var(--mute);font-size:13px;padding:6px 0;cursor:pointer}
+.vol{display:flex;align-items:center;gap:10px}.vol button{width:44px;height:44px;flex:none;display:grid;place-items:center}
+details summary{list-style:none;display:flex;align-items:center;min-height:44px;color:var(--text);font-size:15px;cursor:pointer}
 details summary::-webkit-details-marker{display:none}
-details summary:after{content:"›";transition:transform .3s;font-size:18px;line-height:1}
-details[open] summary:after{transform:rotate(90deg)}
+details summary:after{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 12px;border:solid var(--mute);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .3s}
+details[open]>summary:after{transform:rotate(45deg)}
+details summary .sv{margin-left:auto;color:var(--mute);font-size:14px}
 details .rows{display:flex;flex-direction:column;gap:16px;padding-top:10px;animation:drop .35s ease-out}
 @keyframes drop{from{opacity:0;transform:translateY(-8px)}}
 .cast{display:none;flex-direction:column;gap:6px;padding:0 8px;animation:drop .35s ease-out}.cast.show{display:flex}
+/* Owner: while a cast starts, wait visibly - all but the trackpad and volume dim and blur; a card with soft rings. */
+#body>*{transition:filter .35s,opacity .35s}
+body.busy #body>*:not(#pad):not(.volrow):not(#cast){filter:blur(5px) saturate(.4);opacity:.3;pointer-events:none}
+body.busy .cast.show{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:40;width:min(300px,82vw);align-items:center;text-align:center;
+  padding:18px 20px 12px;border-radius:22px;background:rgba(28,30,38,.82);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);
+  box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.15);animation:popc .4s cubic-bezier(.3,1.5,.5,1)}
+@keyframes popc{from{transform:translateX(-50%) scale(.88);opacity:0}}
+.cwv{display:none;position:relative;width:78px;height:78px;margin:0 auto 4px}body.busy .cwv{display:block}
+.cwv i{position:absolute;inset:0;margin:auto;width:30px;height:30px;border-radius:50%;border:1.5px solid var(--accent);opacity:0;animation:ring 2.4s ease-out infinite}
+.cwv i:nth-child(2){animation-delay:.8s}.cwv i:nth-child(3){animation-delay:1.6s}
+@keyframes ring{0%{width:30px;height:30px;opacity:.6}100%{width:76px;height:76px;opacity:0}}
+.cwv b{position:absolute;inset:0;margin:auto;width:36px;height:36px;border-radius:50%;background:var(--accent);display:grid;place-items:center;animation:glow 2.4s ease-in-out infinite}
+.cwv b svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
+@keyframes glow{50%{box-shadow:0 0 18px var(--accent)}}
+body.busy .cast .bar{width:160px}.cwx{display:none;background:none;color:var(--mute);font-size:14px;min-height:44px;padding:0 18px}body.busy .cwx{display:inline-block}
 .cs{font-size:12px;color:var(--mute)}.cast.fail .cs{color:#ffa53d}
 .bar{height:4px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}.bar i{display:block;height:100%;width:0;
 background:var(--accent);box-shadow:0 0 8px var(--accent);border-radius:9px;transition:width .3s ease-out}
-.now{display:none;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:rgba(107,158,255,.1);border:1px solid rgba(107,158,255,.3);animation:drop .35s ease-out}
+.now{display:none;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:rgba(107,158,255,.12);animation:drop .35s ease-out}
 .now.show{display:flex}.nt{display:flex;align-items:center;gap:8px;font-size:14px}.nt b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .wave{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}.now.playing .wave{animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{transform:scale(1.6);opacity:.5}}
-.x{width:32px;height:32px;border-radius:50%;font-size:13px;color:var(--mute)}
+.x{width:44px;height:44px;border-radius:50%;font-size:13px;color:var(--mute)}  /* 44 pt: Apple's smallest tap target (owner 2026-10-22) */
 .nc{display:flex;align-items:center;gap:8px}.pp{width:58px;height:58px;border-radius:50%;background:var(--accent);flex:none;font-size:16px}
-.tinfo{font-size:11px;color:var(--mute);margin-top:6px;font-variant-numeric:tabular-nums}.tinfo:empty{display:none}.tinfo.slow{color:#f5c542}
-.sk{height:36px;padding:0 9px;font-size:12px;flex:none}.sk.ep{width:32px;padding:0;display:none;place-items:center}.sk.ep svg{width:16px;height:16px}.sk.ep.on{display:grid}.sk.ep:disabled{opacity:.3}.scrub{flex:1;min-width:0}
-.times{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-top:4px;font-variant-numeric:tabular-nums}
-#vset select{width:100%;background:var(--card);color:var(--text);border:0;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;-webkit-appearance:none}
-#audio{display:none;width:100%;background:var(--card);color:var(--text);border:0;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;-webkit-appearance:none}
+/* Buffer line: a 44 pt button; a tap opens the detail line (a tooltip does not exist on a touch screen). */
+.tinfo{display:flex;align-items:center;width:100%;min-height:44px;margin:-4px 0 -6px;padding:0 4px;background:none;border-radius:10px;text-align:left;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}.tinfo:empty{display:none}.tinfo.green{color:#34c759;font-weight:600}.tinfo.amber{color:#f5c542;font-weight:600}.tinfo.red{color:#ff453a;font-weight:600}
+.tip{margin:0 4px 2px;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}.tip[hidden]{display:none}
+.sk{height:44px;min-width:44px;padding:0;flex:none;display:grid;place-items:center}.sk svg{width:28px;height:28px}.sk.ep{width:44px;display:none}.sk.ep svg{width:18px;height:18px}.sk.ep.on{display:grid}.sk.ep:disabled{opacity:.3}.scrub{flex:1;min-width:0}
+.times{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-top:4px;font-variant-numeric:tabular-nums}
+#audio{display:none;width:100%;min-height:44px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/16px;color:var(--text);border:0;border-radius:12px;padding:11px 36px 11px 12px;font:inherit;font-size:16px;-webkit-appearance:none}
 #audio.show{display:block}
-.files{display:flex;flex-direction:column;gap:6px;padding-top:8px}.file{display:flex;justify-content:space-between;gap:10px;text-align:left;padding:12px 14px;font-size:14px}
-.file span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file small{color:var(--mute);flex:none}
-.dim{opacity:.4;filter:saturate(0);pointer-events:none;transition:opacity .4s,filter .4s}
 .body{display:flex;flex-direction:column;gap:16px;transition:opacity .4s,filter .4s}
-.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translate(-50%,40px);opacity:0;
-background:rgba(30,32,40,.95);border:1px solid var(--line);padding:10px 16px;border-radius:999px;font-size:13px;transition:.35s cubic-bezier(.3,1.4,.5,1)}
+/* Toast: above every overlay (sheet 21, cast card 40, dialog 60), on top like in Kino, so it never covers the dock. */
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);z-index:100;transform:translate(-50%,-26px);opacity:0;pointer-events:none;
+display:flex;align-items:center;gap:4px;max-width:calc(100vw - 32px);text-align:center;line-height:1.3;
+background:rgba(30,32,40,.97);border:1px solid var(--line);padding:10px 16px;border-radius:22px;font-size:14px;transition:transform .35s cubic-bezier(.3,1.4,.5,1),opacity .25s}
 .toast.show{transform:translate(-50%,0);opacity:1}
+.toast.act{pointer-events:auto;padding-right:4px}
+.toast .ta{min-height:44px;margin:-10px 0;padding:0 14px;border-radius:999px;background:none;color:var(--accent);font-weight:600;font-size:14px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* One screen, no page scroll: the trackpad takes the free height, extras live in bottom sheets. */
 html,body{height:100%;overflow:hidden}
 .wrap{height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 38px);gap:10px}
-.body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}.body::-webkit-scrollbar{display:none}   /* scrolls only on a short screen (SE) in the busiest state; the dock never moves */
 .pad{flex:1;min-height:110px;height:auto}
-#shortcuts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}#shortcuts::-webkit-scrollbar{display:none}
-#shortcuts .chip{flex:none}
-.keys button{height:46px}
+/* Shortcuts: two columns, never cut off at the screen edge; the rest sits behind "Усі (N)". */
+#shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none}#shortcuts:empty{display:none}
+#shortcuts .chip{justify-content:flex-start}#shortcuts .chip.more{justify-content:center;color:var(--mute)}
+#shortcuts .chip:last-child:nth-child(odd){grid-column:1 / -1}   /* a lone last chip takes the whole row: more of its name shows, no empty cell */
+.keys button{height:46px}.keys .ok{font-size:16px;font-weight:700;letter-spacing:.02em}
 .dock{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex:none}
-.dock button{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--mute)}
+.dock button{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;color:var(--mute)}
 .dock button svg{width:20px;height:20px;color:var(--text)}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s;z-index:20}
 .scrim.open{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:78dvh;overflow-y:auto;overscroll-behavior:contain;background:#16171d;
-border-radius:24px 24px 0 0;padding:10px 16px calc(env(safe-area-inset-bottom) + 20px);transform:translateY(105%);
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:78dvh;display:flex;flex-direction:column;overflow:hidden;background:#16171d;
+border-radius:24px 24px 0 0;padding:10px 16px calc(env(safe-area-inset-bottom) + 12px);transform:translateY(105%);
 transition:transform .42s cubic-bezier(.2,.9,.25,1);box-shadow:0 -10px 40px rgba(0,0,0,.5)}
 .sheet.open{transform:none}
-.sheet .grab{width:40px;height:5px;border-radius:9px;background:rgba(255,255,255,.2);margin:0 auto 12px}
-.sheet h3{margin:0 0 12px;font-size:15px;font-weight:600}
-#sheetBody{display:flex;flex-direction:column;gap:14px}
+.sheet .grab{flex:none;width:40px;height:5px;border-radius:9px;background:rgba(255,255,255,.2);margin:0 auto 12px}
+.sheet h3{flex:none;margin:0 0 12px;font-size:17px;font-weight:700}
+/* The list scrolls; the title above and the version line below stay put. */
+#sheetBody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;display:flex;flex-direction:column;gap:14px}#sheetBody::-webkit-scrollbar{display:none}
+#sheetFoot{flex:none;padding-top:10px;text-align:center;font-size:12px;color:var(--mute)}
 #store{display:none}
 /* Polish (owner: "гарно зроби"). */
 body{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}
@@ -122,18 +163,16 @@ body{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}
 .now{gap:8px;padding:10px 12px}
 .pp{display:grid;place-items:center;color:#fff}.pp svg{width:26px;height:26px;fill:currentColor;stroke:none}
 .now .pp.playing{background:rgba(255,255,255,.14);border-radius:18px}.now .pp:not(.playing){box-shadow:0 0 0 3px rgba(107,158,255,.25)}
-.wbtn svg{width:20px;height:20px}.wbtn.on{color:var(--accent)}.wbtn:not(.on){opacity:.5}.wbtn.on .wx{display:none}
-.eq{display:flex;justify-content:space-between;gap:6px;padding:10px 2px 4px}.eq div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--mute)}
+.eq{display:flex;justify-content:space-between;gap:6px;padding:10px 2px 4px}.eq div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--mute)}
 .eq input[type=range]{writing-mode:vertical-lr;direction:rtl;width:30px;height:130px;background:linear-gradient(0deg,#26272d,var(--accent))}
-.volrow #vol{height:40px}.volrow #vol::-webkit-slider-thumb{width:40px;height:40px}
+.volrow #vol{height:44px}.volrow #vol::-webkit-slider-thumb{width:40px;height:40px}
 .volrow .vpair{display:flex;gap:2px;margin-left:10px;flex:none;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.06)}
-.volrow .vstep{width:46px;height:40px;font-size:22px;font-weight:600;display:grid;place-items:center;background:none;border-radius:0}
+.volrow .vstep{width:46px;height:44px;display:grid;place-items:center;background:none;border-radius:0}.volrow .vstep svg{width:22px;height:22px;stroke-width:2.4}
 .livetag{display:none;align-items:center;gap:10px;font-size:13px;color:var(--mute);flex:1}
 .now.live .livetag{display:flex}.now.live .scrub,.now.live #back10,.now.live #fwd30{display:none}
-.eq{display:inline-flex;align-items:flex-end;gap:3px;height:16px}.eq i{width:3px;height:30%;border-radius:2px;background:var(--accent)}
-.now.playing .eq i{animation:eq 1s ease-in-out infinite}.eq i:nth-child(2){animation-delay:.2s}.eq i:nth-child(3){animation-delay:.45s}.eq i:nth-child(4){animation-delay:.1s}
+.leq{display:inline-flex;align-items:flex-end;gap:3px;height:16px}.leq i{width:3px;height:30%;border-radius:2px;background:var(--accent)}
+.now.playing .leq i{animation:eq 1s ease-in-out infinite}.leq i:nth-child(2){animation-delay:.2s}.leq i:nth-child(3){animation-delay:.45s}.leq i:nth-child(4){animation-delay:.1s}
 @keyframes eq{0%,100%{height:25%}50%{height:100%}}
-.chip svg.bolt{width:13px;height:13px;color:#ffc94d;fill:currentColor;stroke:none}
 .pad{background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.2px);background-size:18px 18px;background-position:center}
 .pad .hint{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;letter-spacing:.01em}
 .hint-ic{width:30px;height:30px;stroke:var(--mute);stroke-width:1.6;opacity:.8}
@@ -147,6 +186,65 @@ body{display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 
 #nowCover{width:36px;height:52px;border-radius:6px;object-fit:cover;flex:none;margin:-2px 2px -2px -2px}
 .nt:has(#nowCover[style*="none"]) .wave{display:inline-block}
 .nt #nowCover:not([style*="none"]) + .wave{display:none}
+/* ---- UX review 2026-10-22 ---- */
+input,select,textarea{font-size:16px}   /* 16 px: iOS never zooms the page on focus (the viewport stays pinned: haptics win over pinch zoom, owner) */
+[hidden]{display:none!important}
+#scrSec,#srcBox,#toBox,#linksBox{display:flex;flex-direction:column;gap:12px}
+.pad .hint .h2{font-size:12px;color:var(--mute);opacity:.9}
+/* TV off: only what needs the TV dims. The link field, shortcuts and Kino stay alive; the pad text stays readable. */
+body.tv-off .keys,body.tv-off .volrow{opacity:.5;filter:saturate(0);pointer-events:none}
+body.tv-off .hbtn.kb{opacity:.45;pointer-events:none}
+body.tv-off .pad{pointer-events:none;background-image:none;background-color:rgba(255,255,255,.03);border-color:transparent}
+body.tv-off .pad .hint{color:var(--text)}body.tv-off .pad .hint-ic{opacity:.35}
+.offline{display:none;flex:none;flex-direction:column;gap:10px;padding:12px;border-radius:16px;background:var(--card)}body.tv-off .offline{display:flex}
+.offline p{margin:0;font-size:13px;color:var(--mute)}
+.offline .oa{display:grid;grid-template-columns:1fr 1fr;gap:8px}.offline .chip{justify-content:center}
+.offonly{display:none}body.tv-off .offonly{display:block}
+body.tv-off #screenBox,body.tv-off #scrPreset{opacity:.5;pointer-events:none}
+.empty{flex:1 1 100%;display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:2px;color:var(--mute);font-size:14px}.empty p{margin:0}
+.note{margin:0;font-size:12px;line-height:1.4;color:var(--mute)}
+.gh{margin:4px 0 0;font-size:13px;font-weight:600;color:var(--mute)}
+.grp{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 14px;border-radius:14px;background:var(--card);font-size:15px;text-align:left}
+.row:after{content:"";flex:none;width:7px;height:7px;border:solid var(--mute);border-width:0 2px 2px 0;transform:rotate(-45deg)}
+.row.plain:after{display:none}.row svg{width:20px;height:20px;flex:none;color:var(--mute)}.row>span{flex:1;min-width:0}.row small{font-size:13px;color:var(--mute)}
+a.row{color:inherit;text-decoration:none}                       /* a row that opens another page (the torrent search) */
+.row.two{min-height:56px;padding-top:6px;padding-bottom:6px}.row.two small{display:block;margin-top:2px;font-size:12px}
+.row.ext:after{display:none}
+.swrow{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:56px;padding:6px 14px;border-radius:14px;background:var(--card);font-size:15px}
+.swrow small{display:block;margin-top:2px;font-size:12px;color:var(--mute)}.swrow input{flex:none;margin:0}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:3px;border-radius:12px;background:var(--card)}
+.seg button{min-height:44px;min-width:0;padding:0 4px;border-radius:9px;background:none;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seg button.on{background:rgba(255,255,255,.16);font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid2 .chip{justify-content:center}
+/* Folding settings rows look like the other rows of the sheet: one card per setting. */
+#vset,#sset{padding:0 14px;border-radius:14px;background:var(--card)}#vset .rows,#sset .rows{gap:12px;padding:2px 0 14px}
+#scrLive{font-size:13px;color:var(--green)}#scrLive:empty{display:none}
+/* Where to watch: one list, available targets first, unavailable ones grey at the end. */
+.tsub{margin:-6px 0 0;font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trows{display:flex;flex-direction:column;gap:8px}
+.trow{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:6px 14px;border-radius:14px;background:var(--card);text-align:left;font-size:16px}
+.trow svg{width:22px;height:22px;flex:none}
+.trow .tn{flex:1;min-width:0;display:flex;flex-direction:column}.trow .tn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trow small{font-size:12px;color:var(--mute)}
+.trow[aria-disabled=true]{opacity:.45;pointer-events:none}
+.lhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lrow{display:flex;gap:8px}.lrow .trow{flex:1;min-width:0}
+.lrow .del{display:none;flex:none;width:52px;border-radius:14px;color:var(--red);place-items:center}.editing .lrow .del{display:grid}
+.editing .lrow .trow{pointer-events:none;opacity:.7}
+/* Own dialog instead of the system prompt and confirm (English, off-style). */
+.dlg{position:fixed;inset:0;z-index:60;display:none;place-items:center;padding:24px;background:rgba(0,0,0,.55)}.dlg.show{display:grid}
+.dcard{width:min(320px,100%);display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:22px;background:#1c1d24;box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.12)}
+.dcard b{font-size:17px}.dcard p{margin:0;font-size:14px;color:var(--mute)}
+.dcard input{min-height:44px;border:0;border-radius:12px;background:var(--card);color:var(--text);padding:0 12px;outline:0}
+.dbtn{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dbtn button{min-height:44px;font-weight:600}
+.dbtn .ok{background:var(--accent);color:#0b0c10}.dbtn .ok.danger{background:var(--red);color:#fff}
+/* Sliders: the input itself is 44 pt tall (the touch area); the visible track keeps its old height. */
+#nowSeek,#vmbps,#vol{height:44px;background:none}
+#nowSeek::-webkit-slider-runnable-track,#vmbps::-webkit-slider-runnable-track{height:26px;border-radius:999px;background:linear-gradient(90deg,#26272d,var(--accent))}
+#nowSeek::-webkit-slider-thumb,#vmbps::-webkit-slider-thumb{margin-top:-1px}
+#vol::-webkit-slider-runnable-track{height:40px;border-radius:999px;background:linear-gradient(90deg,#26272d,var(--accent))}
+.tvaddr{font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -154,117 +252,179 @@ body{display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 
 <div class="wrap connecting" id="app">
   <header>
     <div class="dot"></div>
-    <div class="title"><b>Hisense TV</b><div class="sub" id="sub">Connecting…</div></div>
-    <button class="power" id="power" aria-label="Power"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
+    <div class="title"><b id="ttl">Hisense TV</b><div class="sub" id="sub">Підключаюсь…</div></div>
+    <button class="hbtn kb" id="kb" aria-label="Клавіатура"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+    <button class="power" id="power" aria-label="Живлення"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
   </header>
 
   <div class="body" id="body">
-    <div class="pill">
-      <svg viewBox="0 0 24 24" style="color:var(--mute);width:18px"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
-      <input id="link" type="url" inputmode="url" placeholder="Paste a video link (YouTube and more)" autocomplete="off" autocapitalize="off">
-      <button class="send" id="send" aria-label="Open on TV"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button>
+    <div class="pill" id="linkPill">
+      <svg viewBox="0 0 24 24" style="color:var(--mute);width:18px;flex:none"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+      <input id="link" type="url" inputmode="url" placeholder="Посилання на відео" aria-label="Посилання на відео" autocomplete="off" autocapitalize="off">
+      <button class="save" id="saveLink">Зберегти</button>
+      <button class="send" id="send" aria-label="Дивитись"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button>
     </div>
-    <div class="cast" id="cast"><div class="cs" id="castText"></div><div class="bar"><i id="castBar"></i></div></div>
+    <div class="cast" id="cast"><div class="cwv"><i></i><i></i><i></i><b><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg></b></div><div class="cs" id="castText"></div><div class="bar"><i id="castBar"></i></div><button class="cwx" id="castX">Скасувати</button></div>
     <div class="now" id="now">
-      <div class="nt"><img id="nowCover" alt=""><span class="wave"></span><b id="nowTitle"></b><button class="x wbtn" id="nowWatch" aria-label="Керування з годинника"><svg viewBox="0 0 24 24"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3"/><path class="wx" d="M4 4l16 16"/></svg></button><button class="x" id="nowStop" aria-label="Stop on TV">✕</button></div>
+      <div class="nt"><img id="nowCover" alt=""><span class="wave"></span><b id="nowTitle"></b><button class="x" id="nowStop" aria-label="Стоп"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none"/></svg></button></div>
       <div class="nc">
-        <button class="pp" id="nowPP" aria-label="Play or pause"></button>
-        <div class="livetag"><span class="eq"><i></i><i></i><i></i><i></i></span><span>Live on TV</span></div>
+        <button class="pp" id="nowPP" aria-label="Пауза або відтворення"></button>
+        <div class="livetag"><span class="leq"><i></i><i></i><i></i><i></i></span><span>Наживо на ТВ</span></div>
         <button class="sk ep" id="prevEp" aria-label="Попередня серія"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg></button>
-        <button class="sk" id="back10" aria-label="Back 10 seconds">−10</button>
-        <div class="scrub"><input type="range" min="0" max="1" step="1" id="nowSeek" aria-label="Position">
-          <div class="times"><span id="nowPos">0:00</span><span id="nowDur">live</span></div></div>
-        <button class="sk" id="fwd30" aria-label="Forward 30 seconds">+30</button>
+        <button class="sk" id="back10" aria-label="Назад 10 с"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.4" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,system-ui,sans-serif">10</text></svg></button>
+        <div class="scrub"><input type="range" min="0" max="1" step="1" id="nowSeek" aria-label="Позиція">
+          <div class="times"><span id="nowPos">0:00</span><span id="nowDur">наживо</span></div></div>
+        <button class="sk" id="fwd30" aria-label="Вперед 30 с"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.4" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,system-ui,sans-serif">30</text></svg></button>
         <button class="sk ep" id="nextEp" aria-label="Наступна серія"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button>
       </div>
-      <div class="tinfo" id="torInfo"></div>
-      <select id="audio" aria-label="Audio track"></select>
+      <button class="tinfo" id="torInfo" aria-expanded="false"></button>
+      <div class="tip" id="torTip" hidden></div>
+      <select id="audio" aria-label="Звукова доріжка"></select>
     </div>
     <div class="chips" id="shortcuts"></div>
-    <div><div class="label"><span>Screen to TV</span><span id="scrLive"></span></div>
-      <div class="chips" id="screenBox"><button class="chip" id="scrMac">💻 Mac screen</button><button class="chip" id="scrExt">🪟 Extend</button><button class="chip" id="scrAudio">🔊 Mac audio</button><button class="chip" id="scrCore">🖥 the core host screen</button></div>
-      <select id="scrPreset" style="margin-top:8px"><option value="fast">Fast · 720p · lowest delay</option><option value="balanced">Balanced · 1080p</option><option value="quality">Quality · 4K HEVC</option></select></div>
+    <div class="offline" id="offline">
+      <p>Вимкнений, спить або втратив Wi-Fi. Посилання й Кіно працюють і без ТВ.</p>
+      <div class="oa"><button class="chip on" id="wake">Розбудити ТВ</button><button class="chip" id="here">Дивитись тут</button></div>
+    </div>
 
-    <div class="pad" id="pad" aria-label="Trackpad for the TV">
+    <div class="pad" id="pad" aria-label="Трекпад для ТВ">
       <div class="blob" id="blob"></div>
       <div class="arrow" id="arrow"><svg viewBox="0 0 24 24" id="arrowSvg"><path d="m9 6 6 6-6 6"/></svg></div>
-      <div class="hint"><svg viewBox="0 0 24 24" class="hint-ic"><path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 9a2 2 0 0 1 4 0v4a7 7 0 0 1-7 7H9a5 5 0 0 1-4.5-2.8L3 14a1.8 1.8 0 0 1 3-1.8L9 15"/></svg>Swipe to move · tap for OK · hold for Back</div>
+      <div class="hint"><svg viewBox="0 0 24 24" class="hint-ic"><path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 9a2 2 0 0 1 4 0v4a7 7 0 0 1-7 7H9a5 5 0 0 1-4.5-2.8L3 14a1.8 1.8 0 0 1 3-1.8L9 15"/></svg><span id="padHint">Свайп - стрілки · дотик - OK</span><span class="h2" id="padHint2"></span></div>
     </div>
 
     <div class="keys">
-      <button data-key="KEY_RETURNS" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
-      <button data-key="KEY_HOME" aria-label="Home"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></button>
-      <button data-key="KEY_MENU" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-      <button data-key="KEY_PLAY" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path d="m6 4 8 8-8 8z"/><path d="M17 5v14M21 5v14"/></svg></button>
-      <button data-key="KEY_LEFTMOUSEKEYS" aria-label="TV cursor on or off"><svg viewBox="0 0 24 24"><path d="m4 4 7 17 2.5-7.5L21 11z"/></svg></button>
-    </div>
-
-    <div class="pill">
-      <svg viewBox="0 0 24 24" style="color:var(--mute);width:18px"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
-      <input id="type" placeholder="Type into the TV field" autocomplete="off" enterkeyhint="send">
+      <button data-key="KEY_RETURNS" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button data-key="KEY_HOME" aria-label="Додому"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></button>
+      <button data-key="KEY_OK" class="ok" aria-label="OK">OK</button>
+      <button data-key="KEY_MENU" aria-label="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button data-key="KEY_PLAY" aria-label="Пауза або відтворення"><svg viewBox="0 0 24 24"><path d="m6 4 8 8-8 8z"/><path d="M17 5v14M21 5v14"/></svg></button>
     </div>
 
     <div class="vol volrow">
-      <button data-key="KEY_MUTE" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></button>
-      <input type="range" min="0" max="100" step="1" id="vol" aria-label="Volume">
+      <button data-key="KEY_MUTE" aria-label="Вимкнути звук"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></button>
+      <input type="range" min="0" max="100" step="1" id="vol" aria-label="Гучність">
       <span class="val" id="volv">0</span>
-      <span class="vpair"><button class="vstep" id="volDn" aria-label="Тихіше">−</button><button class="vstep" id="volUp" aria-label="Гучніше">+</button></span>
+      <span class="vpair"><button class="vstep" id="volDn" aria-label="Тихіше"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button><button class="vstep" id="volUp" aria-label="Гучніше"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button></span>
     </div>
-
-    <div id="appsBox"><div class="label"><span>Apps</span></div><div class="chips" id="apps"></div></div>
-    <details id="vset"><summary>Video to TV <span id="vsum" style="margin-left:auto;margin-right:8px"></span></summary><div class="rows">
-      <select id="vmode"><option value="auto">Auto: encode only heavy files</option><option value="original">Original: never encode</option><option value="encode">Always encode</option></select>
-      <select id="vheight"><option value="2160">4K</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option></select>
-      <select id="vhdr"><option value="1">HDR · 10-bit</option><option value="0">SDR · 8-bit</option></select>
-      <div><div class="label"><span>Bitrate</span><span id="vmbv"></span></div><input type="range" min="4" max="40" step="1" id="vmbps"></div>
-    </div></details>
-    <details id="sset"><summary>Звук ТВ <span id="ssum" style="margin-left:auto;margin-right:8px"></span></summary><div class="rows">
-      <div class="chips" id="spre"></div>
-      <details id="scus"><summary style="font-size:13px">Налаштувати смуги</summary><div class="eq" id="seq"></div></details>
-    </div></details>
-    <label class="label" style="align-items:center"><span>Movie light · dims while a cast plays</span><input type="checkbox" id="movie" style="width:auto"></label>
-    <label class="label" style="align-items:center"><span>Екран блокування й годинник · керують ТВ (вимкни, щоб телефон грав своє)</span><input type="checkbox" id="npOn" style="width:auto"></label>
-    <details id="movies"><summary>Movies on the core</summary><div class="files" id="files"></div></details>
-    <div id="srcBox"><div class="label"><span>Inputs</span></div><div class="chips" id="sources"></div></div>
-
   </div>
   <nav class="dock" id="dock">
-    <button data-sheet="apps"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Apps</button>
-    <button data-sheet="inputs"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>Inputs</button>
-    <button data-sheet="screen"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg>Screen</button>
-    <button id="kinoBtn" onclick="location.href='/kino'"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></svg>Кіно</button>
-    <button data-sheet="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</button>
+    <button data-sheet="apps"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Додатки</button>
+    <button data-sheet="inputs"><svg viewBox="0 0 24 24"><path d="M4 6h16v6.5L16.5 17h-9L4 12.5z"/><path d="M8.5 9.5h7M12 17v4"/></svg>Входи</button>
+    <button data-sheet="screen"><svg viewBox="0 0 24 24"><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><path d="m12 15 5 6H7z"/></svg>Екран</button>
+    <button id="kinoBtn" onclick="toKino('')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></svg>Кіно</button>
+    <button data-sheet="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Ще</button>
   </nav>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="scrim" id="scrim"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><h3 id="sheetTitle"></h3><div id="sheetBody"></div></div>
-<div id="store"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="grab"></div><h3 id="sheetTitle"></h3><div id="sheetBody"></div><div id="sheetFoot" hidden><span id="ver"></span></div></div>
+<div class="dlg" id="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dT"><div class="dcard"><b id="dT"></b><p id="dP"></p><input id="dI" autocomplete="off" enterkeyhint="done"><div class="dbtn"><button id="dX">Скасувати</button><button class="ok" id="dOk">Гаразд</button></div></div></div>
+<!-- Sheet content lives here while its sheet is closed; script 2 moves it into the sheet. -->
+<div id="store">
+  <div id="appsBox"><div class="chips" id="apps"></div></div>
+  <div id="srcBox"><div class="chips" id="sources"></div><p class="note" id="srcNote" hidden>Зелена крапка - на вході є сигнал.</p></div>
+  <div id="scrSec">
+    <p class="note offonly">ТВ не в мережі. Показ екрана запрацює, коли він увімкнеться.</p>
+    <div id="scrLive"></div>
+    <div class="grid2" id="screenBox">
+      <button class="chip" id="scrMac"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19.5h20"/></svg><span>Екран Mac</span></button>
+      <button class="chip" id="scrExt"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="10" rx="2"/></svg><span>Другий екран</span></button>
+      <button class="chip" id="scrAudio"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span>Звук Mac</span></button>
+      <button class="chip" id="scrCore"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg><span>Екран tinyTV Core</span></button>
+    </div>
+    <div class="seg" id="scrPreset" role="group" aria-label="Якість показу"><button data-v="fast">Швидко</button><button data-v="balanced">Збалансовано</button><button data-v="quality">Якість</button></div>
+    <p class="note" id="scrNote"></p>
+  </div>
+  <div class="grp" id="secInput">
+    <h4 class="gh">Ввід</h4>
+    <div class="pill">
+      <svg viewBox="0 0 24 24" style="color:var(--mute);width:18px;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+      <input id="type" placeholder="Ввести текст на ТВ" aria-label="Ввести текст на ТВ" autocomplete="off" enterkeyhint="send">
+    </div>
+    <button class="row plain" data-key="KEY_LEFTMOUSEKEYS"><svg viewBox="0 0 24 24"><path d="m4 4 7 17 2.5-7.5L21 11z"/></svg><span>Курсор ТВ</span></button>
+  </div>
+  <div class="grp" id="secLinks">
+    <h4 class="gh">Посилання й фільми</h4>
+    <button class="row" id="rowLinks"><span>Збережені посилання</span><small id="linksN"></small></button>
+    <button class="row" id="rowMedia"><span>Фільми на сервері</span></button>
+  </div>
+  <div class="grp" id="secAv">
+    <h4 class="gh">Відео й звук</h4>
+    <details id="vset"><summary>Відео на ТВ <span class="sv" id="vsum"></span></summary><div class="rows">
+      <div class="seg" id="vmode" role="group" aria-label="Перекодування"><button data-v="auto">Авто</button><button data-v="original">Оригінал</button><button data-v="encode">Завжди</button></div>
+      <p class="note" id="vmNote"></p>
+      <div class="seg" id="vheight" role="group" aria-label="Роздільність"><button data-v="2160">4K</button><button data-v="1440">1440p</button><button data-v="1080">1080p</button><button data-v="720">720p</button></div>
+      <div class="seg" id="vhdr" role="group" aria-label="Динамічний діапазон"><button data-v="1">HDR</button><button data-v="0">SDR</button></div>
+      <div><div class="label"><span>Бітрейт</span><span id="vmbv"></span></div><input type="range" min="4" max="40" step="1" id="vmbps" aria-label="Бітрейт"></div>
+    </div></details>
+    <details id="sset"><summary>Звук ТВ <span class="sv" id="ssum"></span></summary><div class="rows">
+      <div class="chips" id="spre"></div>
+      <details id="scus"><summary style="font-size:14px">Налаштувати смуги</summary><div class="eq" id="seq"></div></details>
+    </div></details>
+    <label class="swrow"><span>Кіносвітло<small>Приглушує світло, поки йде фільм</small></span><input type="checkbox" switch id="movie"></label>
+  </div>
+  <div class="grp" id="secSearch">
+    <h4 class="gh">Пошук торентів</h4>
+    <a class="row two ext" href="https://<core-host>.<tailnet>.ts.net:8444"><span>Усі трекери і пошуки агентів<small>TV ✓, UA, на ТВ або скачати на tinyTV Core</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+  </div>
+  <div class="grp" id="secPhone">
+    <h4 class="gh">Телефон</h4>
+    <label class="swrow"><span>Годинник і екран блокування керують ТВ<small>Вимкніть, щоб телефон грав своє</small></span><input type="checkbox" switch id="npOn"></label>
+  </div>
+  <div id="toBox"><p class="tsub" id="toSub"></p><div class="trows" id="toRows"></div></div>
+  <div id="linksBox"><div class="lhead"><p class="note" id="linksNote"></p><button class="chip" id="linksEdit">Змінити</button></div><div class="trows" id="linksRows"></div></div>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
 let S = {connected:false, offline:false, picture:{}, apps:[], sources:[], shortcuts:[]};
 let lastEdit = 0, allApps = false;
 
+// "Lawrence.Of.Arabia.1962.2160p.4K….mkv" -> "Lawrence Of Arabia 1962" (same rule as Library.pretty in the core);
+// page and video titles without a file extension stay as they are.
+function fileTitle(t){ t = String(t || ''); if (!/\.(mkv|mp4|m4v|avi|mov|ts|m2ts|webm|wmv|mpg|mpeg|flv|vob)$/i.test(t)) return t;
+  let s = t.replace(/\.[^.]+$/, '').replace(/[._]/g, ' '); const y = /\b(19|20)\d{2}\b/.exec(s);
+  if (y) s = s.slice(0, y.index + 4); else { const q = /\b(2160p|1080p|720p|480p|BDRip|WEB|HDRip|BluRay|x264|x265|HEVC)\b/i.exec(s); if (q) s = s.slice(0, q.index); }
+  return s.trim() || t; }
+
+// Errors reach the user as one plain Ukrainian line. The core sends a code (or Ukrainian text); anything else gets a neutral phrase.
+const ERR = {no_peers:'Немає роздаючих: торент не стартує', not_link:'Це не посилання', no_video:'Не знайшов відео за цим посиланням',
+  tv_rejected:'ТВ не прийняв відео. Спробуйте ще раз', no_ffmpeg:'На сервері немає ffmpeg', tv_page_closed:'Відкрийте закладку tinyTV у браузері ТВ',
+  tv_cast_down:'Сервер показу не запущений', rezka_down:'HDRezka не відповідає', no_next:'Далі нічого немає'};
+function errText(e){
+  let m = String((e && e.message) || e || '').trim();
+  if (!m || /failed to fetch|load failed|networkerror|network request|timed? ?out|abort/i.test(m)) return 'Сервер недоступний';
+  try { const j = JSON.parse(m); m = String(j.error || j.code || m); } catch(_) {}
+  if (ERR[m]) return ERR[m];
+  if (/[А-Яа-яІіЇїЄєҐґ]/.test(m)) return m;
+  console.warn('tinyTV:', m); return 'Не вийшло. Спробуйте ще раз';
+}
+// Answers shaped like /api/state redraw the remote; kino/* answers are plain results, returned to the caller.
 async function api(cmd, body){
   try{
     const r = await fetch('/api/'+cmd, body===undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     if(!r.ok) throw new Error(await r.text());
-    render(await r.json());
-  }catch(e){ toast(cmd==='state' ? 'Core unreachable' : 'Failed: '+e.message); }
+    const j = await r.json();
+    if (j && typeof j.error === 'string') throw new Error(j.error);
+    if (j && 'connected' in j) render(j);
+    return j;
+  }catch(e){ toast(cmd==='state' ? 'Сервер недоступний' : errText(e)); return null; }
 }
-function torLine(t){ if (!t || !(t.rate > 0)) return ''; const mb = v => (v / 1048576).toFixed(1).replace('.', ',');
-  const ok = t.down >= t.rate, w = Math.round(t.wait || 0), mmss = v => `${Math.floor(v / 60)}:${String(Math.round(v) % 60).padStart(2, '0')}`;
-  if (t.hold) return `Буферизація: ${mmss(t.ahead || 0)} з ${mmss(t.target || 20)} · ↓ ${mb(t.down)} МБ/с · ${Math.round(t.peers||0)} пір.`;
-  return `↓ ${mb(t.down)} МБ/с · треба ${mb(t.rate)} · буфер ${Math.floor((t.ahead||0) / 60)}:${String(Math.round(t.ahead||0) % 60).padStart(2, '0')} · ${Math.round(t.peers||0)} пір. · `
-    + (ok ? 'встигає' : w > 0 ? `пауза ~${w >= 60 ? Math.ceil(w / 60) + ' хв' : w + ' с'}, далі без зупинок` : 'буфера досить'); }
+// Owner: "40% (зеленим) Ahead просто" - share of the rest of the film already loaded, coloured by state; details in the tooltip.
+function torLine(t, c){ if (!t || !(t.rate > 0)) return null; const mb = v => (v / 1048576).toFixed(1).replace('.', ',');
+  const span = v => { v = Math.round(v || 0); return v < 60 ? v + ' с' : v < 3600 ? Math.floor(v / 60) + ' хв' : Math.floor(v / 3600) + ' год ' + Math.floor(v % 3600 / 60) + ' хв'; };
+  const a = t.ahead || 0, w = Math.round(t.wait || 0), d = (c && c.duration) || 0, rest = Math.max(1, d - ((c && c.position) || 0));
+  const lvl = t.hold || a < 10 ? 'red' : w > 0 ? 'amber' : 'green';
+  const head = t.hold ? `Буферизація до ${Math.round(t.target || 20)} с` : t.down >= t.rate ? 'Закачка встигає' : w > 0 ? `Скоро пауза ~${span(w)}, далі без зупинок` : 'Буфера досить';
+  return { text: (d > 0 ? Math.min(100, Math.round(a / rest * 100)) + '%' : span(a)) + ' Ahead', lvl,
+           tip: `${head} · запас ${span(a)} · ↓ ${mb(t.down)} з ${mb(t.rate)} МБ/с · ${Math.round(t.peers||0)} пір.` }; }
 setTimeout(() => { const t = $('npOn'); if (!t) return; t.checked = !window.tinyNP || window.tinyNP.on();
-  t.onchange = () => { buzz(); window.tinyNP && window.tinyNP.set(t.checked); toast(t.checked ? 'Керування з екрана блокування увімкнено' : 'Вимкнено: телефон вільний'); }; }, 500);
-const wSync = () => { const on = !window.tinyNP || window.tinyNP.on(); document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('on', on)); if ($('npOn')) $('npOn').checked = on; };
-setTimeout(() => { wSync(); $('nowWatch').onclick = () => { buzz(); const on = !(window.tinyNP && window.tinyNP.on()); window.tinyNP && window.tinyNP.set(on); wSync();
-  toast(on ? 'Годинник і екран блокування керують ТВ' : 'Вимкнено: телефон вільний'); }; }, 600);
+  t.onchange = () => { buzz(); window.tinyNP && window.tinyNP.set(t.checked);
+    toast(t.checked ? 'Керування з екрана блокування увімкнено' : 'Вимкнено: телефон вільний'); }; }, 500);
+// The watch / lock-screen switch now lives only in "Ще" (it sat next to Stop on the card and invited a wrong tap).
 // Sound to the TV: presets first; the five bands only under "Налаштувати смуги" (owner: hidden smartly).
-const SPRE = [['flat', 'Рівно'], ['soft', 'Менше високих'], ['dialog', 'Діалоги'], ['night', 'Нічний'], ['bass', 'Більше басу'], ['custom', 'Свій']];
+const SPRE = [['flat', 'Рівно'], ['soft', 'Менше високих'], ['dialog', 'Діалоги'], ['night', 'Нічний'], ['bass', 'Більше басу'], ['tv', 'Динаміки ТВ'], ['custom', 'Свій']];
 const SF = ['60', '250', '1k', '4k', '12k'];
 let soundEdit = 0, soundCur = null;
 function renderSound(snd){
@@ -285,119 +445,194 @@ const key = k => post('key', {key:k});
 // so a hidden one is clicked from inside the touch handler. Android keeps navigator.vibrate.
 const hap = (() => { const l = document.createElement('label'); l.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none';
   const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.append(i); document.body.append(l); return l; })();
-function buzz(ms=8){ try{ if (navigator.vibrate) navigator.vibrate(ms); else hap.click(); }catch(e){} }
-function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),1600); }
+// Inside «Кіно» (owner 2026-10-24: the remote is a panel that unfolds there): going to Kino folds the panel instead.
+const IN_KINO = window.parent !== window;
+function toKino(h){ if (IN_KINO) parent.postMessage({tinytv: 'kino', hash: h || ''}, location.origin); else location.href = '/kino' + (h || ''); }
+function buzz(){ window.__tick(); }
+// ---- Press feel (owner 2026-10-21: "more haptics everywhere; on/off should feel like you must press harder") ----
+// Every button: squeeze on press, spring back, one haptic tick (never two for one tap).
+// Owner 2026-10-22: no hold on the iPhone, every button acts on a tap (the unused [data-hold] press-and-hold code is gone).
+(() => {
+  const st = document.createElement('style');
+  st.textContent = `button,.chip{transition:transform .32s cubic-bezier(.3,1.7,.45,1),filter .2s}
+  button:active,.chip:active{transform:scale(.93);filter:brightness(1.18);transition-duration:.08s}`;
+  document.head.appendChild(st);
+  let last = 0;
+  const tick = () => { const n = Date.now(); if (n - last < 70) return; last = n;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;   // no tap yet: the browser refuses anyway
+    try { navigator.vibrate ? navigator.vibrate(8) : hap.click(); } catch(e) {} };
+  window.__tick = tick;
+  addEventListener('click', e => { if (e.target.closest('button,.chip,a,[role=button],select,input[type=range]')) tick(); }, true);
+})();
+
+// toast(text) or toast(text, {act:'Повернути', fn, ms}): above every overlay; with an action it stays longer and can be tapped.
+function toast(t, o){ const el=$('toast'); o=o||{}; el.replaceChildren(); const s=document.createElement('span'); s.textContent=t; el.append(s);
+  el.classList.toggle('act', !!o.act);
+  if(o.act){ const b=document.createElement('button'); b.className='ta'; b.textContent=o.act;
+    b.onclick=()=>{ el.classList.remove('show'); clearTimeout(el._t); if(o.fn) o.fn(); }; el.append(b); }
+  el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), o.ms||1600); }
+// Chip: optional signal dot, text in a span (so a long name ends with an ellipsis, never gets cut off).
 function chip(text, onClick, dot){ const b=document.createElement('button'); b.className='chip';
   if(dot!==undefined){ const i=document.createElement('i'); if(dot) i.className='sig'; b.append(i); }
-  b.append(document.createTextNode(text)); b.onclick=onClick; return b; }
+  const s=document.createElement('span'); s.textContent=text; b.append(s); b.onclick=onClick; return b; }
+// Own dialog instead of the system prompt and confirm (English, off-style): dialog({title, text, value, ok, danger}) -> value | true | null.
+function dialog(o){ return new Promise(res => { const d=$('dlg'), inp=$('dI'), ok=$('dOk'), no=$('dX'), ask = o.value!==undefined;
+  $('dT').textContent=o.title; $('dP').textContent=o.text||''; $('dP').style.display=o.text?'':'none';
+  inp.style.display = ask ? '' : 'none'; if(ask) inp.value=o.value;
+  ok.textContent=o.ok||'Гаразд'; ok.classList.toggle('danger', !!o.danger); d.classList.add('show');
+  const done = v => { d.classList.remove('show'); ok.onclick=no.onclick=inp.onkeydown=d.onclick=null; res(v); };
+  ok.onclick = () => done(ask ? inp.value.trim() : true); no.onclick = () => done(null);
+  inp.onkeydown = e => { if(e.key==='Enter') ok.click(); else if(e.key==='Escape') no.click(); };
+  d.onclick = e => { if(e.target===d) done(null); };
+  if(ask) setTimeout(() => { inp.focus(); inp.select(); }, 80); }); }
+const askText = (title, value, ok) => dialog({title, value: value||'', ok: ok||'Зберегти'});
+const confirmSheet = (title, ok, text) => dialog({title, text, ok: ok||'Видалити', danger: true});
 // Swift serializes object keys in random order: compare with sorted keys.
 function norm(v){ return Array.isArray(v) ? v.map(norm) : v && typeof v==='object' ? Object.keys(v).sort().map(k=>[k,norm(v[k])]) : v; }
 function same(a,b){ return JSON.stringify(norm(a))===JSON.stringify(norm(b)); }
 
+// Shortcuts: two columns, at most four cells; with more, three chips and "Усі (N)" (opens the full list).
+function drawShortcuts(list){
+  const box=$('shortcuts'), CAP=4; box.replaceChildren();
+  (list.length>CAP ? list.slice(0,CAP-1) : list).forEach(sc => { const b=chip(sc.name, () => askTarget(sc.url, sc.name)); b.title=sc.name; box.append(b); });
+  if(list.length>CAP){ const b=chip('Усі ('+list.length+')', () => openSheet('links')); b.classList.add('more'); b.dataset.all='1'; box.append(b); }
+}
+// Empty Apps / Inputs sheet: say why, and offer the way out (wake the TV) instead of a bare title.
+function emptyBox(what, connected){ const d=document.createElement('div'); d.className='empty'; const p=document.createElement('p');
+  p.textContent = connected ? what+' ще не завантажились. Зачекайте кілька секунд.' : 'ТВ вимкнений або поза Wi-Fi. '+what+' з’являться, коли він увімкнеться.';
+  d.append(p); if(!connected){ const b=chip('Розбудити ТВ', wake); b.classList.add('on'); d.append(b); } return d; }
 function render(s){
   const prev = S; S = s;
-  const app = $('app');
+  const app = $('app'), off = !!s.offline && !s.connected;
   app.classList.toggle('on', s.connected); app.classList.toggle('connecting', !s.connected && !s.offline);
-  $('sub').textContent = s.connected ? (s.nowPlaying || s.host) : s.offline ? 'Off or asleep · power wakes it' : 'Connecting…';
-  $('power').setAttribute('aria-label', s.connected ? 'Turn the TV off' : 'Wake the TV');
-  $('body').classList.toggle('dim', !s.connected);
+  // Only what needs the TV dims (pad, keys, volume); link field, shortcuts and Kino stay alive. "Підключаюсь…" dims nothing.
+  document.body.classList.toggle('tv-off', off);
+  $('ttl').textContent = s.name || 'Hisense TV';
+  $('sub').textContent = s.connected ? (fileTitle(s.nowPlaying) || 'ТВ на зв’язку') : s.offline ? 'ТВ не в мережі' : 'Підключаюсь…';
+  $('power').setAttribute('aria-label', s.connected ? 'Вимкнути ТВ' : 'Розбудити ТВ');
+  $('padHint').textContent = off ? 'ТВ не в мережі. Свайпи запрацюють, коли він увімкнеться.' : 'Свайп - стрілки · дотик - OK';
+  $('padHint2').textContent = !off && s.cast && s.cast.title ? 'два пальці: ↕ гучність · ↔ перемотка' : '';
   $('glow').style.opacity = s.connected ? 1 : .25;
   const fresh = Date.now() - lastEdit > 1500;
   if(fresh){ $('vol').value = s.volume; $('volv').textContent = s.volume; }
-  if(!same(prev.shortcuts, s.shortcuts) || !$('shortcuts').children.length){
-    const box=$('shortcuts'); box.replaceChildren();
-    s.shortcuts.forEach(sc => { const b=chip(sc.name, () => { post('open',{url:sc.url}); toast('Opening '+sc.name); });
-      let t; b.addEventListener('touchstart',()=>{ t=setTimeout(()=>{ if(confirm('Delete "'+sc.name+'"?')) post('shortcut/delete',{id:sc.id}); },650) },{passive:true});
-      b.insertAdjacentHTML('afterbegin','<svg class="bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>');
-      b.addEventListener('touchend',()=>clearTimeout(t)); box.append(b); });
-    box.append(chip('+', () => { const u=$('link').value.trim(); if(!u){ toast('Paste a link first'); return; }
-      const n=prompt('Shortcut name'); if(n) post('shortcut',{name:n,url:u}); }));
+  if(!same(prev.shortcuts, s.shortcuts) || !$('shortcuts')._drawn){ $('shortcuts')._drawn = true; drawShortcuts(s.shortcuts);
+    $('linksN').textContent = s.shortcuts.length || ''; $('rowLinks').hidden = !s.shortcuts.length; if(window.refreshLinks) window.refreshLinks(); }
+  if(!same(prev.apps, s.apps) || $('apps')._all!==allApps || $('apps')._conn!==s.connected){
+    const box=$('apps'); box.replaceChildren(); box._all=allApps; box._conn=s.connected;
+    if(!s.apps.length) box.append(emptyBox('Додатки', s.connected));
+    else { (allApps ? s.apps : s.apps.slice(0,6)).forEach(a => box.append(chip(a.name, () => { post('launch',{id:a.id}); toast('Відкриваю '+a.name+'…'); })));
+      if(s.apps.length>6){ const m=chip(allApps ? 'Менше' : '+'+(s.apps.length-6), () => { allApps=!allApps; render(S); }); m.dataset.keep='1'; box.append(m); } }
   }
-  if(!same(prev.apps, s.apps) || $('apps')._all!==allApps){
-    const box=$('apps'); box.replaceChildren(); box._all=allApps;
-    (allApps ? s.apps : s.apps.slice(0,6)).forEach(a => box.append(chip(a.name, () => { post('launch',{id:a.id}); toast('Opening '+a.name); })));
-    if(s.apps.length>6) box.append(chip(allApps ? 'Less' : '+'+(s.apps.length-6), () => { allApps=!allApps; render(S); }));
+  if(!same(prev.sources, s.sources) || $('sources')._conn!==s.connected){
+    const box=$('sources'); box.replaceChildren(); box._conn=s.connected;
+    if(!s.sources.length) box.append(emptyBox('Входи', s.connected));
+    else s.sources.forEach(x => box.append(chip(x.name, () => post('source',{id:x.id}), x.signal)));
+    $('srcNote').hidden = !s.sources.some(x => x.signal);
   }
-  $('appsBox').style.display = s.apps.length ? '' : 'none';
-  if(!same(prev.sources, s.sources)){
-    const box=$('sources'); box.replaceChildren();
-    s.sources.forEach(x => box.append(chip(x.name, () => post('source',{id:x.id}), x.signal)));
-  }
-  $('srcBox').style.display = s.sources.length ? '' : 'none';
   const c=s.cast||{status:''}, cb=$('cast');
   cb.classList.toggle('show', !!c.status); cb.classList.toggle('fail', !!c.failed);
-  $('castText').textContent=c.status;
+  document.body.classList.toggle('busy', !!c.status && !c.failed);
+  $('castText').textContent = c.failed ? errText(c.status) : c.status;
   $('castBar').parentElement.style.display = c.progress>=0 ? '' : 'none';
   if(c.progress>=0) $('castBar').style.width=Math.max(2,c.progress*100)+'%';
   if(c.status && !c.failed) fast();
   const now=$('now'); now.classList.toggle('show', !!c.title); now.classList.toggle('playing', !!c.playing);
   const kk=s.kino||{}; const cov=$('nowCover'); cov.style.display = kk.poster ? '' : 'none'; if (kk.poster && cov.src!==kk.poster) cov.src=kk.poster;
-  $('nowTitle').textContent=(kk.title ? kk.title + (kk.season ? ` · S${kk.season}E${kk.episode}` : '') : c.title)||'';
+  $('nowTitle').textContent=(kk.title ? kk.title + (kk.season ? ` · S${kk.season}E${kk.episode}` : '') : fileTitle(c.title))||'';
   $('nowPP').classList.toggle('playing', !!c.playing);
   $('nowPP').innerHTML = c.playing ? '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>';
   now.classList.toggle('live', !(c.duration>0));
-  { const tl = torLine(c.torrent); $('torInfo').textContent = tl; $('torInfo').classList.toggle('slow', !!tl && (!(c.torrent.down >= c.torrent.rate) || !!c.torrent.hold)); }
+  { const tl = torLine(c.torrent, c), te = $('torInfo'); te.textContent = tl ? tl.text : ''; te._tip = tl ? tl.tip : '';
+    if(!tl) $('torTip').hidden = true; else if(!$('torTip').hidden) $('torTip').textContent = te._tip;
+    te.setAttribute('aria-expanded', String(!$('torTip').hidden)); ['green', 'amber', 'red'].forEach(k => te.classList.toggle(k, !!tl && tl.lvl === k)); }
   for (const [id, has] of [['prevEp', kk.hasPrev], ['nextEp', kk.hasNext]]) { $(id).classList.toggle('on', !!kk.season); $(id).disabled = !has; }
   if(!seeking){ $('nowSeek').max=Math.max(1,Math.round(c.duration||0)); $('nowSeek').value=Math.round(c.position||0); $('nowPos').textContent=clock(c.position||0); }
-  $('nowDur').textContent = c.duration>0 ? clock(c.duration) : 'live';
+  $('nowDur').textContent = c.duration>0 ? clock(c.duration) : 'наживо';
   const au=$('audio'), tr=c.tracks||[];
   au.classList.toggle('show', tr.length>1);
-  if(!same(au._tr, tr)){ au._tr=tr; au.replaceChildren(...tr.map(t=>{ const o=document.createElement('option'); o.value=t.i; o.textContent='🔊 '+t.label; return o; })); }
+  if(!same(au._tr, tr)){ au._tr=tr; au.replaceChildren(...tr.map(t=>{ const o=document.createElement('option'); o.value=t.i; o.textContent='Звук · '+t.label; return o; })); }
   if(document.activeElement!==au) au.value=c.track;
   $('scrMac').classList.toggle('on', c.screen==='mac'); $('scrCore').classList.toggle('on', c.screen==='core');
   $('scrExt').classList.toggle('on', c.screen==='mac-extend'); $('scrAudio').classList.toggle('on', c.screen==='mac-audio');
-  if(c.screenPreset && document.activeElement!==$('scrPreset')) $('scrPreset').value=c.screenPreset;
-  $('scrLive').textContent = c.screen ? (c.screenLatency>0 ? 'live · '+c.screenLatency.toFixed(1)+' s delay' : 'live') : '';
+  if(c.screenPreset && Date.now()-pEdit>1500) $('scrPreset').value=c.screenPreset;
+  $('scrLive').textContent = c.screen ? 'Йде показ' + (c.screenLatency>0 ? ' · затримка '+c.screenLatency.toFixed(1).replace('.', ',')+' с' : '') : '';
   if(s.movie && document.activeElement!==$('movie')) $('movie').checked = !!s.movie.on;
-  const v=c.video; if(v){ const busy=['vmode','vheight','vhdr','vmbps'].includes(document.activeElement?.id);
+  const v=c.video; if(v){ const busy=document.activeElement?.id==='vmbps';
     if(!busy && Date.now()-vEdit>1500){ $('vmode').value=v.mode; $('vheight').value=v.height; $('vhdr').value=v.hdr?1:0; $('vmbps').value=v.mbps; }
-    $('vmbv').textContent=Math.round(v.mbps)+' Mbit/s';
+    $('vmbv').textContent=Math.round(v.mbps)+' Мбіт/с';
     renderSound(c.sound);
-    $('vsum').textContent = v.mode==='original' ? 'Original' : (v.height===2160?'4K':v.height+'p')+' · '+(v.hdr?'HDR':'SDR')+' · '+Math.round(v.mbps)+' Mb'; }
+    $('vsum').textContent = v.mode==='original' ? 'Оригінал' : (v.height===2160?'4K':v.height+'p')+' · '+(v.hdr?'HDR':'SDR')+' · '+Math.round(v.mbps)+' Мбіт/с'; }
 }
 
-$('scrMac').onclick=()=>{ post('screen',{from:'mac'}); toast('Mac screen → TV'); };
-$('scrCore').onclick=()=>{ post('screen',{from:'core'}); toast('Core screen → TV'); };
-$('scrExt').onclick=()=>{ post('screen',{from:'mac-extend'}); toast('TV as a second Mac display'); };
-$('scrAudio').onclick=()=>{ post('screen',{from:'mac-audio'}); toast('Mac audio → TV'); };
-$('scrPreset').onchange=e=>post('screen/preset',{id:e.target.value});
+// Segmented control (replaces a bare <select> that looked like static text): el.value reads / sets the chosen data-v.
+function seg(id, onpick, onset){ const el=$(id);
+  Object.defineProperty(el, 'value', { get(){ const b=el.querySelector('button.on'); return b ? b.dataset.v : ''; },
+    set(v){ v=String(v); el.querySelectorAll('button').forEach(b => { const on=b.dataset.v===v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); if(onset) onset(v); } });
+  el.addEventListener('click', e => { const b=e.target.closest('button'); if(!b) return; el.value=b.dataset.v; if(onpick) onpick(b.dataset.v); }); }
+$('scrMac').onclick=()=>{ post('screen',{from:'mac'}); toast('Екран Mac на ТВ'); };
+$('scrCore').onclick=()=>{ post('screen',{from:'core'}); toast('Екран tinyTV Core на ТВ'); };
+$('scrExt').onclick=()=>{ post('screen',{from:'mac-extend'}); toast('ТВ як другий екран Mac'); };
+$('scrAudio').onclick=()=>{ post('screen',{from:'mac-audio'}); toast('Звук Mac на ТВ'); };
+const PRESET_NOTE = {fast:'720p · найменша затримка', balanced:'1080p', quality:'4K HEVC · більша затримка'};
+let pEdit=0;
+seg('scrPreset', v => { pEdit=Date.now(); post('screen/preset',{id:v}); }, v => { $('scrNote').textContent = PRESET_NOTE[v] || ''; });
 $('movie').onchange=e=>post('movie',{on:e.target.checked});
 function clock(t){ t=Math.max(0,Math.round(t)); const h=Math.floor(t/3600), m=Math.floor(t/60)%60, s=t%60;
   return (h? h+':'+String(m).padStart(2,'0') : m)+':'+String(s).padStart(2,'0'); }
 let seeking=false;
 let vEdit=0;
 const vs=()=>{ vEdit=Date.now(); api('settings',{mode:$('vmode').value, height:+$('vheight').value, hdr:$('vhdr').value==='1', mbps:+$('vmbps').value}); };
-['vmode','vheight','vhdr'].forEach(id=>$(id).onchange=vs); $('vmbps').onchange=vs; $('vmbps').oninput=e=>{ vEdit=Date.now(); $('vmbv').textContent=e.target.value+' Mbit/s'; };
-$('audio').onchange=e=>{ post('cast/audio',{i:+e.target.value}); toast('Switching audio…'); };
-$('nowPP').onclick=()=>post('cast/pause'); $('nowStop').onclick=()=>post('cast/stop');
+const VM_NOTE = {auto:'Перекодувати лише важкі файли', original:'Без перекодування', encode:'Завжди перекодувати'};
+seg('vmode', vs, v => { $('vmNote').textContent = VM_NOTE[v] || ''; }); seg('vheight', vs); seg('vhdr', vs);
+$('vmbps').onchange=vs; $('vmbps').oninput=e=>{ vEdit=Date.now(); $('vmbv').textContent=e.target.value+' Мбіт/с'; };
+$('audio').onchange=e=>{ post('cast/audio',{i:+e.target.value}); toast('Міняю звукову доріжку…'); };
+// Buffer line: a tap opens the detail (a title="" tooltip never shows on a touch screen).
+$('torInfo').onclick=()=>{ const t=$('torTip'); t.hidden=!t.hidden; t.textContent=$('torInfo')._tip||''; $('torInfo').setAttribute('aria-expanded', String(!t.hidden)); };
+$('nowPP').onclick=()=>post('cast/pause'); $('castX').onclick=()=>{ post('cast/stop'); document.body.classList.remove('busy'); };
+// Stop: one tap, but with a way back - the film, the second and the link are kept for 6 s ("Повернути").
+$('nowStop').onclick=()=>{ const c=S.cast||{}, k=S.kino||{};
+  const snap={ pos:Math.max(0, Math.round(c.position||0)), link:c.link||'',
+    kino:(k.id && k.translator) ? {id:k.id, url:k.url, title:k.title, poster:k.poster, season:k.season, episode:k.episode, quality:k.quality, translator:k.translator, translatorName:k.translatorName} : null };
+  post('cast/stop'); toast('Зупинено', {act:'Повернути', ms:6000, fn:()=>undoStop(snap)}); };
+function undoStop(sn){
+  if(sn.kino) return post('kino/play', Object.assign({}, sn.kino, {from: sn.pos}));
+  if(sn.link) return post('open', {url: sn.link, from: sn.pos});
+  toast('Не вдалося повернути');
+}
 $('prevEp').onclick=()=>post('kino/step',{dir:-1}); $('nextEp').onclick=()=>post('kino/step',{dir:1});
 $('back10').onclick=()=>post('cast/seek',{t:(S.cast?.position||0)-10}); $('fwd30').onclick=()=>post('cast/seek',{t:(S.cast?.position||0)+30});
 $('nowSeek').oninput=e=>{ seeking=true; $('nowPos').textContent=clock(+e.target.value); };
 $('nowSeek').onchange=e=>{ post('cast/seek',{t:+e.target.value}); setTimeout(()=>seeking=false,1500); };
-$('movies').ontoggle=async()=>{ if(!$('movies').open) return;
-  try{ const list=await (await fetch('/api/files')).json(); const box=$('files'); box.replaceChildren();
-    if(!list.length) box.textContent='No videos in Movies or Downloads';
-    list.forEach(f=>{ const b=document.createElement('button'); b.className='file';
-      b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=f.name; b.lastChild.textContent=f.mb>=1000?(f.mb/1000).toFixed(1)+' GB':f.mb+' MB';
-      b.onclick=()=>{ post('cast/file',{path:f.path}); toast('Sending to TV'); }; box.append(b); });
-  }catch(e){ toast('Mac unreachable'); } };
-$('power').onclick = () => { post('power'); toast(S.connected ? 'Power' : 'Waking the TV…'); };
+// "Movies on tinyTV Core" moved to Kino -> Медіа: there a file also offers "Тут" and the paired screens, not only the TV.
+// Power / wake: one function for the header button, the offline card and the empty Apps / Inputs sheets.
+function wake(){ post('power'); toast(S.connected ? 'Вимикаю ТВ…' : 'Вмикаю ТВ…'); }
+$('power').onclick = wake; $('wake').onclick = wake; $('here').onclick = () => toKino('');
 document.querySelectorAll('[data-key]').forEach(b => b.onclick = () => key(b.dataset.key));
+// A link always asks where to watch it (TV, this phone, a paired screen); the TV path is sendTv().
+const isMagnet = u => /^magnet:/i.test(u);
+const fullUrl = u => /^\w+:/.test(u) ? u : 'https://' + u;
+function hostOf(u){ if(isMagnet(u)){ const m=u.match(/dn=([^&]+)/); try{ return m ? decodeURIComponent(m[1].replace(/\+/g,' ')) : 'magnet'; }catch(e){ return 'magnet'; } }
+  try{ return new URL(fullUrl(u)).hostname.replace(/^www\./,''); }catch(e){ return u; } }
+function sendTv(u, name){ post('open',{url:u}); toast('Відкриваю '+(name || hostOf(u))+'…'); const s=$('send'); s.classList.add('ok'); setTimeout(()=>s.classList.remove('ok'),1200); fast(); }
 $('send').onclick = async () => {
   let u=$('link').value.trim();
-  if(!u && navigator.clipboard?.readText){ try{ u=(await navigator.clipboard.readText()).trim(); $('link').value=u; }catch(e){} }
-  if(!u){ toast('Paste a link first'); return; }
-  post('open',{url:u}); const s=$('send'); s.classList.add('ok'); setTimeout(()=>s.classList.remove('ok'),1200); fast();
+  if(!u && navigator.clipboard?.readText){ try{ u=(await navigator.clipboard.readText()).trim(); $('link').value=u; $('link').dispatchEvent(new Event('input')); }catch(e){} }
+  if(!u){ toast('Спершу вставте посилання'); return; }
+  askTarget(u);
 };
+$('link').oninput = () => $('linkPill').classList.toggle('has', !!$('link').value.trim());
 $('link').onkeydown = e => { if(e.key==='Enter') $('send').click(); };
-$('type').onkeydown = e => { if(e.key==='Enter' && e.target.value){ post('type',{text:e.target.value}); e.target.value=''; toast('Sent'); } };
-// −/+ next to the slider: one step each tap (owner).
+$('saveLink').onclick = async () => { const u=$('link').value.trim(); if(!u) return;
+  const n=await askText('Назва посилання', hostOf(u)); if(n){ post('shortcut',{name:n,url:u}); toast('Збережено'); } };
+$('type').onkeydown = e => { if(e.key==='Enter' && e.target.value){ post('type',{text:e.target.value}); e.target.value=''; toast('Надіслано'); } };
+// Minus / plus next to the slider: one step each tap (owner).
 const volStep = d => { const v=Math.max(0,Math.min(100,+$('vol').value+d)); $('vol').value=v; $('volv').textContent=v; lastEdit=Date.now(); buzz(); api('volume',{v}); };
 $('volDn').onclick=()=>volStep(-2); $('volUp').onclick=()=>volStep(2);
 let vt, vtick=-1; $('vol').addEventListener('pointerdown',()=>buzz()); $('vol').addEventListener('change',()=>buzz());
 $('vol').oninput = e => { lastEdit=Date.now(); $('volv').textContent=e.target.value; const t=Math.floor(e.target.value/5); if(t!==vtick){ vtick=t; buzz(); } clearTimeout(vt); vt=setTimeout(()=>api('volume',{v:+e.target.value}),80); };
 
-// Trackpad: swipe -> arrow keys (one per STEP px, repeats while you keep moving), tap -> OK, hold -> Back.
+// Trackpad: swipe -> arrow keys (one per STEP px, repeats while you keep moving), tap -> OK.
+// No hold-for-Back (a resting finger left the film by accident); Back and OK are buttons in the key row.
 const pad=$('pad'), blob=$('blob'), arrow=$('arrow'), STEP=34;
 // Owner: while a video plays, two fingers on the pad: up / down = volume, left / right = seek (a long, fast swipe jumps further).
 let two=null;
@@ -407,7 +642,7 @@ const mid=ts=>({x:(ts[0].clientX+ts[1].clientX)/2, y:(ts[0].clientY+ts[1].client
 const swipeSecs=()=>{ const b=Math.abs(two.dx)/40*10*(two.peak>18?3:1); return Math.sign(two.dx)*Math.min(600,Math.round(b/5)*5); };
 pad.addEventListener('touchstart', e=>{
   if(e.touches.length!==2 || !(S && S.cast && S.cast.title)) return;
-  clearTimeout(hold); moved=true; pad.classList.remove('live');
+  moved=true; pad.classList.remove('live');
   const m=mid(e.touches); two={x:m.x, y:m.y, lx:m.x, vol:+$('vol').value, axis:0, dx:0, peak:0, tick:-1};
 }, {passive:true});
 pad.addEventListener('touchmove', e=>{
@@ -417,7 +652,7 @@ pad.addEventListener('touchmove', e=>{
   if(two.axis===2){ const v=Math.max(0,Math.min(100,Math.round(two.vol-dy/10)));
     if(+$('vol').value!==v){ $('vol').value=v; $('volv').textContent=v; lastEdit=Date.now(); api('volume',{v}); const t=Math.floor(v/5); if(t!==two.tick){ two.tick=t; buzz(); } } hud('Гучність '+v); }
   else if(two.axis===1){ two.peak=Math.max(two.peak,Math.abs(m.x-two.lx)); two.lx=m.x; two.dx=dx; const s=swipeSecs();
-    hud((s<0?'−':'+')+(Math.abs(s)>=60?Math.floor(Math.abs(s)/60)+':'+String(Math.abs(s)%60).padStart(2,'0'):Math.abs(s)+' с')); }
+    hud((s<0?'-':'+')+(Math.abs(s)>=60?Math.floor(Math.abs(s)/60)+':'+String(Math.abs(s)%60).padStart(2,'0'):Math.abs(s)+' с')); }
 }, {passive:true});
 pad.addEventListener('touchend', e=>{
   if(!two || e.touches.length) return;
@@ -425,26 +660,26 @@ pad.addEventListener('touchend', e=>{
   two=null;
 }, {passive:true});
 const PATHS={KEY_RIGHT:'m9 6 6 6-6 6',KEY_LEFT:'m15 6-6 6 6 6',KEY_UP:'m6 15 6-6 6 6',KEY_DOWN:'m6 9 6 6 6-6',KEY_OK:'M12 12h.01',KEY_RETURNS:'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11'};
-let sx, sy, ax, ay, moved, hold, start;
+let sx, sy, ax, ay, moved, start;
 function flash(k){ $('arrowSvg').innerHTML='<path d="'+PATHS[k]+'"/>'; arrow.classList.remove('flash'); void arrow.offsetWidth; arrow.classList.add('flash'); }
 function send(k){ key(k); flash(k); }
 pad.addEventListener('pointerdown', e => {
   pad.setPointerCapture(e.pointerId); pad.classList.add('live');
   const r=pad.getBoundingClientRect(); sx=ax=e.clientX; sy=ay=e.clientY; moved=false; start=Date.now();
   blob.style.left=(e.clientX-r.left)+'px'; blob.style.top=(e.clientY-r.top)+'px';
-  hold=setTimeout(()=>{ if(!moved){ send('KEY_RETURNS'); buzz(20); moved=true; } },550);
 });
 pad.addEventListener('pointermove', e => {
   if(two || !pad.classList.contains('live')) return;
   const r=pad.getBoundingClientRect(); blob.style.left=(e.clientX-r.left)+'px'; blob.style.top=(e.clientY-r.top)+'px';
   const dx=e.clientX-ax, dy=e.clientY-ay;
   if(Math.abs(dx)<STEP && Math.abs(dy)<STEP) return;
-  moved=true; clearTimeout(hold);
+  moved=true;
   if(Math.abs(dx)>Math.abs(dy)){ send(dx>0?'KEY_RIGHT':'KEY_LEFT'); ax+=Math.sign(dx)*STEP; ay=e.clientY; }
   else { send(dy>0?'KEY_DOWN':'KEY_UP'); ay+=Math.sign(dy)*STEP; ax=e.clientX; }
 });
-function end(){ clearTimeout(hold); if(two) return; if(pad.classList.contains('live') && !moved && Date.now()-start<550) send('KEY_OK'); pad.classList.remove('live'); }
-pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', () => { clearTimeout(hold); pad.classList.remove('live'); });
+// A tap is OK; a finger that rests longer than 0.8 s without moving does nothing.
+function end(){ if(two) return; if(pad.classList.contains('live') && !moved && Date.now()-start<800) send('KEY_OK'); pad.classList.remove('live'); }
+pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', () => { pad.classList.remove('live'); });
 
 // Live state while the page is visible.
 let timer, fastT;
@@ -456,62 +691,122 @@ document.addEventListener('visibilitychange', loop); loop();
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const typePill = $('type').closest('.pill');
-  const cursorKey = document.querySelector('[data-key="KEY_LEFTMOUSEKEYS"]');
-  const cursorRow = document.createElement('div'); cursorRow.className = 'chips';
-  const cursorChip = document.createElement('button'); cursorChip.className = 'chip'; cursorChip.textContent = '🖱 TV cursor on / off';
-  cursorChip.onclick = () => cursorKey.click(); cursorRow.append(cursorChip);
-  // Keyboard takes the cursor key's slot on the main screen: typing is common, the TV cursor is rare.
-  const kb = document.createElement('button'); kb.setAttribute('aria-label', 'Keyboard');
-  kb.innerHTML = '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>';
-  cursorKey.replaceWith(kb); $('store').append(cursorKey);
-  // TV page (low-latency player in TV Browser, see LowLatency.swift on the core).
-  const tvPage = document.createElement('div'); tvPage.className = 'tvpage';
-  tvPage.innerHTML = '<div class="label"><span>TV page · low delay</span><span id="tpState">…</span></div>'
-    + '<div class="chips"><button class="chip" id="tpScreen">Screen, low delay</button><button class="chip" id="tpIdle">Stop on TV</button></div>'
-    + '<div class="pill" style="margin-top:8px"><input id="tpUrl" placeholder="https:// link to open on the TV page" autocomplete="off" inputmode="url">'
-    + '<button class="send" id="tpOpen" aria-label="Open on TV page"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button></div>';
-  $('store').append(tvPage);
-  let tpOpen = false;
-  async function tpPoll(){ try{ const j = await (await fetch('/api/page')).json(); tpOpen = !!j.open; }catch(e){ tpOpen = false; }
-    $('tpState').textContent = tpOpen ? '● open' : 'closed: open http://'+location.hostname+':8895 in TV Browser';
+  // ---- TV page (low-latency player in TV Browser, see LowLatency.swift on the core): a rare setup, folded away ----
+  const tvPage = document.createElement('details'); tvPage.className = 'tvpage';
+  tvPage.innerHTML = '<summary>Для досвідчених: сторінка з малою затримкою</summary><div class="rows">'
+    + '<div class="label"><span>Сторінка на ТВ</span><span id="tpState">…</span></div>'
+    + '<p class="note" id="tpHelp" hidden></p><div class="chips"><button class="chip" id="tpCopy" hidden>Скопіювати адресу</button></div>'
+    + '<div class="chips"><button class="chip" id="tpScreen">Екран, мала затримка</button><button class="chip" id="tpIdle">Зупинити сторінку</button></div>'
+    + '<div class="pill"><input id="tpUrl" placeholder="Посилання для сторінки ТВ" aria-label="Посилання для сторінки ТВ" autocomplete="off" inputmode="url">'
+    + '<button class="send" id="tpOpen" aria-label="Відкрити на сторінці ТВ"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button></div></div>';
+  $('scrSec').append(tvPage);
+  let tpOpen = false, tpAddr = '';
+  // The TV browser needs the address of this page server: it comes from the core (`addr` of /api/page). Without it a LAN address
+  // of this very page is used (same machine, port 8895); with neither, no address is shown - never a fixed one.
+  const lanAddr = () => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname) ? 'http://' + location.hostname + ':8895' : '';
+  async function tpPoll(){ let j = {};
+    try{ j = await (await fetch('/api/page')).json(); tpOpen = !!j.open; }catch(e){ tpOpen = false; }
+    tpAddr = String(j.addr || lanAddr() || '');
+    $('tpState').textContent = tpOpen ? 'відкрита' : 'не відкрита';
     $('tpState').style.color = tpOpen ? 'var(--green)' : 'var(--mute)';
-    ['tpScreen','tpOpen'].forEach(id => $(id).style.opacity = tpOpen ? 1 : .4); }
+    $('tpHelp').hidden = tpOpen; $('tpHelp').textContent = 'Відкрийте закладку tinyTV у браузері ТВ.' + (tpAddr ? ' Адреса: ' + tpAddr : '');
+    $('tpCopy').hidden = tpOpen || !tpAddr;
+    ['tpScreen','tpOpen','tpIdle'].forEach(id => { $(id).style.opacity = tpOpen ? 1 : .4; $(id).setAttribute('aria-disabled', tpOpen ? 'false' : 'true'); }); }
   setInterval(() => { if (document.visibilityState === 'visible') tpPoll(); }, 3000); tpPoll();
   const tpPost = (cmd, body) => fetch('/api/' + cmd, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {})});
-  $('tpScreen').onclick = () => tpOpen ? tpPost('page/screen') : null;
-  $('tpIdle').onclick = () => tpPost('page/idle');
-  $('tpOpen').onclick = () => { const u = $('tpUrl').value.trim(); if (tpOpen && /^https?:\/\//.test(u)) tpPost('page/open', {url: u}); };
-  const verEl = document.createElement('div'); verEl.id = 'ver'; verEl.style.cssText = 'font-size:11px;color:var(--mute);text-align:center';
-  $('store').append(verEl);
+  // A blocked button says why instead of staying silent.
+  const tpNeed = f => () => { if (!tpOpen) return toast('Сторінка на ТВ не відкрита'); f(); };
+  $('tpScreen').onclick = tpNeed(() => tpPost('page/screen'));
+  $('tpIdle').onclick = tpNeed(() => { tpPost('page/idle'); toast('Сторінку зупинено'); });
+  $('tpOpen').onclick = tpNeed(() => { const u = $('tpUrl').value.trim(); if (!/^https?:\/\//.test(u)) return toast('Потрібне посилання, що починається з https://'); tpPost('page/open', {url: u}); });
+  async function copyText(t){ try { await navigator.clipboard.writeText(t); return true; } catch(e) {}
+    try { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0'; document.body.append(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch(e) { return false; } }
+  $('tpCopy').onclick = async () => toast(await copyText(tpAddr) ? 'Адресу скопійовано' : 'Не вдалося скопіювати');
+  // ---- Sheets: content waits in #store while its sheet is closed ----
   const groups = {
-    apps: ['Apps', [$('appsBox')]],
-    inputs: ['Inputs', [$('srcBox')]],
-    screen: ['Screen to TV', [$('screenBox').parentElement, tvPage]],
-    more: ['More', [typePill, $('movies'), $('vset'), $('sset'), $('movie').closest('label'), $('npOn').closest('label'), cursorRow, verEl]],
+    apps: ['Додатки', [$('appsBox')]],
+    inputs: ['Входи', [$('srcBox')]],
+    screen: ['Показ екрана на ТВ', [$('scrSec')]],
+    more: ['Ще', [$('secInput'), $('secLinks'), $('secAv'), $('secSearch'), $('secPhone')]],
+    to: ['Де дивитись', [$('toBox')]],
+    links: ['Посилання', [$('linksBox')]],
   };
-  Object.values(groups).forEach(([, els]) => els.forEach(e => e && $('store').append(e)));
   let current = null;
+  const toStore = () => [...$('sheetBody').children].forEach(e => $('store').append(e));
   function close(){ $('sheet').classList.remove('open'); $('scrim').classList.remove('open');
-    setTimeout(() => { if (!$('sheet').classList.contains('open')) { [...$('sheetBody').children].forEach(e => $('store').append(e)); current = null; } }, 420); }
+    setTimeout(() => { if (!$('sheet').classList.contains('open')) { toStore(); current = null; } }, 420); }
   function open(name, focus){
     if (current === name) return close();
-    [...$('sheetBody').children].forEach(e => $('store').append(e));
+    toStore();
     const [title, els] = groups[name]; current = name;
     $('sheetTitle').textContent = title; els.forEach(e => e && $('sheetBody').append(e));
-    if (name === 'more') $('vset').open = true;
+    $('sheetFoot').hidden = name !== 'more'; $('sheetBody').scrollTop = 0;
+    if (name === 'links') { editing = false; fillLinks(); }
+    // Owner 2026-10-24: play/pause and volume stay reachable under every sheet - the sheet ends above the key row.
+    { const kb = document.querySelector('.keys'); if (kb) { const top = kb.getBoundingClientRect().top, b = Math.max(0, innerHeight - top + 6);
+      $('sheet').style.bottom = $('scrim').style.bottom = b + 'px'; $('sheet').style.maxHeight = Math.max(240, top - 40) + 'px'; $('sheet').style.borderRadius = '22px'; } }
     $('sheet').classList.add('open'); $('scrim').classList.add('open');
     if (focus) setTimeout(() => focus.focus(), 350);
   }
+  window.openSheet = name => { if (current !== name) open(name); };
   document.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => open(b.dataset.sheet));
-  kb.onclick = () => open('more', $('type'));
+  $('kb').onclick = () => open('more', $('type'));
+  $('rowLinks').onclick = () => open('links');
+  $('rowMedia').onclick = () => toKino('#/m');
   $('scrim').onclick = close;
-  // Swipe the sheet down to close it.
+  // Swipe the sheet down to close it (not while a slider is being dragged).
   let y0 = null;
-  $('sheet').addEventListener('touchstart', e => { y0 = $('sheet').scrollTop <= 0 ? e.touches[0].clientY : null; }, {passive: true});
+  $('sheet').addEventListener('touchstart', e => { y0 = $('sheetBody').scrollTop <= 0 && !e.target.closest('input[type=range]') ? e.touches[0].clientY : null; }, {passive: true});
   $('sheet').addEventListener('touchmove', e => { if (y0 !== null && e.touches[0].clientY - y0 > 70) { y0 = null; close(); } }, {passive: true});
-  // Launching an app or switching input closes its sheet.
-  ['apps', 'sources'].forEach(id => $(id).addEventListener('click', e => { if (e.target.closest('.chip')) setTimeout(close, 250); }));
+  // Launching an app or switching input closes its sheet (not the "+N" expander, not the "wake" button of an empty list).
+  ['apps', 'sources'].forEach(id => $(id).addEventListener('click', e => { if (e.target.closest('.chip:not([data-keep])') && !e.target.closest('.empty')) setTimeout(close, 250); }));
+
+  // ---- Where to watch a link: the TV, this phone (through Kino) or a paired screen ----
+  const ic = {
+    tv: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+    phone: '<svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18.5h2"/></svg>',
+    screen: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="10" rx="2"/></svg>',
+    link: '<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 7V4.5h4V7M6.5 7l.8 12.5h9.4L17.5 7"/></svg>',
+  };
+  function trow(icon, name, sub, off, onTap){ const b = document.createElement('button'); b.className = 'trow';
+    b.innerHTML = icon + '<span class="tn"><span></span><small></small></span>';
+    b.querySelector('.tn > span').textContent = name; const sm = b.querySelector('small'); if (sub) sm.textContent = sub; else sm.remove();
+    if (off) b.setAttribute('aria-disabled', 'true'); else b.onclick = onTap; return b; }
+  async function loadScreens(){ try { const c = new AbortController(), t = setTimeout(() => c.abort(), 4000);
+      const r = await fetch('/api/kino/screens', {signal: c.signal}); clearTimeout(t); const j = await r.json(); return (j && j.screens) || []; } catch(e) { return []; } }
+  let tgt = null;
+  async function toScreen(x, u){ toast('Готую потік для екрана…');
+    const j = await api('kino/screens/send', Object.assign({id: x.id}, isMagnet(u) ? {magnet: u} : {page: fullUrl(u)}));
+    if (j) toast('Грає на «' + x.name + '»'); }
+  function fillTargets(){
+    const u = tgt.url, name = tgt.name, tvOff = !!(S && S.offline && !S.connected);
+    $('toSub').textContent = hostOf(u) + (name ? ' · ' + name : '');
+    // "Тут" opens Kino on this link (Kino then offers the player on the phone); available targets first, unavailable ones grey at the end.
+    const draw = screens => { const list = [
+        {n: (S && S.name) || 'Hisense TV', sub: tvOff ? 'не в мережі' : '', off: tvOff, ic: ic.tv, go: () => sendTv(u, name)},
+        {n: 'Тут, на телефоні', sub: '', off: false, ic: ic.phone, go: () => toKino('#/f/' + encodeURIComponent(fullUrl(u))) }]
+        .concat(screens.map(x => ({n: x.name, sub: x.online ? '' : 'не в мережі', off: !x.online, ic: ic.screen, go: () => toScreen(x, u)})));
+      list.sort((a, b) => a.off - b.off);
+      $('toRows').replaceChildren(...list.map(t => trow(t.ic, t.n, t.sub, t.off, () => { close(); t.go(); }))); };
+    draw([]);
+    loadScreens().then(sc => { if (tgt && tgt.url === u && current === 'to' && sc.length) draw(sc); });
+  }
+  window.askTarget = (url, name) => { tgt = {url, name}; if (current !== 'to') open('to'); fillTargets(); };
+
+  // ---- Saved links: all of them, and the "Змінити" mode that replaces the hidden long-press delete ----
+  let editing = false;
+  function fillLinks(){
+    const sh = (S && S.shortcuts) || [], rows = $('linksRows'); rows.replaceChildren();
+    $('linksBox').classList.toggle('editing', editing); $('linksEdit').textContent = editing ? 'Готово' : 'Змінити'; $('linksEdit').hidden = !sh.length;
+    $('linksNote').textContent = !sh.length ? 'Збережених посилань немає. Вставте посилання вгорі й натисніть «Зберегти».' : editing ? 'Натисніть кошик, щоб видалити.' : 'Натисніть, щоб вибрати, де дивитись.';
+    sh.forEach(sc => { const row = document.createElement('div'); row.className = 'lrow';
+      const d = document.createElement('button'); d.className = 'del'; d.setAttribute('aria-label', 'Видалити «' + sc.name + '»'); d.innerHTML = ic.trash;
+      d.onclick = async () => { if (await confirmSheet('Видалити «' + sc.name + '»?', 'Видалити')) { post('shortcut/delete', {id: sc.id}); toast('Видалено'); } };
+      row.append(trow(ic.link, sc.name, hostOf(sc.url), false, () => askTarget(sc.url, sc.name)), d); rows.append(row); });
+  }
+  window.refreshLinks = () => { if (current === 'links') fillLinks(); };
+  $('linksEdit').onclick = () => { editing = !editing; fillLinks(); };
 })();
 </script>
 <script src="/np.js"></script>
@@ -531,7 +826,7 @@ document.addEventListener('visibilitychange', loop); loop();
 })();
 </script>
 <script>
-// iOS: no auto-zoom on focus (maximum-scale), and when the keyboard closes put the page back where it was,
+// iOS: no auto-zoom on focus (every field is 16 px; the viewport scale is pinned for haptics), and when the keyboard closes put the page back where it was,
 // otherwise a standalone app keeps the shift (top cut off, empty strip at the bottom).
 document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) window.scrollTo(0, 0); }, 120));
 </script>

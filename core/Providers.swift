@@ -10,8 +10,13 @@ enum Providers {
     static var torrentSearch: ((String, String) async -> [[String: Any]])?
     /// Tracker topic id -> magnet, for indexes that list a page instead of a magnet.
     static var magnetLookup: ((String) async -> String?)?
+    /// Free-text search (music, series, software) across the indexes, no film-name filter.
+    static var anySearch: ((String) async -> [[String: Any]])?
     /// One cheap index for the background "can this be watched" check in Discover (rate-limited by the core).
-    static var availabilityIndex: ((String, String) async -> [[String: Any]])?
+    /// Returns rows, or an error dictionary = "refused, try later" (not "no torrents").
+    static var availabilityIndex: ((String, String) async -> Any)?
+    /// Second index by the original title, when the first one has nothing.
+    static var availabilityFallback: ((String) async -> [[String: Any]])?
 
     static var enabled: [String] {
         var e: [String] = []
@@ -39,7 +44,11 @@ enum Providers {
 
     static func magnet(topic: String) async -> String? { await magnetLookup?(topic) }
 
-    static func availability(title: String, original: String) async -> [[String: Any]] {
-        await availabilityIndex?(title, original) ?? []
+    static func searchAny(_ q: String) async -> [[String: Any]] { await anySearch?(q) ?? [] }
+
+    static func availability(title: String, original: String) async -> Any {
+        await availabilityIndex?(title, original) ?? [[String: Any]]()
     }
+
+    static func availabilityByOriginal(_ original: String) async -> [[String: Any]] { await availabilityFallback?(original) ?? [] }
 }

@@ -27,11 +27,11 @@ final class Rezka: NSObject, WKNavigationDelegate {
         w.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
         w.navigationDelegate = self
         web = w
-        guard let u = URL(string: link) else { return finish(.failure(Failure(errorDescription: "Bad link"))) }
+        guard let u = URL(string: link) else { return finish(.failure(Failure(errorDescription: "Погане посилання"))) }
         w.load(URLRequest(url: u))
         // Give up after 2 minutes (e.g. the check was never passed).
         DispatchQueue.main.asyncAfter(deadline: .now() + 120) { [weak self] in
-            if self?.done != nil { self?.finish(.failure(Failure(errorDescription: "HDRezka didn't load"))) }
+            if self?.done != nil { self?.finish(.failure(Failure(errorDescription: "HDRezka не завантажилась"))) }
         }
     }
 
@@ -66,12 +66,12 @@ final class Rezka: NSObject, WKNavigationDelegate {
         do {
             let r = try await w.callAsyncJavaScript(js, contentWorld: .page) as? [String: Any]
             guard let raw = r?["streams"] as? String, let best = Rezka.best(Rezka.decode(raw)) else {
-                return finish(.failure(Failure(errorDescription: "No stream on that HDRezka page")))
+                return finish(.failure(Failure(errorDescription: "На цій сторінці HDRezka немає відео")))
             }
             finish(.success((best, r?["title"] as? String ?? "HDRezka")))
         } catch {
             NSLog("tinyTV rezka script error: %@ | title: %@", String(describing: error), w.title ?? "")
-            finish(.failure(Failure(errorDescription: "HDRezka page script failed")))
+            finish(.failure(Failure(errorDescription: "Сторінка HDRezka не спрацювала")))
         }
     }
 

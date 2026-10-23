@@ -1,14 +1,15 @@
 // Optional provider: HDRezka catalog for "Кіно" (search, title pages, voiceovers, seasons, episodes, qualities).
-// OFF by default. Built only with PROVIDERS="hdrezka" (build.sh adds -D PROVIDER_HDREZKA). See providers/README.md.
-// The site answers plain HTTP clients with a bot check, so every request runs as fetch() inside a WebKit page
-// already open on the site (same origin, its cookies). This provider never solves or bypasses bot checks:
-// when the site asks for one, it stops and reports that. Keep requests rare (at most one per 10 s in the background).
+// OFF by default. Built only with PROVIDERS="hdrezka" (scripts/build.sh adds -D PROVIDER_HDREZKA). See providers/README.md.
+// The site answers plain HTTP clients with a bot check, so requests run as fetch() inside a WebKit page already open
+// on the site. This provider never solves or bypasses bot checks: when the site asks for one, it waits for you.
+// Keep requests rare (at most one per 10 s in the background).
 import AppKit
 import WebKit
 
 @MainActor
 extension Kino: WKNavigationDelegate {
     static let site = "https://rezka.ag"
+
     // MARK: Page session
 
     func session() async -> WKWebView? {
@@ -43,32 +44,6 @@ extension Kino: WKNavigationDelegate {
         return try? await w.callAsyncJavaScript(body, arguments: args, contentWorld: .page)
     }
 
-    /// Catalog commands served by HDRezka; nil = not ours.
-    func hdrezka(_ cmd: String, _ b: [String: Any]) async -> Any? {
-        switch cmd {
-        case "kino/search": return await search(b["q"] as? String ?? "")
-        case "kino/find": return await find(b)
-        case "kino/title": return await title(b["url"] as? String ?? "")
-        case "kino/episodes": return await episodes(id: b["id"] as? String ?? "", translator: b["translator"] as? String ?? "")
-        case "kino/play": return await play(b)
-        case "kino/resume": return await resume(b["q"] as? String ?? "")
-        case "kino/next/play": return await playNext()
-        case "kino/step": return await step(b["dir"] as? Int ?? 1)
-        case "kino/stream":
-            // Watch on the phone itself: the direct stream for the chosen episode and quality, no TV.
-            guard let id = b["id"] as? String, let tr = b["translator"] as? String else { return ["error": "Missing title"] }
-            let list = await streams(id: id, translator: tr, season: b["season"] as? Int, episode: b["episode"] as? Int)
-            func rank(_ q: String) -> Int { q.hasSuffix("Premium") ? -1 : (Int(q.prefix { $0.isNumber }) ?? 0) * 10 + (q.lowercased().contains("ultra") ? 1 : 0) }
-            guard let pick = list.first(where: { $0.q == (b["quality"] as? String) }) ?? list.max(by: { rank($0.q) < rank($1.q) }) else {
-                return ["error": "No stream for that choice"] }
-            store.recordStart(b)
-            return ["url": pick.url, "quality": pick.q, "qualities": list.map { $0.q }]
-        default: return nil
-        }
-    }
-
-
-    /// A Discover film on HDRezka: same year (±1), Russian title first. Gives "where to watch" and a fallback poster.
     func find(_ b: [String: Any]) async -> Any {
         let key = b["imdb"] as? String ?? ""
         if let f = found[key] { return f }
@@ -121,8 +96,21 @@ extension Kino: WKNavigationDelegate {
         return r ?? []
     }
 
-    func title(_ url: String) async -> Any {
-        guard url.contains("rezka") else { return ["error": "Not an HDRezka link"] }
+    func recheck(_ page: String) async -> Bool {
+        // The site checks film pages, not its home page (measured 2026-10-21: home passed, films got the check):
+        // open the film page itself, as a visitor would.
+        guard let w = web, Date().timeIntervalSince(lastRecheck) > 120, let u = URL(string: page) else { return false }
+        lastRecheck = Date(); ready = false
+        w.load(URLRequest(url: u))
+        await withCheckedContinuation { k in
+            waiters.append(k)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 40) { [weak self] in self?.release() }
+        }
+        return ready
+    }
+
+    func title(_ url: String, again: Bool = true) async -> Any {
+        guard url.contains("rezka") else { return ["error": "Це не посилання HDRezka"] }
         let r = await js("""
         const page = url.split('#')[0];
         const html = await (await fetch(page)).text();
@@ -149,7 +137,8 @@ extension Kino: WKNavigationDelegate {
           linkSeason: hash ? +hash[2] : null, linkEpisode: hash ? +hash[3] : null
         };
         """, ["url": url])
-        guard var t = r as? [String: Any] else { return ["error": "HDRezka didn't answer"] }
+        guard var t = r as? [String: Any] else { return ["error": "HDRezka не відповідає"] }
+        if again, (t["id"] as? String ?? "").isEmpty, await recheck(url.components(separatedBy: "#")[0]) { return await title(url, again: false) }
         if let id = t["id"] as? String { t["progress"] = store.progress(id) ?? NSNull(); t["bookmarked"] = store.isBookmarked(id) }
         return t
     }
@@ -192,10 +181,10 @@ extension Kino: WKNavigationDelegate {
 
     func play(_ b: [String: Any]) async -> Any {
         film = nil   // HDRezka plays now: no torrent film card
-        guard let id = b["id"] as? String, let tr = b["translator"] as? String else { return ["error": "Missing title"] }
+        guard let id = b["id"] as? String, let tr = b["translator"] as? String else { return ["error": "Не вибрано фільм"] }
         let season = b["season"] as? Int, episode = b["episode"] as? Int
         let list = await streams(id: id, translator: tr, season: season, episode: episode)
-        guard !list.isEmpty else { return ["error": "No stream for that choice"] }
+        guard !list.isEmpty else { return ["error": "Для цього вибору немає потоку"] }
         let want = (b["quality"] as? String) ?? ""
         // Owner: highest available by default (4K when the site has it, "Ultra" = higher bitrate of the same size).
         func rank(_ q: String) -> Int { q.hasSuffix("Premium") ? -1 : (Int(q.prefix { $0.isNumber }) ?? 0) * 10 + (q.lowercased().contains("ultra") ? 1 : 0) }
@@ -281,7 +270,7 @@ extension Kino: WKNavigationDelegate {
             let tw = norm(h["title"] as? String ?? ""); return words.contains { w in tw.contains { near($0, w) } } }) else {
             return ["error": "Не знайшов в історії", "say": "Не знайшов це в історії перегляду"]
         }
-        guard let id = h["id"] as? String else { return ["error": "Bad history entry"] }
+        guard let id = h["id"] as? String else { return ["error": "Запис історії пошкоджений"] }
         if let q = h["quality"] as? String, q.contains("<") || q.hasSuffix("Premium") { h["quality"] = nil }
         var from = 0.0
         if let s = h["season"] as? Int, let e = h["episode"] as? Int {
@@ -305,7 +294,7 @@ extension Kino: WKNavigationDelegate {
     }
 
     func playNext() async -> Any {
-        guard let cur = current, next != nil else { return ["error": "Nothing next"] }
+        guard let cur = current, next != nil else { return ["error": "Далі нічого немає"] }
         next = nil; nextTimer?.cancel()
         return await play(cur)
     }
@@ -321,4 +310,27 @@ extension Kino: WKNavigationDelegate {
         return await play(cur)
     }
 
+    /// Catalog commands served by HDRezka; nil = not ours.
+    func hdrezka(_ cmd: String, _ b: [String: Any]) async -> Any? {
+        switch cmd {
+        case "kino/search": return await search(b["q"] as? String ?? "")
+        case "kino/find": return await find(b)
+        case "kino/title": return await title(b["url"] as? String ?? "")
+        case "kino/episodes": return await episodes(id: b["id"] as? String ?? "", translator: b["translator"] as? String ?? "")
+        case "kino/play": return await play(b)
+        case "kino/resume": return await resume(b["q"] as? String ?? "")
+        case "kino/next/play": return await playNext()
+        case "kino/step": return await step(b["dir"] as? Int ?? 1)
+        case "kino/stream":
+            // Watch on the phone itself: the direct stream for the chosen episode and quality, no TV.
+            guard let id = b["id"] as? String, let tr = b["translator"] as? String else { return ["error": "Не вибрано фільм"] }
+            let list = await streams(id: id, translator: tr, season: b["season"] as? Int, episode: b["episode"] as? Int)
+            func rank(_ q: String) -> Int { q.hasSuffix("Premium") ? -1 : (Int(q.prefix { $0.isNumber }) ?? 0) * 10 + (q.lowercased().contains("ultra") ? 1 : 0) }
+            guard let pick = list.first(where: { $0.q == (b["quality"] as? String) }) ?? list.max(by: { rank($0.q) < rank($1.q) }) else {
+                return ["error": "Для цього вибору немає потоку"] }
+            store.recordStart(b)
+            return ["url": pick.url, "quality": pick.q, "qualities": list.map { $0.q }]
+        default: return nil
+        }
+    }
 }

@@ -1,5 +1,5 @@
-// Optional provider: torrent search across public indexes and (optionally) your own rutracker login.
-// OFF by default. Built only with PROVIDERS="trackers" (build.sh adds -D PROVIDER_TRACKERS). See providers/README.md.
+// Optional provider: torrent search across public indexes and, optionally, your own rutracker login in your own Chrome.
+// OFF by default. Built only with PROVIDERS="trackers" (scripts/build.sh adds -D PROVIDER_TRACKERS). See providers/README.md.
 // You are responsible for what you search and download and for the law where you live.
 import AppKit
 
@@ -11,24 +11,27 @@ enum Trackers {
             async let jr = Trackers.jacred(title: t, original: o)
             async let tpb = MoreTorrents.apibay(original: o)
             async let kn = MoreTorrents.knaben(original: o)
-            return TorrentRank.merge([await rt ?? [], await jr, await tpb, await kn])
+            let jac = await jr as? [[String: Any]] ?? []
+            return TorrentRank.merge([await rt ?? [], jac, await tpb, await kn])
         }
         Providers.magnetLookup = { await RuTracker.magnet(topic: $0) }
+        Providers.anySearch = { await MoreTorrents.any($0) }
         Providers.availabilityIndex = { await Trackers.jacred(title: $0, original: $1) }
+        Providers.availabilityFallback = { await MoreTorrents.apibay(original: $0) }
     }
 
     /// Magnets for a title from the public jac.red index (rutracker, kinozal, rutor… without a tracker login).
     /// Only releases whose name or original name matches the title exactly; best quality, then most seeders.
-    static func jacred(title: String, original: String) async -> [[String: Any]] {
+    static func jacred(title: String, original: String) async -> Any {
         func n(_ t: String) -> String { String(t.lowercased().replacingOccurrences(of: "ё", with: "е").filter { $0.isLetter || $0.isNumber }) }
         let want = n(title), wantOrig = n(original)
-        guard !want.isEmpty || !wantOrig.isEmpty else { return [] }
+        guard !want.isEmpty || !wantOrig.isEmpty else { return [] as [Any] }
         var c = URLComponents(string: "https://jac.red/api/v1.0/torrents")!
         c.queryItems = [URLQueryItem(name: "search", value: original.isEmpty ? title : original)]
         var r = URLRequest(url: c.url!, timeoutInterval: 25)
         r.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
         guard let (d, _) = try? await URLSession.shared.data(for: r),
-              let list = try? JSONSerialization.jsonObject(with: d) as? [[String: Any]] else { return [] }
+              let list = try? JSONSerialization.jsonObject(with: d) as? [[String: Any]] else { return ["error": "Індекс торентів недоступний"] }
         var seen = Set<String>()
         // Same release on several trackers: keep the copy with the most seeders.
         let hits = list.sorted { ($0["sid"] as? Int ?? 0) > ($1["sid"] as? Int ?? 0) }.filter { t in
@@ -49,7 +52,7 @@ enum Trackers {
 }
 
 
-/// rutracker through the owner's own logged-in Chrome on the core host (a Chrome with remote debugging on 127.0.0.1, profile from config "rutracker_chrome_profile").
+/// rutracker through the owner's own logged-in Chrome on core host (a Chrome with remote debugging on 127.0.0.1).
 /// Searches run as fetch() inside an open rutracker.org tab, so the site sees that session; no cookie or password
 /// leaves the browser. Nothing here when that Chrome or its rutracker tab is not open.
 enum RuTracker {
@@ -188,13 +191,36 @@ enum MoreTorrents {
         return !original.isEmpty && n(name).hasPrefix(n(original))
     }
 
-    static func apibay(original: String) async -> [[String: Any]] {
+    /// Search tab: anything (music, series, software...), every index at once, no film-name filter.
+    static func any(_ q: String) async -> [[String: Any]] {
+        async let a = apibay(original: q, loose: true)
+        async let k = knaben(original: q, loose: true)
+        async let j = jacred(q)
+        return TorrentRank.merge([await j, await a, await k])
+    }
+
+    static func jacred(_ q: String) async -> [[String: Any]] {
+        guard var c = URLComponents(string: "https://jac.red/api/v1.0/torrents") else { return [] }
+        c.queryItems = [URLQueryItem(name: "search", value: q)]
+        let rows = await get(URLRequest(url: c.url!)) as? [[String: Any]] ?? []
+        return rows.compactMap { t in
+            guard let m = t["magnet"] as? String, let h = m.range(of: "btih:") else { return nil }
+            var r = TorrentRank.row(title: t["title"] as? String ?? "", bytes: (t["size"] as? NSNumber)?.doubleValue ?? 0,
+                                    seeds: t["sid"] as? Int ?? 0, peers: t["pir"] as? Int ?? 0, tracker: t["tracker"] as? String ?? "jacred",
+                                    hash: String(m[h.upperBound...].prefix(40)), magnet: m)
+            if let q = t["quality"] as? Int, q > 0 { r["quality"] = q }
+            r["voices"] = t["voices"] ?? []; r["url"] = t["url"] ?? ""
+            return r
+        }
+    }
+
+    static func apibay(original: String, loose: Bool = false) async -> [[String: Any]] {
         guard !original.isEmpty, var c = URLComponents(string: "https://apibay.org/q.php") else { return [] }
         c.queryItems = [URLQueryItem(name: "q", value: original)]
         let rows = await get(URLRequest(url: c.url!)) as? [[String: Any]] ?? []
         return rows.compactMap { r in
             guard let name = r["name"] as? String, let h = r["info_hash"] as? String, h.count == 40, h != String(repeating: "0", count: 40),
-                  matches(name, original) else { return nil }
+                  loose || matches(name, original) else { return nil }
             let enc = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             return TorrentRank.row(title: name, bytes: Double(r["size"] as? String ?? "") ?? 0, seeds: Int(r["seeders"] as? String ?? "") ?? 0,
                                    peers: Int(r["leechers"] as? String ?? "") ?? 0, tracker: "thepiratebay", hash: h,
@@ -202,7 +228,7 @@ enum MoreTorrents {
         }
     }
 
-    static func knaben(original: String) async -> [[String: Any]] {
+    static func knaben(original: String, loose: Bool = false) async -> [[String: Any]] {
         guard !original.isEmpty else { return [] }
         var r = URLRequest(url: URL(string: "https://api.knaben.org/v1")!); r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -210,7 +236,7 @@ enum MoreTorrents {
                                                                   "order_by": "seeders", "order_direction": "desc", "hide_unsafe": true, "hide_xxx": true])
         let hits = (await get(r) as? [String: Any])?["hits"] as? [[String: Any]] ?? []
         return hits.compactMap { h in
-            guard let name = h["title"] as? String, let hash = h["hash"] as? String, matches(name, original) else { return nil }
+            guard let name = h["title"] as? String, let hash = h["hash"] as? String, loose || matches(name, original) else { return nil }
             let magnet = h["magnetUrl"] as? String ?? "magnet:?xt=urn:btih:\(hash)"
             return TorrentRank.row(title: name, bytes: (h["bytes"] as? NSNumber)?.doubleValue ?? 0, seeds: (h["seeders"] as? NSNumber)?.intValue ?? 0,
                                    peers: (h["peers"] as? NSNumber)?.intValue ?? 0, tracker: (h["tracker"] as? String ?? "knaben").lowercased().replacingOccurrences(of: " ", with: ""),

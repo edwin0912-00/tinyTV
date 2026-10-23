@@ -17,3 +17,5 @@ config.json
 .env
 token
 __pycache__/
+__pycache__/
+*.bak*

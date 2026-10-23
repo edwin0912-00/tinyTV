@@ -1,5 +1,5 @@
-// Movie light: while something cast plays, the room light (any HTTP light bridge, config "light_url") dims; on pause or stop it comes back.
-// Off by default; the owner turns it on (change the light only when the user asks).
+// Movie light: while something cast plays, the room light (Nanlite bridge on core host) dims; on pause or stop it comes back.
+// Off by default; the owner turns it on (room-light rule 1: change the light only by the owner or a routine the owner set up).
 // The light is never switched on by this: if it was off, it stays off.
 import Foundation
 

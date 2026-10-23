@@ -29,17 +29,42 @@ struct VideoSettings: Codable, Equatable {
 struct SoundSettings: Codable, Equatable {
     static let freqs = [60, 250, 1000, 4000, 12000]
     static let presets: [String: [Double]] = ["flat": [0, 0, 0, 0, 0], "soft": [0, 0, 0, -4, -8], "dialog": [-4, -1, 3, 2, -3],
-                                               "night": [-6, 0, 2, 1, -4], "bass": [6, 2, 0, 0, -2]]
+                                               "night": [-6, 0, 2, 1, -4], "bass": [6, 2, 0, 0, -2], "tv": [0, 0, 0, 0, 0]]
+    /// The TV's own volume (0-100): the "tv" preset follows it.
+    nonisolated(unsafe) static var volume: Double = 30
     var preset = "flat"
     var custom: [Double] = [0, 0, 0, 0, 0]
-    var bands: [Double] { preset == "custom" ? custom : (SoundSettings.presets[preset] ?? [0, 0, 0, 0, 0]) }
-    var on: Bool { bands.contains { $0 != 0 } }
-    /// ffmpeg -af chain; night mode also evens loud and quiet parts.
-    var filter: String? {
-        guard on else { return nil }
-        var f = zip(SoundSettings.freqs, bands).filter { $0.1 != 0 }.map { "equalizer=f=\($0.0):t=o:w=1.2:g=\($0.1)" }
-        if preset == "night" { f += ["acompressor=threshold=-22dB:ratio=4:attack=5:release=250", "dynaudnorm=f=250:g=15"] }
-        return (f + ["alimiter=limit=0.95"]).joined(separator: ",")
+    var bands: [Double] { preset == "custom" ? custom : preset == "tv" ? tv.bands : (SoundSettings.presets[preset] ?? [0, 0, 0, 0, 0]) }
+    var on: Bool { preset == "tv" || bands.contains { $0 != 0 } }
+
+    /// "Динаміки ТВ": the Hisense 55A56E has two small full-range drivers (~2 x 12 W, no woofer). Cheap small drivers:
+    /// below ~100 Hz they only distort, 300-500 Hz is the box resonance ("boxy"), 2.5-4 kHz the cone break-up (harsh),
+    /// 6-8 kHz sibilance. Quiet listening loses bass and dialogue (equal-loudness curves), loud listening overdrives the
+    /// lows: quiet = a bit more body, loud = higher low cut and softer top. t: 0 at volume <= 10, 1 at >= 50.
+    /// A starting point, not a measurement of this room: a phone-mic sweep would tune it.
+    var tv: (hp: Int, bands: [Double], x: [Double]) {
+        let t = min(1, max(0, (SoundSettings.volume - 10) / 40))
+        func lerp(_ a: Double, _ b: Double) -> Double { ((a + (b - a) * t) * 2).rounded() / 2 }
+        return (Int(90 + 40 * t), [0, lerp(2, -1), 1.5, lerp(-1, -2), lerp(-2, -5)], [-3, lerp(-2, -4), -4])
+    }
+    /// Extra bands for the small speakers (box 400 Hz, harsh 3 kHz, sibilance 7 kHz) and a low cut; flat unless "tv".
+    static let xfreqs = [400, 3000, 7000]
+    var hp: Int { preset == "tv" ? tv.hp : 20 }
+    var xbands: [Double] { preset == "tv" ? tv.x : [0, 0, 0] }
+
+    /// ffmpeg -af chain with named filters: every band and the compressor stay in the chain (0 dB, ratio 1, low cut 20 Hz)
+    /// so a change goes to the running ffmpeg as a command, without a restart (owner: "EQ must change live").
+    var chain: String {
+        "highpass@hp=f=\(hp):p=2," +
+        zip(SoundSettings.freqs, bands).enumerated().map { "equalizer@b\($0.offset)=f=\($0.element.0):t=o:w=1.2:g=\($0.element.1)" }.joined(separator: ",") + "," +
+        zip(SoundSettings.xfreqs, xbands).enumerated().map { "equalizer@x\($0.offset)=f=\($0.element.0):t=o:w=1:g=\($0.element.1)" }.joined(separator: ",") +
+        ",acompressor@c=threshold=-22dB:ratio=\(ratio):attack=5:release=250,alimiter=limit=0.95"
+    }
+    var ratio: Double { preset == "night" ? 4 : preset == "tv" ? 2 : 1 }
+    /// Lines for ffmpeg's stdin ("c<target> <time> <command> <arg>"), measured live on ffmpeg 8.1.1 (2026-10-21).
+    var commands: String {
+        "chighpass@hp -1 f \(hp)\n" + bands.enumerated().map { "cequalizer@b\($0.offset) -1 g \($0.element)\n" }.joined()
+            + xbands.enumerated().map { "cequalizer@x\($0.offset) -1 g \($0.element)\n" }.joined() + "cacompressor@c -1 ratio \(ratio)\n"
     }
     static let key = "soundSettings"
     static func load() -> SoundSettings {
@@ -58,6 +83,8 @@ final class Caster: ObservableObject {
     @Published var failed = false
     /// What the TV is playing from us, with live position from DLNA.
     @Published var title = ""
+    /// The link the owner opened (before HDRezka / yt-dlp resolve it): what "+" saves.
+    @Published var link = ""
     @Published var playing = false { didSet { if playing != oldValue, !remote { MovieLight.shared.castChanged(playing: playing) } } }
     /// Screen stream the core wants: "" none, "mac" (the Mac remote sends it), "core" (the core captures its own screen).
     @Published var screen = ""
@@ -97,6 +124,10 @@ final class Caster: ObservableObject {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard !Task.isCancelled, !self.title.isEmpty, let ff = Caster.tool("ffmpeg") else { return }
             let at = self.displayPosition
+            // A running ffmpeg already has the chain: change it in place, the sound never stops.
+            if self.liveJob != nil, self.jobEQ, let i = self.jobIn, self.job?.isRunning == true {
+                try? i.fileHandleForWriting.write(contentsOf: Data(self.sound.commands.utf8)); return
+            }
             if let j = self.liveJob { return self.live(j.ff, inputs: j.inputs, scale: j.scale, from: at) }
             if self.engineCast || self.currentFile != nil { self.live(ff, inputs: [self.currentFile ?? Caster.engineStream], scale: nil, from: at) }
         }
@@ -108,21 +139,39 @@ final class Caster: ObservableObject {
         if !remote { return reapply() }
         if !applying { Remote.post("settings", ["mode": video.mode, "height": video.height, "hdr": video.hdr, "mbps": video.mbps]) }
     } }
-    /// This Mac is a remote: casting runs in the core on the core host (see Remote.swift).
+    /// This Mac is a remote: casting runs in the core on core host (see Remote.swift).
     let remote = TV.config["core"] != nil
     private var applying = false
     /// Source picture, for building the encoder chain.
     private var src = (w: 0.0, h: 0.0, hdr: false, codec: "")
     /// A heavy torrent re-encoded for the TV's Wi-Fi (~48 Mbit/s measured) stays under 25 Mbit/s whatever the setting.
     private var heavyCap = false
-    private var encodeMbps: Double { heavyCap ? min(video.mbps, 25) : video.mbps }
+    // Owner: "we can do 48". The TV's Wi-Fi measured ~48 Mbit/s and a 30 Mbit/s remux stuttered on its PEAKS, so:
+    // average 35, peaks held to 42 (1.2x) with a 2 s buffer - more picture, no peak over the link.
+    private var encodeMbps: Double { heavyCap ? min(video.mbps, 35) : video.mbps }
     /// Audio tracks of the current file (index among audio streams) and the chosen one.
     @Published var tracks: [(i: Int, label: String)] = []
     @Published var track = 0
     private var trackCodecs: [String] = []
     private var currentFile: String?
+    private var remoteURL: String?   // a direct link the media server proxies to the TV
+    /// What was cast, as given (page or stream link): a device plays it straight from the source ("Грати тут").
+    private(set) var page = ""
+    /// What the TV reads now: "Watch here" and the phone make their own HLS from the same source (owner 2026-10-22).
+    var watchInputs: [String] {
+        if let j = liveJob { return j.inputs }
+        if let f = currentFile { return [f] }
+        if engineCast { return [Caster.engineStream] }
+        return remoteURL.map { [$0] } ?? []
+    }
+    /// The TV's own re-encode (growing TS) and the source second it starts at: "Watch here" copies it instead of a
+    /// second 4K decode (TV 4K + Mac 1080p of 4K VP9 together ran 0.68x each, measured 2026-10-22).
+    var watchLive: (path: String, offset: Double)? { liveJob?.scale != nil ? liveOut.map { ($0.path, offset) } : nil }
     weak var tv: TV?
     private var job: Process?
+    private var jobIn: Pipe?
+    private var jobEQ = false   // the running ffmpeg has the equalizer chain
+    private var eqVolume: Double = -100   // the running ffmpeg's stdin: live equalizer commands
     private var poll: Task<Void, Never>?
     let media = MediaServer()
     private let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/tinyTV")
@@ -147,14 +196,14 @@ final class Caster: ObservableObject {
         }
     }
 
-    // MARK: AirPlay -> TV (core on the core host)
+    // MARK: AirPlay -> TV (core on core host)
 
     /// Owner: AirPlay to "the core host" (macOS AirPlay Receiver) plays on the TV, the core host's speakers stay silent.
     var airplayToTV = UserDefaults.standard.object(forKey: "airplayToTV") as? Bool ?? true {
         didSet { UserDefaults.standard.set(airplayToTV, forKey: "airplayToTV") }
     }
 
-    /// Our own AirPlay speaker "tinyTV" (shairport-sync on the core host, ~/tinyTV/tools/bin) writes raw PCM into a FIFO and
+    /// Our own AirPlay speaker "tinyTV" (shairport-sync on core host, ~/tinyTV/tools/bin) writes raw PCM into a FIFO and
     /// calls /api/airplay on play start and end. The macOS receiver was not usable: the phone did not see it and its
     /// sessions showed no socket on port 7000 (measured), so detection lives in shairport's hooks instead.
     nonisolated static let airplayFIFO = "/tmp/tinytv-airplay.pcm"
@@ -194,17 +243,17 @@ final class Caster: ObservableObject {
         guard airplayToTV, let ff = Caster.tool("ffmpeg") else { return }
         job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; position = 0
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
-        tracks = []; trackCodecs = []; track = 0; currentFile = nil
+        tracks = []; trackCodecs = []; track = 0; currentFile = nil; remoteURL = nil; page = ""
         endScreen()
         screen = "airplay"; title = "AirPlay"
         LiveRelay.shared.reset(raw: true)
-        set("AirPlay → TV…", nil)
+        set("AirPlay на ТВ…", nil)
         let p = Process(); p.executableURL = URL(fileURLWithPath: ff)
         let input = Pipe(); p.standardInput = input
         p.arguments = ["-hide_banner", "-loglevel", "error", "-f", "s16le", "-ar", "44100", "-ac", "2", "-i", "pipe:0",
                        "-c:a", "aac", "-b:a", "256k", "-f", "adts", "-flush_packets", "1", "tcp://127.0.0.1:\(LiveRelay.port.rawValue)"]
         p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
-        do { try p.run(); job = p } catch { return fail("Couldn't start ffmpeg for AirPlay") }
+        do { try p.run(); job = p } catch { return fail("Не вдалося запустити AirPlay") }
         AirPlayPipe.shared.sink = input.fileHandleForWriting
         p.terminationHandler = { _ in AirPlayPipe.shared.sink = nil }
         Task {
@@ -212,13 +261,13 @@ final class Caster: ObservableObject {
                 if LiveRelay.shared.live || screen != "airplay" { break }
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
-            guard screen == "airplay", LiveRelay.shared.live else { return fail("No sound from AirPlay") }
+            guard screen == "airplay", LiveRelay.shared.live else { return fail("Від AirPlay немає звуку") }
             push(media.add(.live), ext: "aac")
         }
     }
 
     static func tool(_ name: String) -> String? {
-        // ~/tinyTV/tools first: on the core host Homebrew sits on an external disk that launchd services can't read (copy-tools.py).
+        // ~/tinyTV/tools first: on core host Homebrew sits on an external disk that launchd services can't read (copy-tools.py).
         [NSHomeDirectory() + "/tinyTV/tools/bin/", "/opt/homebrew/bin/", "/usr/local/bin/", "/opt/homebrew/Caskroom/miniconda/base/bin/",
          NSHomeDirectory() + "/.local/bin/"]
             .map { $0 + name }.first { FileManager.default.isExecutableFile(atPath: $0) }
@@ -242,10 +291,10 @@ final class Caster: ObservableObject {
     func cast(_ raw: String) {
         endScreen()
         fallback = nil; startAt = 0   // a new thing on the TV: the old torrent fallback no longer applies
-        job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0
+        job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; endMix()
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
-        tracks = []; trackCodecs = []; track = 0; currentFile = nil
-        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        tracks = []; trackCodecs = []; track = 0; currentFile = nil; remoteURL = nil; page = ""
+        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines); page = s
         if s.lowercased().hasPrefix("magnet:") { return torrent(s) }
         // A .torrent link on the web: download it next to the engine (same machine), then add the file.
         if s.lowercased().hasPrefix("http"), let u = URL(string: s), u.pathExtension.lowercased() == "torrent" { return torrentFile(u) }
@@ -254,10 +303,10 @@ final class Caster: ObservableObject {
             return file(s.hasPrefix("file://") ? (URL(string: s)?.path ?? s) : s)
         }
         let url = s.contains("://") ? s : "https://" + s
-        guard let u = URL(string: url) else { return fail("That isn't a link") }
+        guard let u = URL(string: url) else { return fail("Це не посилання") }
         let ext = u.pathExtension.lowercased()
         if Caster.mediaExt.contains(ext) {
-            title = u.lastPathComponent
+            title = u.lastPathComponent; remoteURL = u.absoluteString
             return push(media.add(.remote(u)), ext: ext)
         }
         // Not YouTube: the page may be a torrent page (tracker); its magnet beats a video search.
@@ -268,19 +317,19 @@ final class Caster: ObservableObject {
     /// The TV Browser takes no address from outside (measured 2026-10-20); the core's page on :8895 does.
     /// Open there; when it is not open, start the TV Browser (its start page / bookmark is that page) and wait for it.
     func webPage(_ u: String) {
-        title = ""; set("Opening the page on the TV…", nil)
+        title = ""; set("Відкриваю сторінку на ТВ…", nil)
         Task { @MainActor in
             if !TVPage.shared.open, let tv, let app = tv.apps.first(where: { $0.name == "TV Browser" }) { tv.launch(app) }
             for _ in 0..<20 where !TVPage.shared.open { try? await Task.sleep(nanoseconds: 1_000_000_000) }
             guard TVPage.shared.open else {
-                return fail("Open the tinyTV bookmark in TV Browser once: http://\(TV.macIP() ?? "<core-ip>"):8895")
+                return fail(TV.macIP().map { "Відкрийте закладку tinyTV у браузері ТВ: http://\($0):8895" } ?? "Немає домашньої мережі")
             }
             TVPage.shared.go(u); set("", nil)
         }
     }
 
     private func magnetOrResolve(_ u: URL) {
-        set("Reading the page…", nil)
+        set("Читаю сторінку…", nil)
         Task {
             var r = URLRequest(url: u); r.timeoutInterval = 10
             r.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
@@ -301,10 +350,10 @@ final class Caster: ObservableObject {
     }
 
     private func torrentFile(_ u: URL) {
-        set("Downloading .torrent…", nil)
+        set("Завантажую торент-файл…", nil)
         Task {
             guard let (tmp, resp) = try? await URLSession.shared.download(from: u), (resp as? HTTPURLResponse)?.statusCode == 200 else {
-                return fail("Couldn't download the .torrent file")
+                return fail("Не вдалося завантажити торент-файл")
             }
             let dest = dir.appendingPathComponent("t-\(UUID().uuidString.prefix(8)).torrent")
             try? FileManager.default.moveItem(at: tmp, to: dest)
@@ -315,12 +364,12 @@ final class Caster: ObservableObject {
     /// A remote stream started at a given second (Кіно "continue"). Measured: the TV ignores DLNA Seek on a
     /// proxied HDRezka MP4 (it reports no duration), so the Mac starts the stream at `from` and restarts it to seek.
     func castAt(_ url: String, title t: String, from: Double) {
-        guard let ff = Caster.tool("ffmpeg") else { return fail("ffmpeg is missing") }
+        guard let ff = Caster.tool("ffmpeg") else { return fail("На сервері немає ffmpeg") }
         endScreen()
         fallback = nil; startAt = 0   // a new thing on the TV: the old torrent fallback no longer applies
-        job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; position = 0
+        job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; endMix(); position = 0
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
-        tracks = []; trackCodecs = []; track = 0; currentFile = nil; src = (0, 0, false, "avc1")
+        tracks = []; trackCodecs = []; track = 0; currentFile = nil; remoteURL = nil; page = url; src = (0, 0, false, "avc1")
         title = t
         live(ff, inputs: [url], scale: nil, from: max(0, from))
     }
@@ -328,9 +377,9 @@ final class Caster: ObservableObject {
     func file(_ path: String) {
         if remote { return Remote.shared.upload(URL(fileURLWithPath: path)) }
         endScreen()
-        job?.terminate(); job = nil; liveJob = nil; offset = 0; currentFile = path
+        job?.terminate(); job = nil; liveJob = nil; offset = 0; currentFile = path; remoteURL = nil
         let ext = (path as NSString).pathExtension.lowercased()
-        guard FileManager.default.isReadableFile(atPath: path) else { return fail("Can't read that file") }
+        guard FileManager.default.isReadableFile(atPath: path) else { return fail("Не можу прочитати цей файл") }
         title = (path as NSString).lastPathComponent
         // Measured: the TV's Wi-Fi pulls ~48 Mbit/s; a 30 Mbit/s 4K remux stutters on its peaks.
         // Heavy files are re-encoded on the fly by the Mac's hardware encoder.
@@ -381,6 +430,14 @@ final class Caster: ObservableObject {
 
     private var needsAudioWork: Bool { track != 0 || !Caster.tvAudio.contains(trackCodecs.first ?? "aac") }
     static let tvAudio: Set<String> = ["aac", "ac3", "mp3"]
+    /// The Ukrainian audio track: language ukr/uk, or "укр / ukr / україн" in its title (owner 2026-10-23: UA first, always).
+    nonisolated static func uaTrack(_ streams: [[String: Any]]) -> Int? {
+        streams.firstIndex { st in
+            let t = st["tags"] as? [String: String] ?? [:]
+            let lang = (t["language"] ?? "").lowercased(), name = (t["title"] ?? "").lowercased()
+            return lang == "ukr" || lang == "uk" || ["укр", "ukr", "україн", "украин"].contains { name.contains($0) }
+        }
+    }
 
     private func loadTracks(_ probe: String, _ path: String) {
         let r = Caster.run(probe, ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_name,channels:stream_tags=language,title",
@@ -394,22 +451,185 @@ final class Caster: ObservableObject {
             return (i, [lang, tags["title"] ?? ""].filter { !$0.isEmpty }.joined(separator: " · ") + ch)
         }
         // Default: the first Ukrainian track, else the first one.
-        track = streams.firstIndex { ($0["tags"] as? [String: String])?["language"] == "ukr" } ?? 0
+        track = Caster.uaTrack(streams) ?? 0
     }
 
     /// Switch the audio track: restarts the stream at the current moment with that track.
     func setTrack(_ i: Int) {
         if remote { track = i; return Remote.post("cast/audio", ["i": i]) }
-        guard i != track, tracks.indices.contains(i), let ff = Caster.tool("ffmpeg") else { return }
+        guard i != track || mix != nil, tracks.indices.contains(i), let ff = Caster.tool("ffmpeg") else { return }
         track = i
         let at = displayPosition
-        if let j = liveJob { return live(j.ff, inputs: j.inputs, scale: j.scale, from: at) }
+        if let j = liveJob { return live(j.ff, inputs: mix != nil ? [j.inputs[0]] : j.inputs, scale: j.scale, from: at) }
         if let f = currentFile { return live(ff, inputs: [f], scale: nil, from: at) }
         // A torrent the TV reads straight from the engine: go on from this second through our remux with that track.
         if engineCast { live(ff, inputs: [Caster.engineStream], scale: nil, from: at) }
     }
 
     static let engineStream = "http://127.0.0.1:8890/stream"
+
+    // MARK: Dub from another source (owner 2026-10-23: the voiceover he likes + the torrent picture he likes)
+
+    /// audiosync.py cuts and shifts the dub onto this video's clock (shared music and effects, 10 s windows)
+    /// and writes an AC3 track that grows ahead of the TV; ffmpeg copies the video and takes this track.
+    private(set) var mix: (track: String, status: String, label: String, key: String, nudge: Double)?
+    private var mixJob: Process?
+    private var mixDub = ""   // where the voice comes from (a release file: the keeper sees it is in use)
+    private var mixDubTrack = 0
+    private var mixPos: Task<Void, Never>?
+    private let mixDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/tinyTV-mix")
+
+    /// For the cards: what plays, how far the track is aligned, the hand nudge.
+    var mixState: [String: Any] {
+        guard let m = mix else { return [:] }
+        let st = (try? Data(contentsOf: URL(fileURLWithPath: m.status))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        let state = st["state"] as? String ?? "sync", until = st["until"] as? Double ?? 0
+        let parts = (st["segments"] as? [Any])?.count ?? 0
+        return ["label": m.label, "state": state, "until": until, "parts": parts, "nudge": m.nudge, "dub": mixDub, "dubTrack": mixDubTrack, "track": m.track,
+                "at": mixAt, "live": liveJob?.inputs.last == m.track]
+    }
+
+    /// One aligner per pair, kept alive across taps: a second "Продовжити" restarted it and the two runs deleted each
+    /// other's files (2026-10-24: "лише з 3го разу запускає"). It ends by itself when the track is written.
+    private var aligners: [String: Process] = [:]
+
+    private func endMix() {
+        mixJob = nil; mixPos?.cancel(); mixPos = nil; mix = nil
+    }
+
+    /// Plays the current video with the dub from `dub` (a file or a stream link). `key` names the pair: the aligned
+    /// track is kept, so the same pair starts at once next time.
+    func mix(dub: String, track dubTrack: Int = 0, label: String, key: String) {
+        if remote { return }
+        guard let ff = Caster.tool("ffmpeg"), let py = Bundle.main.path(forResource: "audiosync", ofType: "py") else { return fail("На сервері немає ffmpeg") }
+        guard let video = liveJob?.inputs.first ?? currentFile ?? (engineCast ? Caster.engineStream : nil) else {
+            return fail("Озвучку з іншого джерела можна додати до торента або файлу") }
+        let at = displayPosition, scale = liveJob?.scale, ref = track
+        endMix(); mixDub = dub; mixDubTrack = dubTrack
+        try? FileManager.default.createDirectory(at: mixDir, withIntermediateDirectories: true)
+        // Readable start + FNV-1a of the whole key: two long keys with the same start never share an aligned track.
+        let fnv = key.utf8.reduce(UInt32(2166136261)) { ($0 ^ UInt32($1)) &* 16777619 }
+        let name = "mix-" + String(key.unicodeScalars.map { $0.isASCII && CharacterSet.alphanumerics.contains($0) ? Character($0) : "_" }.prefix(60)) + "-" + String(format: "%08x", fnv)
+        let out = mixDir.appendingPathComponent(name + ".ac3"), st = mixDir.appendingPathComponent(name + ".json")
+        let saved = (try? Data(contentsOf: st)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        let nudges = UserDefaults.standard.dictionary(forKey: "mixNudge") as? [String: Double] ?? [:]
+        mix = (out.path, st.path, label, key, nudges[key] ?? 0)
+        if let running = aligners[out.path], running.isRunning {
+            mixJob = running   // the same pair is aligning already: wait for it
+        } else if saved?["state"] as? String != "done" || !FileManager.default.fileExists(atPath: out.path) {
+            // Keep the 4 newest pairs (an aligned film is ~30 MB per hour, the dub copy ~70 MB).
+            let fm = FileManager.default, items = (try? fm.contentsOfDirectory(at: mixDir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            let date = { (u: URL) in (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
+            // Only aligned pairs ("mix-…"): the plan, keep and registry files and the track in use stay.
+            Set(items.filter { $0.lastPathComponent.hasPrefix("mix-") }.sorted { date($0) > date($1) }
+                .map { $0.lastPathComponent.components(separatedBy: ".")[0] }.filter { $0 != name }.dropFirst(4))
+                .forEach { n in items.filter { $0.lastPathComponent.hasPrefix(n + ".") }.forEach { try? fm.removeItem(at: $0) } }
+            try? fm.removeItem(at: st)
+            let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            p.arguments = [py, "align", video, String(ref), dub, String(dubTrack), out.path, st.path, mixDir.path]
+            var env = ProcessInfo.processInfo.environment; env["MIX_PLAYHEAD"] = st.path + ".pos"; p.environment = env
+            p.standardOutput = FileHandle.nullDevice; p.standardError = Caster.ffmpegLog()
+            do { try p.run(); mixJob = p; aligners[out.path] = p } catch { mix = nil; return fail("Не вдалося запустити синхрон") }
+        }
+        // audiosync maps a torrent still downloading only near the playhead: tell it where the TV is.
+        let pos = st.path + ".pos"
+        mixPos = Task { @MainActor in
+            while !Task.isCancelled {
+                try? String(format: "%.1f", self.displayPosition).write(toFile: pos, atomically: true, encoding: .utf8)
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+        }
+        // Owner 2026-10-24 ("порахувати скільки треба ... і з того моменту коли впевнений назначити перехід"): the old
+        // stream plays on; the switch is planned at a future second P (copy of the voice + sync + 1 min ahead), and at P
+        // the new stream starts exactly at P - no jump back, no jump forward. Cached pair: P = now + 5 s.
+        let cached = saved?["state"] as? String == "done" && FileManager.default.fileExists(atPath: out.path)
+        let estimate = cached ? 5.0 : 25 + duration / 600 + 20 + 10   // copy (~25 s / 2.5 h) + sync + margin
+        mixAt = (at + estimate).rounded()
+        Task { await mixStart(ff, video: video, scale: scale, from: mixAt, planned: true) }
+    }
+
+    /// Picture switch in one TV load (owner 2026-10-24: "наперед заплануй перехід"): a downloaded release file from
+    /// `from`, with the dub already aligned (or aligning) - no stop on the release's own sound first.
+    func mixFile(_ path: String, from: Double, dub: String, track dubTrack: Int, label: String, key: String) {
+        if remote { return }
+        endScreen()
+        fallback = nil; startAt = 0
+        job?.terminate(); job = nil; liveJob = nil; endMix(); position = 0; offset = from
+        fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
+        currentFile = path; remoteURL = nil; page = ""; tv = tv ?? TV.shared
+        title = (path as NSString).lastPathComponent
+        if let probe = Caster.tool("ffprobe") {
+            let r = Caster.run(probe, ["-v", "error", "-select_streams", "v:0", "-show_entries", "format=duration:stream=width,height,color_transfer,codec_name", "-of", "default=nw=1", path])
+            let kv = Dictionary(String(decoding: r.out, as: UTF8.self).split(separator: "\n").map { $0.split(separator: "=", maxSplits: 1).map(String.init) }
+                .filter { $0.count == 2 }.map { ($0[0], $0[1]) }, uniquingKeysWith: { a, _ in a })
+            src = (Double(kv["width"] ?? "") ?? 0, Double(kv["height"] ?? "") ?? 0, ["smpte2084", "arib-std-b67"].contains(kv["color_transfer"] ?? ""), kv["codec_name"] ?? "")
+            duration = Double(kv["duration"] ?? "") ?? 0
+            loadTracks(probe, path)
+        }
+        mix(dub: dub, track: dubTrack, label: label, key: key)
+    }
+
+    /// Starts the TV stream once the aligned track covers `from` (+20 s); a seek past the aligned part waits here too.
+    /// The planned switch second for the cards ("Перехід на 12:34").
+    private(set) var mixAt: Double = 0
+
+    private func mixStart(_ ff: String, video: String, scale: String?, from start: Double, planned: Bool = false) async {
+        guard let m = mix else { return }
+        var from = start
+        try? String(format: "%.1f", from).write(toFile: m.status + ".pos", atomically: true, encoding: .utf8)
+        // Planned: wait (no limit) until the voice covers P + 1 min and the TV reaches P; on pause - from the same place.
+        // The aligned track must exist with at least ~1 s in it before ffmpeg opens it.
+        let written = { ((try? FileManager.default.attributesOfItem(atPath: m.track))?[.size] as? Int ?? 0) > 32_000 }
+        func failed(_ s: [String: Any]) {
+            endMix()
+            // Not started yet (planned): the release's sound simply plays on. A restart (seek): the release's sound.
+            if !planned, let j = liveJob, j.inputs.count == 2 { live(ff, inputs: [j.inputs[0]], scale: j.scale, from: from) }
+            fail(s["error"] as? String == "dub" ? "HDRezka не віддала озвучку - грає звук релізу" : "Озвучка не збіглась з цим відео (інша версія фільму?)")
+        }
+        while planned {
+            guard let cur = mix, cur.track == m.track else { return }
+            let s = mixState, state = s["state"] as? String ?? "sync", until = s["until"] as? Double ?? 0
+            if state == "error" { return failed(s) }
+            if !playing { from = displayPosition; mixAt = from }   // paused: the switch happens right where it stands
+            let ready = (state == "done" || until >= displayPosition + 63) && written()
+            // Sure now (the voice covers 1 min ahead): the switch is set 3 s ahead, not at the cautious estimate.
+            if ready && playing && from > displayPosition + 3 { from = (displayPosition + 3).rounded(); mixAt = from }
+            if ready && (!playing || displayPosition >= from - 1.5) { break }
+            if !ready && playing && displayPosition >= from - 3 { from += 30; mixAt = from }   // not ready at P: 30 s later
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        for i in 0..<(planned ? 0 : 600) {
+            guard let cur = mix, cur.track == m.track else { return }
+            let s = mixState, state = s["state"] as? String ?? "sync", until = s["until"] as? Double ?? 0
+            if state == "error" { return failed(s) }
+            if (state == "done" || until >= from + 20) && written() { break }
+            if i == 599 { endMix(); return fail("Синхрон озвучки не встиг") }
+            set(until > 0 ? "Синхронізую озвучку… \(clock(until))" : "Синхронізую озвучку…", min(0.95, Double(i) / 120))
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        live(ff, inputs: [video, m.track], scale: scale, from: from)
+    }
+
+    /// Owner: ±0.1 s by hand. Restarts the stream at the same second with the track moved (remembered for this pair).
+    func mixNudge(_ d: Double) {
+        guard !remote, var m = mix, let j = liveJob else { return }
+        m.nudge = (min(5, max(-5, m.nudge + d)) * 10).rounded() / 10; mix = m
+        var all = UserDefaults.standard.dictionary(forKey: "mixNudge") as? [String: Double] ?? [:]
+        all[m.key] = m.nudge; UserDefaults.standard.set(all, forKey: "mixNudge")
+        live(j.ff, inputs: j.inputs, scale: j.scale, from: displayPosition)
+    }
+
+    /// Back to the release's own sound.
+    func mixOff() {
+        guard mix != nil, let j = liveJob, let ff = Caster.tool("ffmpeg") else { return endMix() }
+        let at = displayPosition, video = j.inputs[0]
+        endMix()
+        live(ff, inputs: [video], scale: j.scale, from: at)
+    }
+
+    private func clock(_ t: Double) -> String {
+        let s = Int(t); return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String(format: "%d:%02d", s / 60, s % 60)
+    }
 
     /// ffmpeg errors of TV streams, appended to ~/Library/Logs/tinyTV-ffmpeg.log (kept under 2 MB).
     static func ffmpegLog() -> FileHandle {
@@ -438,6 +658,8 @@ final class Caster: ObservableObject {
                     return (i, [(tags["language"] ?? "").uppercased(), tags["title"] ?? ""].filter { !$0.isEmpty }.joined(separator: " · ") + ch)
                 }
                 self.track = 0
+                // The TV starts on the file's first track; a Ukrainian one elsewhere switches over our remux at once.
+                if let u = Caster.uaTrack(streams), u != 0 { self.setTrack(u) }
             }
         }
     }
@@ -445,11 +667,13 @@ final class Caster: ObservableObject {
     // MARK: YouTube and other pages
 
     private func resolve(_ url: String) {
-        guard let y = Caster.tool("yt-dlp"), let ff = Caster.tool("ffmpeg") else { return fail("yt-dlp or ffmpeg is missing") }
-        set("Finding the video…", nil)
+        guard let y = Caster.tool("yt-dlp"), let ff = Caster.tool("ffmpeg") else { return fail("На сервері немає yt-dlp або ffmpeg") }
+        set("Шукаю відео…", nil)
         let fmt = Caster.ytFormat(video.height)
         Task.detached {
-            let r = Caster.run(y, ["--js-runtimes", "node", "-J", "--no-playlist", "--no-warnings",
+            // Our own node, by path: "--js-runtimes node" only added node to the default deno, and yt-dlp's probes of
+            // Homebrew's deno/node on the external disk ("--version") hung every call under launchd (measured 2026-10-22).
+            let r = Caster.run(y, ["--no-js-runtimes", "--js-runtimes", "node:" + NSHomeDirectory() + "/tinyTV/tools/bin/node", "-J", "--no-playlist", "--no-warnings",
                                    "-f", fmt, url])
             let info = (try? JSONSerialization.jsonObject(with: r.out)) as? [String: Any]
             let err = String(decoding: r.err, as: UTF8.self)
@@ -457,7 +681,7 @@ final class Caster: ObservableObject {
                 guard let info else {
                     // No video there: it is a web page - open it in the TV Browser (owner: "просто відкривати web сторінки").
                     return err.contains("Unsupported URL") || err.contains("No video") || err.contains("Unable to extract")
-                        ? self.webPage(url) : self.fail("Couldn't find a video there")
+                        ? self.webPage(url) : self.fail("Не знайшов відео за цим посиланням")
                 }
                 self.title = info["title"] as? String ?? "Video"
                 self.duration = info["duration"] as? Double ?? 0
@@ -467,6 +691,7 @@ final class Caster: ObservableObject {
                 // One progressive HTTP file: proxy it, the TV can seek in it right away.
                 if urls.count == 1, proto.hasPrefix("http"), let u = URL(string: urls[0]) {
                     let ext = parts.first?["ext"] as? String ?? "mp4"
+                    self.remoteURL = u.absoluteString
                     return self.push(self.media.add(.remote(u)), ext: ext)
                 }
                 let v = parts.first ?? [:]
@@ -494,19 +719,19 @@ final class Caster: ObservableObject {
         env["PATH"] = NSHomeDirectory() + "/tinyTV/tools/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "")
         for (id, out) in zip(ids, files) {
             let p = Process(); p.executableURL = URL(fileURLWithPath: y); p.environment = env
-            p.arguments = ["--js-runtimes", "node", "--no-playlist", "--no-warnings", "--no-part", "--http-chunk-size", "10M",
+            p.arguments = ["--no-js-runtimes", "--js-runtimes", "node:" + NSHomeDirectory() + "/tinyTV/tools/bin/node", "--no-playlist", "--no-warnings", "--no-part", "--http-chunk-size", "10M",
                            "-f", id, "-o", out.path, "--force-overwrites", url]
             p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
             try? p.run(); fetchers.append(p)
         }
         fetching = true
-        set("Fetching…", 0)
+        set("Завантажую…", 0)
         Task {
             // Start once both files have a head (moov + first fragments).
             for _ in 0..<80 {
                 let sizes = files.map { (try? FileManager.default.attributesOfItem(atPath: $0.path)[.size] as? Int) ?? 0 }
                 if sizes.allSatisfy({ $0 > 400_000 }) || fetchers.allSatisfy({ !$0.isRunning }) { break }
-                set("Fetching…", min(0.9, Double(sizes.min() ?? 0) / 400_000))
+                set("Завантажую…", min(0.9, Double(sizes.min() ?? 0) / 400_000))
                 try? await Task.sleep(nanoseconds: 150_000_000)
             }
             let copyable = src.codec.hasPrefix("avc1") || src.codec.hasPrefix("hev") || src.codec.hasPrefix("hvc")
@@ -514,8 +739,16 @@ final class Caster: ObservableObject {
             // When both downloads end and ffmpeg has caught up, end the live file so the TV gets EOF.
             while fetchers.contains(where: { $0.isRunning }) { try? await Task.sleep(nanoseconds: 500_000_000) }
             fetching = false
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            job?.terminate()
+            // A re-encode (4K VP9 -> HEVC) runs slower than the download: stop only when the output stops growing,
+            // i.e. ffmpeg waits at the end of the inputs (cut at 56 % on 2026-10-22 with a fixed 3 s wait).
+            guard let mine = job else { return }
+            var last = -1, still = 0
+            while mine.isRunning, job === mine, still < 4 {
+                let size = liveOut.flatMap { (try? FileManager.default.attributesOfItem(atPath: $0.path)[.size] as? Int) } ?? 0
+                still = size == last ? still + 1 : 0; last = size
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+            if job === mine { mine.terminate() }
         }
     }
 
@@ -523,6 +756,7 @@ final class Caster: ObservableObject {
     private var liveJob: (ff: String, inputs: [String], scale: String?)?
     /// Seconds into the source where the current live stream starts (DLNA counts from 0).
     private var offset: Double = 0
+    private var liveOut: URL?
 
     /// ffmpeg writes a growing MPEG-TS file: joins video and audio (YouTube), copies HLS,
     /// or re-encodes a heavy file with VideoToolbox. Playback starts at ~1.5 MB.
@@ -535,13 +769,31 @@ final class Caster: ObservableObject {
     }
 
     private func live(_ ff: String, inputs: [String], scale: String?, from: Double) {
-        guard !inputs.isEmpty else { return fail("Couldn't find a video there") }
+        guard !inputs.isEmpty else { return fail("Не знайшов відео за цим посиланням") }
+        // Transmission moves a finished file out of .incomplete and drops ".part" (a restart after that found nothing).
+        let inputs = inputs.map { u -> String in
+            guard !u.hasPrefix("http"), !FileManager.default.fileExists(atPath: u), u.contains("/.incomplete/"), u.hasSuffix(".part") else { return u }
+            let q = String(u.replacingOccurrences(of: "/.incomplete/", with: "/").dropLast(5))
+            return FileManager.default.fileExists(atPath: q) ? q : u
+        }
+        if currentFile.map({ !FileManager.default.fileExists(atPath: $0) }) == true { currentFile = inputs.first }
+        if let m = mix, inputs.last != m.track { endMix() }   // something else plays now
         job?.terminate()
         prune()
         liveJob = (ff, inputs, scale); offset = from
         let out = dir.appendingPathComponent("live-\(UUID().uuidString.prefix(8)).ts")
+        liveOut = out
         var args = ["-hide_banner", "-loglevel", "error", "-y"]
         for (n, u) in inputs.enumerated() {
+            // The aligned dub: raw CBR AC3 entered at the 32 ms frame of this second by bytes (no seek in a growing file).
+            if let m = mix, u == m.track {
+                let st = (try? Data(contentsOf: URL(fileURLWithPath: m.status))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                let frame = st?["frame"] as? Int ?? 2560, k = Int(Double(Int(from)) / 0.032)
+                if mixJob?.isRunning == true { args += ["-follow", "1"] }   // audiosync still writes ahead
+                args += ["-f", "ac3", "-skip_initial_bytes", String(k * frame),
+                         "-itsoffset", String(format: "%.3f", Double(k) * 0.032 - Double(Int(from)) + m.nudge), "-i", u]   // + = the voice later
+                continue
+            }
             if from > 0 { args += ["-ss", String(Int(from))] }
             if u.hasPrefix("http") { args += ["-reconnect", "1", "-reconnect_streamed", "1"] }
             else if fetching { args += ["-follow", "1"] }  // the file is still downloading
@@ -553,29 +805,33 @@ final class Caster: ObservableObject {
         let a = inputs.count > 1 ? 0 : track
         args += inputs.count > 1 ? ["-map", "0:v:0", "-map", "1:a:0"] : ["-map", "0:v:0", "-map", "0:a:\(a)?"]
         // Copy audio the TV decodes; turn DTS / E-AC3 / TrueHD into AC3 5.1.
-        let codec = inputs.count > 1 ? "aac" : (trackCodecs.indices.contains(a) ? trackCodecs[a] : "aac")
-        // Equalizer on: the sound is always re-encoded through it (AC3 keeps 5.1).
-        let audio = sound.filter.map { ["-af", $0, "-c:a", "ac3", "-b:a", "448k"] }
-            ?? (Caster.tvAudio.contains(codec) ? ["-c:a", "copy"] : ["-c:a", "ac3", "-b:a", "448k", "-ac", "6"])
+        let codec = inputs.count > 1 ? (mix != nil ? "ac3" : "aac") : (trackCodecs.indices.contains(a) ? trackCodecs[a] : "aac")
+        // Owner (2026-10-21): "Рівно" = the original sound, not re-encoded. Any other preset: through the named
+        // equalizer chain (AC3 keeps 5.1); once it is in, later changes go live with no restart.
+        SoundSettings.volume = tv?.volume ?? SoundSettings.volume; eqVolume = SoundSettings.volume
+        jobEQ = sound.on
+        let audio = sound.on ? ["-af", sound.chain, "-c:a", "ac3", "-b:a", "448k"]
+            : (Caster.tvAudio.contains(codec) ? ["-c:a", "copy"] : ["-c:a", "ac3", "-b:a", "640k", "-ac", "6"])
         if let scale {
             let tenBit = video.hdr && src.hdr
             args += ["-vf", gpuFrames ? scale : softScale(scale), "-c:v", "hevc_videotoolbox", "-profile:v", tenBit ? "main10" : "main",
-                     "-b:v", "\(Int(encodeMbps))M", "-maxrate", "\(Int(encodeMbps * 1.5))M", "-g", "48"]
+                     "-b:v", "\(Int(encodeMbps))M", "-maxrate", "\(Int(min(encodeMbps * 1.2, 42)))M", "-bufsize", "\(Int(min(encodeMbps * 1.2, 42) * 2))M", "-g", "48"]
             if tenBit { args += ["-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc"] }
         } else { args += ["-c:v", "copy"] }
         args += audio
         args += ["-f", "mpegts", out.path]
         let p = Process(); p.executableURL = URL(fileURLWithPath: ff); p.arguments = args
+        let pin = Pipe(); p.standardInput = pin; jobIn = pin
         p.standardOutput = FileHandle.nullDevice; p.standardError = Caster.ffmpegLog()   // why a TV stream stopped (owner: stutter with a full buffer)
         let id = media.add(.growing(out))
         p.terminationHandler = { [weak self] _ in Task { @MainActor in self?.media.finish(id) } }
-        do { try p.run(); job = p } catch { return fail("Couldn't start ffmpeg") }
-        set("Starting…", 0)
+        do { try p.run(); job = p } catch { return fail("Не вдалося запустити перекодування") }
+        set("Запускаю…", 0)
         Task {
             for _ in 0..<120 {
                 let size = (try? FileManager.default.attributesOfItem(atPath: out.path)[.size] as? Int) ?? 0
                 if size > 800_000 || !p.isRunning { break }
-                set("Starting…", min(0.95, Double(size) / 800_000))
+                set("Запускаю…", min(0.95, Double(size) / 800_000))
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
             push(id, ext: "ts")
@@ -596,24 +852,24 @@ final class Caster: ObservableObject {
         }
         job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; position = 0
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
-        tracks = []; trackCodecs = []; track = 0; currentFile = nil
+        tracks = []; trackCodecs = []; track = 0; currentFile = nil; remoteURL = nil; page = ""
         endScreen()
         screen = from; screenWindow = window
         // from: "<host>[-extend|-audio]"; host "mac" = the Mac remote sends, "core" = this machine captures.
         let host = String(from.split(separator: "-").first ?? "")
         let mode = ScreenCapture.Mode(rawValue: String(from.split(separator: "-").dropFirst().first ?? "")) ?? .mirror
-        title = (host == "mac" ? "Mac " : "Core ") + ["mirror": "screen", "extend": "extended screen", "audio": "audio"][mode.rawValue]!
+        title = (host == "mac" ? "Mac " : "core host ") + ["mirror": "screen", "extend": "extended screen", "audio": "audio"][mode.rawValue]!
         LiveRelay.shared.reset(raw: mode == .audio)
-        set(host == "mac" ? "Waiting for the Mac…" : "Capturing this screen…", nil)
+        set(host == "mac" ? "Чекаю на Mac…" : "Захоплюю екран…", nil)
         if host != "mac" {
-            HostSpeakers.mute()   // the TV plays this sound; the core host itself stays silent (capture still gets it: measured)
-            guard let ff = Caster.tool("ffmpeg") else { return fail("ffmpeg is missing") }
+            HostSpeakers.mute()   // the TV plays this sound; core host itself stays silent (capture still gets it: measured)
+            guard let ff = Caster.tool("ffmpeg") else { return fail("На сервері немає ffmpeg") }
             let c = ScreenCapture(); capture = c
-            c.onEnd = { err in Task { @MainActor in if let err { Caster.shared.fail("Screen: \(err)") } } }
+            c.onEnd = { err in Task { @MainActor in if let err { Caster.shared.fail("Показ екрана: \(err)") } } }
             Task {
                 do { try await c.start(window: window, mode: mode, preset: ScreenPreset.named(screenPreset),
                                        to: "127.0.0.1:\(LiveRelay.port.rawValue)", ffmpeg: ff) }
-                catch { fail("Can't capture the screen: \(error.localizedDescription). Allow Screen Recording for tinyTVCore.") }
+                catch { fail("Немає доступу до екрана: дозвольте запис екрана для tinyTVCore у Налаштуваннях") }
             }
         }
         Task {
@@ -642,27 +898,32 @@ final class Caster: ObservableObject {
     // MARK: Torrents through the TV Cast engine
 
     private func torrent(_ s: String) {
-        set("Adding torrent…", nil)
+        set("Додаю торент…", nil)
         title = "Torrent"
         Task {
             let base = URL(string: "http://127.0.0.1:8890")!
             var c = URLComponents(url: base.appendingPathComponent("add"), resolvingAgainstBaseURL: false)!
             var r = URLRequest(url: base); r.httpMethod = "POST"
-            if s.lowercased().hasPrefix("magnet:") { r.httpBody = Data(s.utf8) }
+            if s.lowercased().hasPrefix("magnet:") {
+                r.httpBody = Data(s.utf8)
+                if let ep = torrentEpisode { c.queryItems = [URLQueryItem(name: "ep", value: ep)] }
+            }
             else { c.queryItems = [URLQueryItem(name: "file", value: s)] }
+            torrentEpisode = nil
             r.url = c.url
             guard let (_, resp) = try? await URLSession.shared.data(for: r), (resp as? HTTPURLResponse)?.statusCode == 200 else {
-                return fail("TV Cast engine is not running (port 8890)")
+                return fail("Сервер торентів не запущений")
             }
             for _ in 0..<240 {  // up to 2 min for peers and the first pieces
                 if let (d, _) = try? await URLSession.shared.data(from: base.appendingPathComponent("state")),
                    let st = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
                     let name = st["fileName"] as? String ?? ""
+                    if name.isEmpty, let e = st["error"] as? String, !e.isEmpty { return fail(e) }   // e.g. no such episode in the pack
                     let got = (st["downloadedBytes"] as? NSNumber)?.doubleValue ?? 0
                     let peers = (st["peers"] as? NSNumber)?.intValue ?? 0
                     if !name.isEmpty { title = name }
                     if let d = (st["durationSec"] as? NSNumber)?.doubleValue, d > 0 { duration = d }
-                    set(name.isEmpty ? "Looking for peers… (\(peers))" : "Buffering… \(peers) peers",
+                    set(name.isEmpty ? "Шукаю роздаючих… (\(peers))" : "Буферизую… \(peers) пір.",
                         name.isEmpty ? nil : min(1, got / 8_000_000))
                     if !name.isEmpty, got > 8_000_000, let ip = TV.macIP() {
                         // Starting mid-film (switch from HDRezka / resume): fetch that part first, or the TV waits on
@@ -677,20 +938,22 @@ final class Caster: ObservableObject {
                             return live(ff, inputs: [Caster.engineStream], scale: encodeFilter(), from: at)
                         }
                         heavyCap = false
-                        if sound.on, let ff = Caster.tool("ffmpeg") { let at = startAt; startAt = 0; return live(ff, inputs: [Caster.engineStream], scale: nil, from: at) }
+                        // A start not at 0 goes through ffmpeg's exact -ss: the TV's own DLNA seek in a big VBR file lands
+                        // elsewhere while it reports the asked second (owner 2026-10-24: "фільм після рестарту … було не там").
+                        if sound.on || startAt > 1, let ff = Caster.tool("ffmpeg") { let at = startAt; startAt = 0; return live(ff, inputs: [Caster.engineStream], scale: nil, from: at) }
                         return play("http://\(ip):8890/stream", ext: (name as NSString).pathExtension.lowercased(), engine: true)
                     }
                 }
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
-            fail("No peers for that torrent")
+            fail("Немає роздаючих: торент не стартує")
         }
     }
 
     // MARK: DLNA
 
     private func push(_ id: String, ext: String) {
-        guard let ip = TV.macIP() else { return fail("No local network") }
+        guard let ip = TV.macIP() else { return fail("Немає домашньої мережі") }
         play("http://\(ip):\(MediaServer.port)/m/\(id).\(ext)", ext: ext, engine: false)
     }
 
@@ -699,11 +962,11 @@ final class Caster: ObservableObject {
         // Also a remux of the engine's stream (another audio track) still reads the torrent: keep its buffer logic.
         engineCast = engine || (liveJob?.inputs.first == Caster.engineStream); torrent = [:]
         if engine { engineTracks() }
-        set("Sending to TV…", nil)
+        set("Надсилаю на ТВ…", nil)
         media.lastHit = nil
         Task {
             let ok = await DLNA.load(host: tv.host, url: url, mime: MediaServer.mime(ext), title: title)
-            guard ok else { return fail("TV didn't accept the video") }
+            guard ok else { return fail("ТВ не прийняв відео. Спробуйте ще раз") }
             await Caster.acceptConsent(tv, title: title)
             set("", nil)
             watch()
@@ -754,7 +1017,7 @@ final class Caster: ObservableObject {
                 return (i, [(tags["language"] ?? "").uppercased(), tags["title"] ?? ""].filter { !$0.isEmpty }.joined(separator: " · ") + ch)
             }
             // Ukrainian first when there is one (owner's default elsewhere too).
-            track = streams.firstIndex { ($0["tags"] as? [String: String])?["language"] == "ukr" } ?? 0
+            track = Caster.uaTrack(streams) ?? 0
         }
         return dur > 0 ? size / dur > 4_500_000 : size > 30e9
     }
@@ -774,6 +1037,8 @@ final class Caster: ObservableObject {
     /// Set by Kino when a torrent replaces an HDRezka episode: if the torrent fails or starves, go back there.
     var fallback: (() -> Void)?
     var startAt: Double = 0
+    /// The episode of a season-pack torrent ("2x18"): the engine streams that file, not the pack's largest (owner 2026-10-23).
+    var torrentEpisode: String?
     private var holdSince: Date?
     private var lastTorrentSave = Date.distantPast
 
@@ -842,7 +1107,16 @@ final class Caster: ObservableObject {
                     if liveJob != nil, st.position == 0 { if playing && wasPlaying { position += min(now.timeIntervalSince(tick), 5) } }
                     else { position = st.position }
                     tick = now
+                    // "Динаміки ТВ" follows the TV volume: a step of 3+ re-tunes the running ffmpeg, no restart.
+                    if sound.preset == "tv", jobEQ, liveJob != nil, job?.isRunning == true, case let v = tv.volume, abs(v - eqVolume) >= 3, let i = jobIn {
+                        eqVolume = v; SoundSettings.volume = v
+                        try? i.fileHandleForWriting.write(contentsOf: Data(sound.commands.utf8))
+                    }
                     if engineCast { await engineStats() }
+                    // A file from the Media tab remembers its second too (key "file:<path>").
+                    else if let f = currentFile, displayPosition > 5, Date().timeIntervalSince(lastTorrentSave) > 5 {
+                        lastTorrentSave = Date(); Kino.shared.saveTorrent("file:" + f, position: displayPosition, duration: duration, name: title)
+                    }
                     idle = st.state == "STOPPED" || st.state == "NO_MEDIA_PRESENT" ? idle + 1 : 0
                     if idle > 8 { title = ""; playing = false; break }
                 }
@@ -876,6 +1150,9 @@ final class Caster: ObservableObject {
         if let j = liveJob, j.inputs.count > 0 {
             position = 0
             position = 0
+            if mix != nil, j.inputs.count == 2 {   // the aligned dub may not reach that second yet
+                Task { await mixStart(j.ff, video: j.inputs[0], scale: j.scale, from: max(0, seconds)) }; return
+            }
             return live(j.ff, inputs: j.inputs, scale: j.scale, from: max(0, seconds))
         }
         let s = max(0, Int(seconds)); position = Double(s)
@@ -899,7 +1176,7 @@ final class Caster: ObservableObject {
         endScreen()
         MovieLight.shared.castChanged(playing: false)
         guard let tv else { return }
-        job?.terminate(); job = nil; poll?.cancel(); liveJob = nil
+        job?.terminate(); job = nil; poll?.cancel(); liveJob = nil; endMix()
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
         title = ""; playing = false
         Task { await DLNA.call(host: tv.host, "Stop", "") }
@@ -915,6 +1192,7 @@ final class Caster: ObservableObject {
             if f != failed { failed = f }
         }
         if let t = c["title"] as? String, t != title { title = t }
+        if let l = c["link"] as? String, l != link { link = l }
         if let p = c["playing"] as? Bool, p != playing { playing = p }
         offset = 0
         if let p = c["position"] as? Double, abs(p - position) > 0.5 { position = p }
@@ -968,6 +1246,8 @@ final class Caster: ObservableObject {
         p.environment = env
         let o = Pipe(), e = Pipe(); p.standardOutput = o; p.standardError = e
         guard (try? p.run()) != nil else { return (Data(), Data()) }
+        // A hung tool must not hold its caller (and a Swift concurrency thread) forever.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 120) { if p.isRunning { p.terminate() } }
         let errData = Tail()
         e.fileHandleForReading.readabilityHandler = { errData.add(String(decoding: $0.availableData, as: UTF8.self)) }
         let out = o.fileHandleForReading.readDataToEndOfFile()
@@ -1070,6 +1350,21 @@ final class MediaServer: @unchecked Sendable {
                completion: .contentProcessed { _ in c.cancel() })
     }
 
+    private func send(_ c: NWConnection, _ type: String, _ d: Data) {
+        let head = "HTTP/1.1 200 OK\r\nContent-Type: \(type)\r\nContent-Length: \(d.count)\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+        c.send(content: Data(head.utf8) + d, completion: .contentProcessed { _ in c.cancel() })
+    }
+
+    /// The phone HLS on the home network too: the LAN QR of "Watch here", for devices without Tailscale.
+    private func watch(_ c: NWConnection, _ path: String) {
+        let p = path.split(separator: "/").map(String.init)
+        guard p.count == 3, p[1].allSatisfy({ $0.isLetter || $0.isNumber }), !p[2].contains(".."),
+              let d = try? Data(contentsOf: PhoneWatch.dir.appendingPathComponent(p[1]).appendingPathComponent(p[2])) else { return reply404(c) }
+        let type = p[2].hasSuffix(".m3u8") ? "application/vnd.apple.mpegurl" : p[2].hasSuffix(".m4s") ? "video/iso.segment" : "video/mp4"
+        let head = "HTTP/1.1 200 OK\r\nContent-Type: \(type)\r\nContent-Length: \(d.count)\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n"
+        c.send(content: Data(head.utf8) + d, completion: .contentProcessed { _ in c.cancel() })
+    }
+
     private func serve(_ c: NWConnection) {
         c.start(queue: q)
         c.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [weak self] d, _, _, _ in
@@ -1078,6 +1373,27 @@ final class MediaServer: @unchecked Sendable {
             let parts = lines.first?.split(separator: " ") ?? []
             let method = parts.first.map(String.init) ?? ""
             let path = parts.count > 1 ? String(parts[1].split(separator: "?").first ?? "") : ""
+            if path.hasPrefix("/watch/") { return self.watch(c, path) }
+            // Paired screens (QR in Kino → Списки → Екрани): the receiver page and its 2 s poll.
+            if path == "/screen" {
+                let html = Bundle.main.url(forResource: "screen", withExtension: "html").flatMap { try? Data(contentsOf: $0) } ?? Data()
+                return self.send(c, "text/html; charset=utf-8", html)
+            }
+            if path == "/screen/seek" {   // 1:1 seeking from a screen: the core restarts the stream at that second
+                let q = parts.count > 1 ? String(parts[1].split(separator: "?").dropFirst().first ?? "") : ""
+                let at = q.split(separator: "&").first { $0.hasPrefix("at=") }.flatMap { Double($0.dropFirst(3)) } ?? 0
+                Task { @MainActor in
+                    let r = await PhoneWatch.seek(at)
+                    self.send(c, "application/json", (try? JSONSerialization.data(withJSONObject: r)) ?? Data("{}".utf8))
+                }
+                return
+            }
+            if path == "/screen/poll" {
+                let q = parts.count > 1 ? String(parts[1].split(separator: "?").dropFirst().first ?? "") : ""
+                let id = q.split(separator: "&").first { $0.hasPrefix("id=") }.map { String($0.dropFirst(3)) }.flatMap { $0.isEmpty ? nil : $0 }
+                let d = (try? JSONSerialization.data(withJSONObject: Screens.poll(id))) ?? Data("{}".utf8)
+                return self.send(c, "application/json", d)
+            }
             let id = path.hasPrefix("/m/") ? String(path.dropFirst(3).split(separator: ".").first ?? "") : ""
             guard method == "GET" || method == "HEAD", let (src, finished) = self.get(id) else { return self.reply404(c) }
             self.lastHit = Date()

@@ -1,7 +1,7 @@
-// Screen to TV. The core on the core host serves every stream to the TV (owner's decision 2026-10-20), so:
-//   Mac screen:    tinyTV on the Mac captures (ScreenCaptureKit) -> ffmpeg h264_videotoolbox -> MPEG-TS over TCP to the core host :8893
-//   the core host screen: the core captures the same way and sends to its own :8893
-// LiveRelay on the core host keeps the newest seconds in memory and serves the TV from the latest keyframe (live edge),
+// Screen to TV. The core on core host serves every stream to the TV (owner's decision 2026-10-20), so:
+//   Mac screen:    tinyTV on the Mac captures (ScreenCaptureKit) -> ffmpeg h264_videotoolbox -> MPEG-TS over TCP to core host :8893
+//   core host screen: the core captures the same way and sends to its own :8893
+// LiveRelay on core host keeps the newest seconds in memory and serves the TV from the latest keyframe (live edge),
 // not from the start of the stream, so the delay does not grow with the stream's age.
 import Foundation
 import Network
@@ -86,7 +86,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
         } else {
             var displays = content.displays
             if displays.isEmpty {
-                // Lid closed, no monitor (the core host): add a 1280x720-point HiDPI display for the TV, removed on stop.
+                // Lid closed, no monitor (core host): add a 1280x720-point HiDPI display for the TV, removed on stop.
                 let id = tinytv_vd_create(1280, 720)
                 virtualDisplay = id != 0
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -298,7 +298,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     }
 }
 
-/// the core host :8893 accepts one MPEG-TS stream at a time (from the Mac or the core itself) and fans it out to the TV.
+/// core host :8893 accepts one MPEG-TS stream at a time (from the Mac or the core itself) and fans it out to the TV.
 /// Only LAN and tailnet peers may send.
 final class LiveRelay: @unchecked Sendable {
     static let shared = LiveRelay()
@@ -312,7 +312,7 @@ final class LiveRelay: @unchecked Sendable {
     private var pat: Data?, pmt: Data?
     private var carry = Data()
     private(set) var generation = 0
-    /// Seconds from capture to bytes on the core host are tiny; this tracks when the last bytes arrived.
+    /// Seconds from capture to bytes on core host are tiny; this tracks when the last bytes arrived.
     private(set) var lastData = Date.distantPast
     var live: Bool { q.sync { source != nil && keyAt != nil } }
     /// A live video stream (not the audio-only raw mode): what the TV page can remux.

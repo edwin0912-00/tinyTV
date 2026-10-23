@@ -1,13 +1,19 @@
-// Phone remote: a tiny HTTP server on 127.0.0.1:8891 (published over Tailscale HTTPS).
+// Phone remote: a tiny HTTP server on 127.0.0.1:8891 (published over Tailscale HTTPS) and, for the home Wi-Fi without
+// Tailscale, on port 80 of every interface as http://tinytv.local (owner 2026-10-24: open to everyone at home, no code).
 // GET / -> phone.html, GET /api/state -> JSON, POST /api/<command> with a JSON body.
 // It shares the app's single MQTT client: a second client with the same id would kick it off the TV.
-import Foundation
+import AppKit
+import CoreImage
 import Network
 
 final class PhoneServer {
     static let port: NWEndpoint.Port = 8891
     private var listener: NWListener?
+    private var lanListener: NWListener?
     private let q = DispatchQueue(label: "tinytv.http")
+    /// The home address: Bonjour name first, the LAN IP as the fallback (iPhones resolve .local, some Androids do not).
+    static let lanName = "tinytv.local"
+    static var lanPort: UInt16 = 80
 
     func start() {
         let p = NWParameters.tcp
@@ -17,7 +23,48 @@ final class PhoneServer {
         l.newConnectionHandler = { [weak self] c in self?.serve(c) }
         l.start(queue: q)
         listener = l
-        if TV.config["core"] == nil { TVPage.shared.start() }   // the TV page lives where the streams are (the core host)
+        if TV.config["core"] == nil { startLAN() }   // only the core (core host) serves the home network
+        if TV.config["core"] == nil { TVPage.shared.start() }   // the TV page lives where the streams are (core host)
+    }
+
+    /// Port 80 on all interfaces (macOS lets a user bind ports < 1024), 8897 if 80 is taken; Bonjour "tinytv.local" points
+    /// at the current LAN IP and is re-registered when that IP changes (router reboots move it, see DECISIONS 2026-10-21).
+    private var dnssd: Process?
+    private var dnssdIP = ""
+    private func startLAN() {
+        for port: UInt16 in [80, 8897] {
+            let p = NWParameters.tcp; p.allowLocalEndpointReuse = true
+            guard let np = NWEndpoint.Port(rawValue: port), let l = try? NWListener(using: p, on: np) else { continue }
+            var failed = false
+            l.stateUpdateHandler = { st in if case .failed(let e) = st { failed = true; NSLog("tinyTV lan: port %d failed %@", port, "\(e)") } }
+            l.newConnectionHandler = { [weak self] c in self?.serve(c) }
+            l.start(queue: q)
+            Thread.sleep(forTimeInterval: 0.3)
+            if failed { l.cancel(); continue }
+            lanListener = l; PhoneServer.lanPort = port
+            NSLog("tinyTV lan: remote on http://%@%@", PhoneServer.lanName, port == 80 ? "" : ":\(port)")
+            break
+        }
+        // A dns-sd left by the previous core (deploys restart it) would make a duplicate "tinyTV (2)".
+        _ = Caster.run("/usr/bin/pkill", ["-f", "dns-sd -P tinyTV _http._tcp"])
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.advertise() } }
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.advertise() } }
+    }
+    nonisolated(unsafe) static var lanIP = ""
+    @MainActor private func advertise() {
+        guard lanListener != nil, let ip = TV.macIP() else { return }
+        PhoneServer.lanIP = ip
+        guard ip != dnssdIP || !(dnssd?.isRunning ?? false) else { return }
+        dnssd?.terminate()
+        let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/dns-sd")
+        p.arguments = ["-P", "tinyTV", "_http._tcp", "local", "\(PhoneServer.lanPort)", PhoneServer.lanName, ip, "path=/"]
+        p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+        if (try? p.run()) != nil { dnssd = p; dnssdIP = ip; NSLog("tinyTV lan: %@ -> %@", PhoneServer.lanName, ip) }
+    }
+    /// For the panel and the pages: the home Wi-Fi addresses of the remote.
+    static func lanInfo() -> [String: Any] {
+        let suffix = lanPort == 80 ? "" : ":\(lanPort)"
+        return ["name": "http://\(lanName)\(suffix)", "ip": lanIP.isEmpty ? "" : "http://\(lanIP)\(suffix)"]
     }
 
     private func serve(_ c: NWConnection) {
@@ -60,7 +107,7 @@ final class PhoneServer {
             }
             return
         }
-        // HLS of what the core host buffers, for the phone's own player (and AirPlay from there): /watch/<id>/<file>.
+        // HLS of what core host buffers, for the phone's own player (and AirPlay from there): /watch/<id>/<file>.
         if r.method == "GET", r.path.hasPrefix("/watch/") {
             let parts = r.path.split(separator: "/").map(String.init)
             guard parts.count == 3, parts[1].allSatisfy({ $0.isLetter || $0.isNumber }), !parts[2].contains(".."),
@@ -69,6 +116,9 @@ final class PhoneServer {
             let type = parts[2].hasSuffix(".m3u8") ? "application/vnd.apple.mpegurl" : parts[2].hasSuffix(".m4s") ? "video/iso.segment" : "video/mp4"
             return reply(c, 200, type, d)
         }
+        // QR of a stream link for another screen (the page player's "QR"): /qr/<percent-encoded URL>.
+        if r.method == "GET", r.path.hasPrefix("/qr/"), let s = String(r.path.dropFirst(4)).removingPercentEncoding,
+           s.hasPrefix("http"), s.count < 600, let png = QR.png(s) { return reply(c, 200, "image/png", png) }
         if r.method == "GET", r.path == "/kino" || r.path == "/kino/" {
             let html = Bundle.main.url(forResource: "kino", withExtension: "html").flatMap { try? Data(contentsOf: $0) }
             return reply(c, 200, "text/html; charset=utf-8", html ?? Data("missing kino.html".utf8))
@@ -88,6 +138,10 @@ final class PhoneServer {
         // Kino talks to HDRezka through WebKit: async, never on a blocked main thread.
         if cmd.hasPrefix("kino/") {
             let body = (try? JSONSerialization.jsonObject(with: r.body)) as? [String: Any] ?? [:]
+            // Who started what (the kino/* commands returned before the log below: nothing logged since 2026-10-23).
+            if r.method == "POST", ["kino/open", "kino/play", "kino/torrent/use", "kino/media/play", "kino/next/play", "kino/inbox", "kino/mix", "kino/switch/plan", "kino/prepare"].contains(cmd) {
+                PhoneServer.logOpen(cmd, body, agent: r.agent)
+            }
             Task { @MainActor in
                 let res = await Kino.shared.handle(cmd, body)
                 let d = (try? JSONSerialization.data(withJSONObject: res)) ?? Data("{}".utf8)
@@ -104,8 +158,13 @@ final class PhoneServer {
             }.max() ?? 0
             return reply(c, 200, "application/json", Data("{\"v\":\(Int(t))}".utf8))
         }
+        if r.method == "GET", cmd == "lan" { return reply(c, 200, "application/json", (try? JSONSerialization.data(withJSONObject: PhoneServer.lanInfo())) ?? Data("{}".utf8)) }
         if r.method == "GET", cmd == "files" { return PhoneServer.files { self.reply(c, 200, "application/json", $0) } }
         let body = (try? JSONSerialization.jsonObject(with: r.body)) as? [String: Any] ?? [:]
+        // Who started what: a YouTube link replaced a film on 2026-10-22 with no trace of the caller.
+        if r.method == "POST", ["open", "kino/open", "kino/play", "kino/torrent/use", "kino/media/play", "kino/next/play", "kino/inbox", "file"].contains(cmd) {
+            PhoneServer.logOpen(cmd, body, agent: r.agent)
+        }
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 let tv = TV.shared
@@ -117,12 +176,14 @@ final class PhoneServer {
                 case ("POST", "volume"): if let v = body["v"] as? Double { tv.volume = max(0, min(100, v)) } else { ok = false }
                 case ("POST", "open"):
                     // With the TV page open, an HDRezka page plays there full screen (LowLatency.swift).
-                    if let u = body["url"] as? String { if !TVPage.shared.take(u) { tv.open(u) } } else { ok = false }
+                    if let u = body["url"] as? String { if !TVPage.shared.take(u) { tv.open(u, from: body["from"] as? Double ?? 0) } } else { ok = false }
                 case ("POST", "page/open"): if let u = body["url"] as? String, u.hasPrefix("http") { TVPage.shared.go(u) } else { ok = false }
                 case ("POST", "page/screen"): TVPage.shared.screen()
                 case ("POST", "page/idle"): TVPage.shared.idle()
                 case ("GET", "page"):
-                    let o: [String: Any] = ["open": TVPage.shared.open, "report": TVPage.shared.report]
+                    // "addr": the TV page address to type in the TV browser (UX review 15: no hard-coded IP on the remote).
+                    let addr: String = TV.macIP().map { "http://\($0):8895" } ?? ""
+                    let o: [String: Any] = ["open": TVPage.shared.open, "report": TVPage.shared.report, "addr": addr]
                     return self.reply(c, 200, "application/json", (try? JSONSerialization.data(withJSONObject: o)) ?? Data("{}".utf8))
                 case ("POST", "type"): if let t = body["text"] as? String { tv.type(t) } else { ok = false }
                 case ("POST", "picture"):
@@ -133,7 +194,9 @@ final class PhoneServer {
                     if let id = body["id"] as? String, let s = tv.sources.first(where: { $0.id == id }) { tv.source(s) } else { ok = false }
                 case ("POST", "shortcut"):
                     if let n = body["name"] as? String, let u = body["url"] as? String, !n.isEmpty, !u.isEmpty {
-                        tv.shortcuts.append(Shortcut(name: n, url: u))
+                        let at = body["at"] as? Double ?? 0
+                        if let i = tv.shortcuts.firstIndex(where: { $0.url == u }) { tv.shortcuts[i].at = at > 5 ? at : nil }
+                        else { tv.shortcuts.append(Shortcut(name: n, url: u, at: at > 5 ? at : nil)) }
                     } else { ok = false }
                 case ("POST", "shortcut/delete"):
                     if let id = body["id"] as? String { tv.shortcuts.removeAll { $0.id.uuidString == id } } else { ok = false }
@@ -214,7 +277,7 @@ final class PhoneServer {
 
     static let movieRoots = ["Movies", "Downloads"].map { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent($0) }
 
-    /// Measured 2026-10-20: on the core host (lid closed) open() inside ~/Movies blocked forever, likely a privacy prompt
+    /// Measured 2026-10-20: on core host (lid closed) open() inside ~/Movies blocked forever, likely a privacy prompt
     /// nobody can answer, and the scan ran on the main thread, so every phone and Mac command hung behind it.
     /// Now one scan runs at a time on its own queue; a caller gets the last list after 3 s at most.
     private static let scanQ = DispatchQueue(label: "tinytv.files")
@@ -268,8 +331,28 @@ final class PhoneServer {
 }
 
 /// One HTTP/1.1 request, parsed once headers and the full Content-Length body have arrived.
+enum QR {
+    static func png(_ s: String) -> Data? {
+        guard let f = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        f.setValue(Data(s.utf8), forKey: "inputMessage"); f.setValue("M", forKey: "inputCorrectionLevel")
+        guard let o = f.outputImage?.transformed(by: .init(scaleX: 8, y: 8)), let cg = CIContext().createCGImage(o, from: o.extent) else { return nil }
+        return NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])
+    }
+}
+
+extension PhoneServer {
+    nonisolated static func logOpen(_ cmd: String, _ body: [String: Any], agent: String) {
+        let what = (body["url"] ?? body["magnet"] ?? body["path"] ?? body["title"] ?? (body["film"] as? [String: Any])?["title"] ?? "") as? String ?? ""
+        let ua = agent.contains("iPhone") ? "iPhone" : agent.contains("Macintosh") ? (agent.contains("Safari") ? "Mac page" : "Mac app") : String(agent.prefix(40))
+        let line = "\(ISO8601DateFormatter().string(from: Date())) \(cmd) [\(ua)] \(what.prefix(160))\n"
+        let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/tinyTV-open.log")
+        if let h = try? FileHandle(forWritingTo: u) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+        else { try? Data(line.utf8).write(to: u) }
+    }
+}
+
 private struct Request {
-    let method: String, path: String, body: Data
+    let method: String, path: String, body: Data, agent: String
     init?(_ d: Data) {
         guard let end = d.range(of: Data("\r\n\r\n".utf8)) else { return nil }
         let head = String(decoding: d[d.startIndex..<end.lowerBound], as: UTF8.self).components(separatedBy: "\r\n")
@@ -280,6 +363,7 @@ private struct Request {
             return p.count == 2 && p[0].lowercased() == "content-length" ? Int(p[1].trimmingCharacters(in: .whitespaces)) : nil
         }.first ?? 0
         guard d.count - end.upperBound >= len else { return nil }
+        agent = head.dropFirst().first { $0.lowercased().hasPrefix("user-agent:") }.map { String($0.dropFirst(11)).trimmingCharacters(in: .whitespaces) } ?? ""
         method = String(line[0]); path = String(line[1].split(separator: "?").first ?? "/")
         body = d.subdata(in: end.upperBound..<end.upperBound + len)
     }

@@ -4,12 +4,14 @@ import AppKit
 
 struct TVApp: Identifiable, Hashable { let id: String, name: String, url: String }
 struct TVSource: Identifiable, Hashable { let id: String, name: String, signal: Bool }
-struct Shortcut: Identifiable, Codable, Hashable { var id = UUID(); var name: String; var url: String }
+struct Shortcut: Identifiable, Codable, Hashable { var id = UUID(); var name: String; var url: String; var at: Double? = nil }
 
 @MainActor
 final class TV: ObservableObject {
     static let shared = TV()
     @Published var connected = false
+    /// The tinyTV server (core on core host) answers this panel.
+    @Published var serverUp = true
     /// True once a connection attempt failed: the TV is off, asleep or unreachable.
     @Published var offline = false
     @Published var volume: Double = 0 { didSet { if !syncing { debounce("vol") { [unowned self] in
@@ -18,6 +20,8 @@ final class TV: ObservableObject {
     @Published var nowPlaying = ""
     /// Kino series on the TV (from the core): which episode steps exist, for the panel's ⏮ / ⏭.
     @Published var episode: (prev: Bool, next: Bool)? = nil
+    /// The Kino film on the TV ("Title · S2E16"), "" when none: the panel shows it like the phone does, not the file name.
+    @Published var kinoTitle = ""
     /// Last DLNA player state from the TV broadcast: start / play / pause / stop, "" when another source shows.
     var dlnaPlaystate = ""
     /// Title of the media the DLNA player reports (our DIDL dc:title).
@@ -29,19 +33,19 @@ final class TV: ObservableObject {
     @Published var shortcuts: [Shortcut] = [] { didSet {
         guard core != nil else { return saveShortcuts() }
         guard !syncing else { return }
-        for s in shortcuts where !oldValue.contains(where: { $0.id == s.id }) { Remote.post("shortcut", ["name": s.name, "url": s.url]) }
+        for s in shortcuts where !oldValue.contains(where: { $0.id == s.id }) { Remote.post("shortcut", ["name": s.name, "url": s.url, "at": s.at ?? 0]) }
         for s in oldValue where !shortcuts.contains(where: { $0.id == s.id }) { Remote.post("shortcut/delete", ["id": s.id.uuidString]) }
     } }
     @Published var lastKey = ""
 
     let host: String
-    /// Set on a remote (this Mac): the tinyTV core runs permanently on the core host and every command goes to its API.
+    /// Set on a remote (this Mac): the tinyTV core runs permanently on core host and every command goes to its API.
     let core: URL?
     nonisolated static let config: [String: String] = {
         let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/tinyTV/config.json")
         return (try? Data(contentsOf: u)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: String] } ?? [:]
     }()
-    private let cid = TV.config["client_id"] ?? "tinytv_core"   // must match the id used when pairing (scripts/pair.py)
+    private let cid = TV.config["client_id"] ?? "tinytv_core"   // must match the id used when pairing
     private var ui: String { "/remoteapp/tv/ui_service/\(cid)/" }
     private var ps: String { "/remoteapp/tv/platform_service/\(cid)/" }
     private var remote: String { "/remoteapp/tv/remote_service/\(cid)/" }
@@ -56,7 +60,7 @@ final class TV: ObservableObject {
             .appendingPathComponent("Library/Application Support/tinyTV")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let cfg = TV.config
-        host = cfg["tv"] ?? "192.168.0.2"   // set "tv" in config.json (scripts/tinytv-setup.mjs finds it)
+        host = cfg["tv"] ?? "192.168.0.38"
         core = cfg["core"].flatMap(URL.init(string:))
         Caster.shared.tv = self
         if let core {
@@ -76,6 +80,9 @@ final class TV: ObservableObject {
         mqtt.onMessage = { [weak self] t, d in Task { @MainActor in self?.handle(t, d) } }
         mqtt.connect()
         self.mqtt = mqtt
+        // Owner: no manual fixing after a router reboot - the core keeps looking for the TV (by MAC, then by its port)
+        // from the start, not only after a lost connection.
+        watchAddress()
         if !CommandLine.arguments.contains("--do"), !CommandLine.arguments.contains("--selftest") { server.start() }
         if let i = CommandLine.arguments.firstIndex(of: "--do"), CommandLine.arguments.dropFirst(i + 1).first == "power" {
             // Waking must not wait for a connection that only exists once the TV is awake.
@@ -83,11 +90,50 @@ final class TV: ObservableObject {
         }
     }
 
+    /// The router may give the TV a new address (DHCP). While the TV stays unreachable, look for it on the LAN every
+    /// 2 min (its remote port 36669); found elsewhere -> save the address and restart the core (launchd brings it back).
+    private var addressWatch: Task<Void, Never>?
+    private func watchAddress() {
+        guard addressWatch == nil else { return }
+        let old = host
+        addressWatch = Task.detached { [weak self] in
+            var tries = 0
+            while !Task.isCancelled {
+                // A TV in deep sleep is off the LAN all night: every 2 min for the first half hour, then every 10 min.
+                try? await Task.sleep(nanoseconds: tries == 0 ? 30_000_000_000 : tries < 15 ? 120_000_000_000 : 600_000_000_000); tries += 1
+                if await MainActor.run(body: { self?.connected ?? true }) { break }
+                let parts = old.split(separator: "."); guard parts.count == 4 else { break }
+                let net = parts.prefix(3).joined(separator: ".")
+                // By the TV's MAC first (a router reboot reshuffles addresses; measured 2026-10-21: .38 -> .36 while its
+                // ports were still closed), then by its remote port.
+                let mac = (TV.config["tv_mac"] ?? "aabbccddeeff").lowercased()
+                // 32 at a time: 254 pings + 253 nc subshells at once took ~800 of user's 1333 processes (measured
+                // 2026-10-22, 293 in use); throttled, the same scan finds the TV in 10 s.
+                let sh = "seq 1 254 | xargs -P 32 -I@ sh -c 'ping -c 1 -t 1 \(net).@ >/dev/null 2>&1; true'; "
+                    + "arp -an | awk 'tolower($4)==\"\(mac)\" {gsub(/[()]/,\"\",$2); print $2}'; "
+                    + "seq 2 254 | xargs -P 32 -I@ sh -c 'nc -z -G 1 \(net).@ 36669 2>/dev/null && echo \(net).@; true'"
+                let found = String(decoding: Caster.run("/bin/zsh", ["-c", sh]).out, as: UTF8.self)
+                    .split(separator: "\n").map(String.init).filter { !$0.isEmpty && $0 != old }
+                guard let ip = found.first else { continue }
+                NSLog("tinyTV: TV moved %@ -> %@, restarting with the new address", old, ip)
+                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/tinyTV/config.json")
+                var cfg = (try? JSONSerialization.jsonObject(with: Data(contentsOf: u))) as? [String: Any] ?? [:]
+                cfg["tv"] = ip
+                if let d = try? JSONSerialization.data(withJSONObject: cfg, options: [.prettyPrinted]) { try? d.write(to: u) }
+                exit(0)
+            }
+            await MainActor.run { self?.addressWatch = nil }
+        }
+    }
+
     private func stateChanged(_ ok: Bool) {
         withAnimation(.easeOut(duration: 0.25)) { connected = ok; offline = !ok }
+        if !ok, core == nil { watchAddress() }
         guard ok else { return }
         mqtt?.subscribe("/remoteapp/mobile/#")
         refresh()
+        // What the TV says about itself (network type, Wi-Fi band): saved for diagnosis, see handle().
+        publish(ps + "actions/gettvinfo"); publish(ps + "actions/getdeviceinfo")
         // Debug: --do open:URL | --do keys:KEY_A,KEY_B (0.5 s apart), then quit.
         if let i = CommandLine.arguments.firstIndex(of: "--do"), i + 1 < CommandLine.arguments.count {
             let cmd = CommandLine.arguments[i + 1]
@@ -138,6 +184,10 @@ final class TV: ObservableObject {
 
     private func handle(_ topic: String, _ data: Data) {
         if CommandLine.arguments.contains("--trace") { NSLog("tinyTV < %@ %@", topic, String(decoding: data.prefix(160), as: UTF8.self)) }
+        if topic.contains("tvinfo") || topic.contains("deviceinfo") {
+            let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/tinyTV-tvinfo.txt")
+            try? (topic + "\n" + String(decoding: data, as: UTF8.self) + "\n").data(using: .utf8)?.write(to: u)
+        }
         guard let j = try? JSONSerialization.jsonObject(with: data) else { return }
         let fresh = Date().timeIntervalSince(lastLocalEdit) > 1.5  // never fight a slider being dragged
         syncing = true; defer { syncing = false }
@@ -180,6 +230,8 @@ final class TV: ObservableObject {
         let k = o["kino"] as? [String: Any] ?? [:]
         let ep = k["season"] == nil ? nil : (prev: k["hasPrev"] as? Bool ?? false, next: k["hasNext"] as? Bool ?? false)
         if ep?.prev != episode?.prev || ep?.next != episode?.next || (ep == nil) != (episode == nil) { episode = ep }
+        let kt = (k["title"] as? String ?? "") + ((k["season"] as? Int).map { s in " · S\(s)E\(k["episode"] as? Int ?? 0)" } ?? "")
+        if kt != kinoTitle { kinoTitle = kt }
         if let n = o["nowPlaying"] as? String, n != nowPlaying { withAnimation(.easeOut(duration: 0.3)) { nowPlaying = n } }
         let a = (o["apps"] as? [[String: Any]] ?? []).compactMap { d in (d["id"] as? String).map { TVApp(id: $0, name: d["name"] as? String ?? $0, url: "") } }
         if a != apps { apps = a }
@@ -188,7 +240,7 @@ final class TV: ObservableObject {
         if src != sources { sources = src }
         let sc = (o["shortcuts"] as? [[String: Any]] ?? []).compactMap { d -> Shortcut? in
             guard let id = (d["id"] as? String).flatMap(UUID.init(uuidString:)), let n = d["name"] as? String, let u = d["url"] as? String else { return nil }
-            return Shortcut(id: id, name: n, url: u) }
+            return Shortcut(id: id, name: n, url: u, at: (d["at"] as? Double).flatMap { $0 > 0 ? $0 : nil }) }
         if sc != shortcuts { shortcuts = sc }
         if Date().timeIntervalSince(lastLocalEdit) > 1.5, let p = o["picture"] as? [String: Double] {
             let m = Dictionary(uniqueKeysWithValues: p.compactMap { k, v in Int(k).map { ($0, v) } })
@@ -204,15 +256,15 @@ final class TV: ObservableObject {
             "apps": apps.map { ["id": $0.id, "name": $0.name] },
             "sources": sources.map { ["id": $0.id, "name": $0.name, "signal": $0.signal] },
             "picture": Dictionary(uniqueKeysWithValues: picture.map { (String($0.key), Int($0.value.rounded())) }),
-            "shortcuts": shortcuts.map { ["id": $0.id.uuidString, "name": $0.name, "url": $0.url] },
+            "shortcuts": shortcuts.map { ["id": $0.id.uuidString, "name": $0.name, "url": $0.url, "at": $0.at ?? 0] },
             "kino": Caster.shared.remote ? [:] : Kino.shared.state(),
             "cast": ["status": Caster.shared.status, "progress": Caster.shared.progress ?? -1.0 as Double, "failed": Caster.shared.failed,
-                     "title": Caster.shared.title, "playing": Caster.shared.playing,
+                     "title": Caster.shared.title, "link": Caster.shared.link, "playing": Caster.shared.playing,
                      "position": Caster.shared.displayPosition,
                      "sound": ["preset": Caster.shared.sound.preset, "custom": Caster.shared.sound.custom, "bands": Caster.shared.sound.bands],
                      "video": ["mode": Caster.shared.video.mode, "height": Caster.shared.video.height,
                                "hdr": Caster.shared.video.hdr, "mbps": Caster.shared.video.mbps],
-                     "tracks": Caster.shared.tracks.map { ["i": $0.i, "label": $0.label] }, "track": Caster.shared.track, "duration": Caster.shared.duration,
+                     "tracks": Caster.shared.tracks.map { ["i": $0.i, "label": $0.label] }, "track": Caster.shared.track, "duration": Caster.shared.duration, "mix": Caster.shared.mixState, "inputs": Caster.shared.watchInputs,
                      "screen": Caster.shared.screen, "screenWindow": Int(Caster.shared.screenWindow ?? UInt32.max) == Int(UInt32.max) ? -1 : Int(Caster.shared.screenWindow!),
                      "screenLatency": Caster.shared.screenLatency, "screenPreset": Caster.shared.screenPreset,
                      "torrent": Caster.shared.title.isEmpty ? [:] : Caster.shared.torrent],
@@ -225,8 +277,8 @@ final class TV: ObservableObject {
     func power() {
         if core != nil { return Remote.post("power") }
         if connected { key("KEY_POWER"); return }
-        // config "tv_mac": the TV's MAC addresses (Wi-Fi, Ethernet), comma-separated hex; scripts/tinytv-setup.mjs prints them.
-        for mac in (TV.config["tv_mac"] ?? "").split(separator: ",") { wake(mac.replacingOccurrences(of: ":", with: "").trimmingCharacters(in: .whitespaces)) }
+        // MACs from the TV's UPnP descriptor: Wi-Fi and Ethernet.
+        for mac in ["aabbccddeeff", "112233445566"] { wake(mac) }
     }
 
     private func wake(_ hex: String) {
@@ -275,17 +327,17 @@ final class TV: ObservableObject {
     }
 
     /// Sends a link to the TV: the Mac fetches the video and the TV plays it over DLNA (see Cast.swift).
-    func open(_ raw: String) {
+    func open(_ raw: String, from: Double = 0, page: String? = nil) {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !s.isEmpty else { return }
         // magnet:, file paths and full URLs pass as they are; a bare domain gets https://
         if !s.contains(":"), !s.hasPrefix("/") { s = "https://" + s }
-        // Optional HDRezka provider: resolve the page to a direct stream (WebKit), then cast that.
+        // HDRezka: resolve the page to a direct stream here (WebKit, owner's own bot-check pass), then cast that.
 #if PROVIDER_HDREZKA
         if Rezka.handles(s) {
             Rezka.shared.resolve(s) { [weak self] r in
                 switch r {
-                case .success(let v): if MQTT.trace { NSLog("tinyTV rezka -> %@", v.url) }; self?.open(v.url)
+                case .success(let v): if MQTT.trace { NSLog("tinyTV rezka -> %@", v.url) }; self?.open(v.url, from: from, page: s)
                 case .failure(let e): NSLog("tinyTV rezka failed: %@", e.localizedDescription)
                 }
             }
@@ -293,12 +345,14 @@ final class TV: ObservableObject {
         }
 #endif
         if core != nil {
-            // A file on this Mac goes up to the core host first; links are fetched by the core itself.
+            // A file on this Mac goes up to core host first; links are fetched by the core itself.
             if s.hasPrefix("/") || s.hasPrefix("file://") { return Remote.shared.upload(URL(fileURLWithPath: s.hasPrefix("file://") ? (URL(string: s)?.path ?? s) : s)) }
-            return Remote.post("open", ["url": s])
+            return Remote.post("open", ["url": s, "from": from])
         }
         Caster.shared.tv = self
         Caster.shared.cast(s)
+        Caster.shared.link = page ?? s   // after cast(): the bookmark keeps the page, not the expiring stream
+        if from > 1 { Caster.shared.startAt = from }
     }
 
     func type(_ text: String) {
@@ -323,7 +377,14 @@ final class TV: ObservableObject {
 
     private func loadShortcuts() {
         if let d = try? Data(contentsOf: shortcutsURL), let s = try? JSONDecoder().decode([Shortcut].self, from: d) {
-            shortcuts = s
+            // Links to this machine's own servers (TV Cast :8890, media :8892) follow its current LAN address:
+            // a router reboot moved core host .42 -> .35 and left "TV Cast" pointing nowhere (2026-10-21).
+            let ip = TV.macIP()
+            shortcuts = s.map { sc in
+                guard let ip, let r = sc.url.range(of: #"^http://192\.168\.\d+\.\d+:(8890|8892)/"#, options: .regularExpression) else { return sc }
+                let port = sc.url[r].split(separator: ":").last ?? ""
+                var c = sc; c.url = "http://\(ip):\(port)" + sc.url[r.upperBound...]; return c
+            }
         } else {
             let ip = TV.macIP() ?? "127.0.0.1"
             shortcuts = [Shortcut(name: "TV Cast", url: "http://\(ip):8890/play"),

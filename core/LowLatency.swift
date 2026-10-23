@@ -1,4 +1,4 @@
-// TV page: one bookmark in the TV Browser, http://<the core host LAN IP>:8895/ (core only).
+// TV page: one bookmark in the TV Browser, http://<core host LAN IP>:8895/ (core only).
 // Why: DLNA buffers ~8 s and the TV ignores URLs sent over MQTT (both measured 2026-10-20). The page:
 //   - plays the screen with low delay: the relay's MPEG-TS is remuxed (copy, no re-encode) by ffmpeg into
 //     fragmented MP4, sent over a WebSocket on the same port (/ws) and fed to Media Source Extensions at the live edge;

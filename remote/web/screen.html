@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>tinyTV · екран</title>
+<style>
+:root{--accent:#6b9eff;--mute:rgba(242,243,247,.55)}
+html,body{margin:0;height:100%;background:#000;color:#f2f3f7;font:15px -apple-system,system-ui,sans-serif;overflow:hidden}
+.wait{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+.wait b{font-size:28px}.wait small{color:var(--mute)}
+video{position:fixed;inset:0;width:100%;height:100%;background:#000;display:none}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:none;gap:12px;align-items:center;
+  background:linear-gradient(transparent,rgba(0,0,0,.75));transition:opacity .3s}
+.bar.hide{opacity:0}.bar button{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:50%;width:42px;height:42px;font-size:16px}
+.bar input{flex:1;accent-color:var(--accent)}.bar span{font-variant-numeric:tabular-nums;font-size:13px;color:var(--mute);min-width:52px}
+.on video,.on .bar{display:flex}.on .wait{display:none}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);padding:8px 14px;border-radius:12px;font-size:13px;display:none}
+</style></head>
+<body>
+<div class="wait"><b id="nm">tinyTV</b><small id="st">Підключаю…</small></div>
+<video id="v" playsinline></video>
+<div class="bar" id="bar"><button id="pp" aria-label="Пауза або відтворення">❚❚</button><span id="c">0:00</span>
+<input type="range" id="s" min="0" max="1" step="1" value="0" aria-label="Перемотка"><span id="d">0:00</span>
+<button id="fs" aria-label="На весь екран">⤢</button></div>
+<div class="toast" id="t"></div>
+<script>
+// Paired screen (owner 2026-10-22): keeps its id, plays what tinyTV sends. Time and seeking are the film's own (1:1):
+// a second the stream has not reached yet restarts it there.
+const $ = id => document.getElementById(id), v = $('v');
+let ID = ''; try { ID = localStorage.getItem('tinytv.screen') || ''; } catch (e) {}
+let F = 0, D = 0, drag = false, hideT;
+const clock = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+const toast = m => { const t = $('t'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2500); };
+function load(url, from, dur){ F = from || 0; if (dur) D = dur; v.src = url; v.play().catch(() => {}); document.body.classList.add('on'); show(); }
+async function poll(){
+  try { const r = await (await fetch('/screen/poll?id=' + encodeURIComponent(ID), {cache: 'no-store'})).json();
+    if (r.id && r.id !== ID) { ID = r.id; try { localStorage.setItem('tinytv.screen', ID); } catch (e) {} }
+    $('nm').textContent = 'tinyTV · ' + (r.name || 'екран'); $('st').textContent = 'Підключено. Чекаю, що прислати.';
+    const c = r.cmd || {};
+    if (c.play) { document.title = c.play.title || 'tinyTV'; load(c.play.url, c.play.from, c.play.dur); }
+  } catch (e) { $('st').textContent = 'Немає зв’язку з tinyTV, пробую ще…'; }
+  setTimeout(poll, 2000);
+}
+async function seekTo(x){
+  const have = v.seekable.length ? v.seekable.end(v.seekable.length - 1) : 0;
+  if (x >= F && x - F <= have - 2) { v.currentTime = x - F; return; }
+  toast('Перемотую на ' + clock(x) + '…');
+  const r = await (await fetch('/screen/seek?at=' + Math.floor(x))).json().catch(() => ({}));
+  if (r.url) load(r.url, r.from, r.dur); else toast(r.error || 'Не вийшло');
+}
+v.addEventListener('timeupdate', () => { const t = F + v.currentTime; if (!drag) $('s').value = t; $('c').textContent = clock(t);
+  if (v.duration && isFinite(v.duration) && !D) D = F + v.duration; $('s').max = Math.max(1, D); $('d').textContent = D ? clock(D) : ''; });
+['play', 'pause'].forEach(e => v.addEventListener(e, () => $('pp').textContent = v.paused ? '▶' : '❚❚'));
+$('s').oninput = () => { drag = true; $('c').textContent = clock(+$('s').value); };
+$('s').onchange = () => { drag = false; seekTo(+$('s').value); };
+$('pp').onclick = () => v.paused ? v.play() : v.pause();
+const full = () => document.fullscreenElement ? document.exitFullscreen()
+  : document.documentElement.requestFullscreen ? document.documentElement.requestFullscreen().catch(() => {}) : v.webkitEnterFullscreen && v.webkitEnterFullscreen();
+$('fs').onclick = full; v.ondblclick = full;
+function show(){ $('bar').classList.remove('hide'); clearTimeout(hideT); hideT = setTimeout(() => !v.paused && $('bar').classList.add('hide'), 3000); }
+document.addEventListener('pointermove', show); document.addEventListener('touchstart', show);
+poll();
+</script>
+</body></html>

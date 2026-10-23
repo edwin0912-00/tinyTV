@@ -22,9 +22,9 @@ clang -c -O2 -fobjc-arc -target arm64-apple-macos14 core/VirtualDisplay.m -o bui
 for NAME in tinyTV tinyTVCore; do
 A=build/$NAME.app
 mkdir -p $A/Contents/MacOS $A/Contents/Resources
-MAIN=$([ $NAME = tinyTV ] && echo remote/mac/TinyTVApp.swift || echo core/Core.swift)
+MAIN=(core/Core.swift); [ $NAME = tinyTV ] && MAIN=(remote/mac/TinyTVApp.swift remote/mac/Watch.swift)
 swiftc -O -parse-as-library -target arm64-apple-macos14 $FLAGS -import-objc-header core/VirtualDisplay.h $MAIN $SHARED build/VirtualDisplay.o -o $A/Contents/MacOS/$NAME
-cp remote/web/phone.html remote/web/kino.html remote/web/np.js core/discover.py $A/Contents/Resources/
+cp remote/web/phone.html remote/web/kino.html remote/web/screen.html remote/web/np.js core/discover.py core/audiosync.py core/switchplan.py core/keeper.py $A/Contents/Resources/
 # The TV's client certificate is yours to supply (docs/hisense-pairing.md); it is never committed.
 [ -f certs/remotenow.p12 ] && cp certs/remotenow.p12 $A/Contents/Resources/
 cat > $A/Contents/Info.plist <<P
@@ -35,7 +35,7 @@ cat > $A/Contents/Info.plist <<P
 <key>CFBundleName</key><string>$NAME</string>
 <key>CFBundleExecutable</key><string>$NAME</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleShortVersionString</key><string>${VERSION:-0.3.0}</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>

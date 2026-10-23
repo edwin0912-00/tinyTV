@@ -1,5 +1,5 @@
 // TV Cast - tiny magnet->TV streamer with buffer gauges.
-// Takes a magnet (HTTP /add, or the clipboard when TVCAST_CLIPBOARD=1), streams it at original quality,
+// Watches the clipboard for a magnet link, streams it at original quality,
 // casts to a DLNA TV if one is found, and reports buffer fill for Mac + TV.
 import http from 'node:http';
 import os from 'node:os';
@@ -10,12 +10,12 @@ import { execFile, spawn } from 'node:child_process';
 import WebTorrent from 'webtorrent';
 
 const PORT = Number(process.env.PORT || 8890);
-// Downloads live in TVCAST_DIR (default ~/Downloads/Torrent) so they can be found, kept or deleted.
+// Owner (tinyTV): downloads live in ~/Downloads/Torrent so they can be found, kept or deleted.
 const TMP = process.env.TVCAST_DIR || path.join(os.homedir(), 'Downloads', 'Torrent');
-// Optional external disk as the main store (TVCAST_EXTERNAL=/Volumes/MyDisk); TVCAST_DIR is the fallback when it is not mounted.
-const SSD = process.env.TVCAST_EXTERNAL || '';
+// Owner: the external SSD is the main store; the internal folder is the fallback when it is not mounted.
+const SSD = process.env.TVCAST_EXTERNAL || '';   // optional external disk
 function storeDir() {
-  try { if (!SSD) throw 0; fs.accessSync(SSD, fs.constants.W_OK); const d = path.join(SSD, 'Torrent'); fs.mkdirSync(d, { recursive: true }); return d; }
+  try { fs.accessSync(SSD, fs.constants.W_OK); const d = path.join(SSD, 'Torrent'); fs.mkdirSync(d, { recursive: true }); return d; }
   catch { return TMP; }
 }
 fs.mkdirSync(TMP, { recursive: true });
@@ -90,12 +90,15 @@ const saveBg = () => { try { fs.writeFileSync(BG_FILE, JSON.stringify(Object.fro
 // (skipVerify would mark every piece as present and the TV would get zeros for what was never downloaded).
 const BITS = path.join(TMP, '.bits'); try { fs.mkdirSync(BITS, { recursive: true }); } catch {}
 function savedBits(h) { try { return h ? new Uint8Array(fs.readFileSync(path.join(BITS, h.toLowerCase()))) : undefined; } catch { return undefined; } }
-setInterval(() => { for (const t of client.torrents) { try { if (t.bitfield && t.bitfield.buffer) fs.writeFileSync(path.join(BITS, t.infoHash), Buffer.from(t.bitfield.buffer)); } catch {} } }, 30e3);
+setInterval(() => { for (const t of client.torrents) { try { if (t.bitfield && t.bitfield.buffer) fs.writeFileSync(path.join(BITS, t.infoHash), Buffer.from(t.bitfield.buffer)); } catch {}
+  // Metadata too: after a restart the torrent is back at once (name, size, done) without waiting for peers.
+  try { const m = path.join(BITS, t.infoHash + '.torrent'); if (t.torrentFile && !fs.existsSync(m)) fs.writeFileSync(m, t.torrentFile); } catch {} } }, 30e3);
+function savedMeta(h) { try { return fs.readFileSync(path.join(BITS, h.toLowerCase() + '.torrent')); } catch { return null; } }
 // Owner: checking files must not take the server down. Background torrents come back 10 s after start, one every
 // 5 s, trusting what is on disk (skipVerify) - a full re-hash of a 28 GB file blocked HTTP for minutes.
 setTimeout(() => { let k = 0; for (const [h, b] of background) { setTimeout(() => { try {
   if (client.torrents.find(t => t.infoHash === h)) return;
-  const t = client.add(b.magnet, { path: fs.existsSync(b.path) ? b.path : storeDir(), announce: TRACKERS, bitfield: savedBits(h) });
+  const t = client.add(savedMeta(h) || b.magnet, { path: fs.existsSync(b.path) ? b.path : storeDir(), announce: TRACKERS, bitfield: savedBits(h) });
   t.on('ready', () => { const v = t.files.filter(f => VIDEO_RE.test(f.name)); const big = (v.length ? v : t.files).sort((a, b) => b.length - a.length)[0];
     t.files.forEach(f => (f === big ? f.select() : f.deselect())); }); } catch {} }, 5000 * k++); } }, 10000);
 
@@ -127,12 +130,17 @@ setInterval(() => {
   }
 }, 30e3);
 
+const paused = new Set();
 function listTorrents() {
   return client.torrents.map(t => {
     const sel = t.files ? t.files.filter(f => VIDEO_RE.test(f.name)).sort((a, b) => b.length - a.length)[0] : null;
+    // No metadata yet (just restarted, few peers) but the file is complete on disk: it is done, show it so.
+    if (!sel && t.name) { try { const b = background.get(t.infoHash), st = fs.statSync(path.join((b && b.path) || storeDir(), t.name));
+      if (st.isFile() && st.size > 0) return { hash: t.infoHash, name: t.name, size: st.size, progress: 1, down: 0, up: 0, peers: t.numPeers,
+        active: t === activeTorrent, paused: paused.has(t.infoHash), background: background.has(t.infoHash), done: true, magnet: t.magnetURI, eta: -1 }; } catch {} }
     return { hash: t.infoHash, name: t.name || 'отримую метадані…', size: sel ? sel.length : (t.length || 0),
       progress: sel ? sel.progress : t.progress, down: t.downloadSpeed, up: t.uploadSpeed, peers: t.numPeers,
-      active: t === activeTorrent, background: background.has(t.infoHash), done: t.done, magnet: t.magnetURI,
+      active: t === activeTorrent, paused: paused.has(t.infoHash), background: background.has(t.infoHash), done: t.done, magnet: t.magnetURI,
       eta: t.downloadSpeed > 0 && sel ? Math.round(sel.length * (1 - sel.progress) / t.downloadSpeed) : -1 };
   });
 }
@@ -155,6 +163,8 @@ function streamURL() {
 // .local is kept only as a secondary option for Apple devices that do mDNS.
 state.ipURL = `http://${state.lanIP}:${PORT}/play`;
 state.playURL = state.ipURL;
+// A router reboot hands out new addresses (2026-10-21: .42 -> .40 -> .36): follow the current one.
+setInterval(() => { const ip = lanIP(); if (ip && ip !== state.lanIP) { console.log("tinytv: LAN address " + state.lanIP + " -> " + ip); state.lanIP = ip; state.ipURL = `http://${ip}:${PORT}/play`; state.playURL = state.ipURL; } }, 30000);
 execFile('scutil', ['--get', 'LocalHostName'], { timeout: 3000 }, (err, out) => {
   const h = (out || '').trim();
   state.host = h ? `http://${h}.local:${PORT}/play` : null;
@@ -167,6 +177,16 @@ function infoHashOf(magnet) {
 
 function log(...a) { console.log(new Date().toISOString().slice(11, 19), 'tinytv:', ...a); }
 
+// "2x18" -> the file whose name says S02E18 / 2x18 / "Сезон 2 ... Серія 18"; null when none matches.
+let wantEp = null;
+function episodeFile(files, ep) {
+  const m = /^(\d+)x(\d+)$/.exec(ep || ''); if (!m || !files.length) return null;
+  const s = +m[1], e = +m[2];
+  const res = [new RegExp(`s0*${s}[ ._-]*e0*${e}(?!\\d)`, 'i'), new RegExp(`(^|[^\\d])0*${s}x0*${e}(?!\\d)`, 'i')];
+  for (const re of res) { const f = files.find(x => re.test(x.path || x.name)); if (f) return f; }
+  const inSeason = files.filter(x => new RegExp(`(s|season|сезон)[ ._-]*0*${s}(?!\\d)`, 'i').test(x.path || x.name));
+  return inSeason.find(x => new RegExp(`(e|ep|episode|серія|серия)[ ._-]*0*${e}(?!\\d)`, 'i').test(x.name)) || null;
+}
 async function addMagnet(magnet) {
   log('add', infoHashOf(magnet), 'active', activeTorrent && activeTorrent.infoHash);
   // drop previous
@@ -211,9 +231,16 @@ function onReady(torrent) {
   {
     activeTorrent = torrent; prioPiece = -1;
     state.name = torrent.name;
-    // largest video file
+    // The asked episode in a season pack (tinyTV sends ep=2x18), else the largest video file. Owner 2026-10-23: S2E18 was
+    // asked, the pack's biggest file (a double finale s03e23) played.
     const vids = torrent.files.filter(f => VIDEO_RE.test(f.name));
-    activeFile = (vids.length ? vids : torrent.files).sort((a, b) => b.length - a.length)[0];
+    const hit = episodeFile(vids, wantEp);
+    // An episode was asked and this pack has several videos but not that one: say so, never play another episode.
+    if (wantEp && !hit && vids.length > 1) {
+      state.error = `У роздачі немає серії ${wantEp.replace(/^(\d+)x(\d+)$/, (_, s, e) => 'S' + s.padStart(2, '0') + 'E' + e.padStart(2, '0'))}`;
+      state.fileName = null; log('no episode', wantEp, torrent.infoHash); return;
+    }
+    activeFile = hit || (vids.length ? vids : torrent.files).sort((a, b) => b.length - a.length)[0];
     // compute byte offset of this file within the torrent (files are contiguous)
     let acc = 0;
     for (const f of torrent.files) { if (f === activeFile) { fileStartByte = acc; break; } acc += f.length; }
@@ -229,13 +256,17 @@ function onReady(torrent) {
 
 // duration via ffprobe over HTTP /probe: ffprobe issues Range requests and
 // pulls the tail (moov atom) itself, without disturbing the player's playhead.
+// One ffprobe at a time: the 1 s timer called this while the duration stayed unknown, each call started its own
+// ffprobe and 40-try chain, and 600+ processes filled the user's limit (sshd, yt-dlp failed; 2026-10-22).
+let probing = false;
 function probeDuration(tries = 0) {
-  if (!activeFile || state.durationSec || tries > 40) return;
+  if (!activeFile || state.durationSec || tries > 40 || (probing && tries === 0)) return;
+  probing = true;
   const src = `http://127.0.0.1:${PORT}/probe`;
   execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration',
     '-of', 'default=nw=1:nk=1', src], { timeout: 15000 }, (err, out) => {
     const d = parseFloat((out || '').trim());
-    if (d > 0) { state.durationSec = d; }
+    if (d > 0 || tries >= 40) { probing = false; if (d > 0) state.durationSec = d; }
     else setTimeout(() => probeDuration(tries + 1), 4000);
   });
 }
@@ -286,6 +317,7 @@ setInterval(() => {
 let lastClip = '', seenClip = null;
 // tinyTV: react only when the clipboard itself changes. Comparing with the last *added* magnet made an old magnet
 // left in the clipboard replace (and delete) every torrent tinyTV added.
+// Clipboard magnets only with TVCAST_CLIPBOARD=1 (macOS).
 if (process.env.TVCAST_CLIPBOARD === '1' && process.platform === 'darwin') setInterval(() => {
   execFile('pbpaste', { timeout: 2000 }, (err, out) => {
     if (err || out == null) return;
@@ -470,6 +502,20 @@ const server = http.createServer((req, res) => {
     if (url.searchParams.get('on') === '0') background.delete(t.infoHash); else background.set(t.infoHash, { magnet: t.magnetURI, path: t.path });
     saveBg(); res.writeHead(200); res.end('ok'); return;
   }
+  // Owner: pause / resume a download from the tinyTV list (not the one the TV plays). In memory until a restart.
+  if (url.pathname === '/pause' && req.method === 'POST') {
+    const t = client.torrents.find(x => x.infoHash === url.searchParams.get('hash'));
+    if (!t) { res.writeHead(404); res.end('no torrent'); return; }
+    if (url.searchParams.get('on') === '0') {
+      paused.delete(t.infoHash); t.resume();
+      const v = (t.files || []).filter(f => VIDEO_RE.test(f.name)); const big = (v.length ? v : (t.files || [])).sort((x, y) => y.length - x.length)[0];
+      if (big) big.select();
+    } else {
+      if (t === activeTorrent) { res.writeHead(409); res.end('playing'); return; }
+      paused.add(t.infoHash); t.pause(); (t.files || []).forEach(f => f.deselect()); (t.wires || []).slice().forEach(w => { try { w.destroy(); } catch {} });
+    }
+    res.writeHead(200); res.end('ok'); return;
+  }
   if (url.pathname === '/remove' && req.method === 'POST') {
     const t = client.torrents.find(x => x.infoHash === url.searchParams.get('hash'));
     if (!t) { res.writeHead(404); res.end('no torrent'); return; }
@@ -486,6 +532,7 @@ const server = http.createServer((req, res) => {
       if (file && /\.torrent$/i.test(file) && fs.existsSync(file)) {
         lastClip = file; addMagnet(file); res.writeHead(200); res.end('added-file'); return;
       }
+      wantEp = url.searchParams.get('ep');
       const raw = url.searchParams.get('magnet') || body || '';
       const m = raw.match(/magnet:\?xt=urn:btih:[^\s"'<>]+/i);
       if (m) { lastClip = m[0]; addMagnet(m[0]); res.writeHead(200); res.end('added'); }
