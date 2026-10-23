@@ -165,15 +165,37 @@ async function check() {
   if (!ok) process.exitCode = 1;
 }
 
-async function config(ip) {
-  if (!ip) { const tvs = await discover(); ip = tvs[0]?.ip; }
-  if (!ip) { process.exitCode = 1; return; }
-  const c = { tv: ip, client_id: 'tinytv_core', tv_mac: '', light_url: '' };
-  console.log(`\nSave as ~/Library/Application Support/tinyTV/config.json on the core host:\n${JSON.stringify(c, null, 2)}`);
-  console.log('On a Mac remote add  "core": "http://<core-host>:8891"  so it sends commands to the core.');
+// MAC of an address this machine has just talked to (the port knock fills the ARP cache).
+function macOf(ip) {
+  try {
+    const out = execFileSync('arp', ['-n', ip], { encoding: 'utf8' });
+    const m = out.match(/([0-9a-f]{1,2}(?::[0-9a-f]{1,2}){5})/i);
+    return m ? m[1].split(':').map((x) => x.padStart(2, '0')).join('') : '';
+  } catch { return ''; }
 }
 
-const [cmd, arg] = process.argv.slice(2);
-const run = { discover: () => discover(arg), install, check, config: () => config(arg) }[cmd];
-if (!run) { console.log('usage: node scripts/tinytv-setup.mjs discover | install | check | config [TV-IP]'); process.exitCode = 2; }
+// config [IP] [--write]: print (or, with --write, create when missing) ~/Library/Application Support/tinyTV/config.json.
+// An existing config is never overwritten; a missing tv_mac is the only key it may add.
+async function config(ip, write) {
+  if (!ip) { const tvs = await discover(); ip = (tvs.find((t) => t.mqtt) || tvs[0])?.ip; }
+  if (!ip) { process.exitCode = 1; return; }
+  const file = path.join(os.homedir(), 'Library/Application Support/tinyTV/config.json');
+  const mac = (await port(ip, HISENSE_MQTT, 1500), macOf(ip));
+  if (fs.existsSync(file)) {
+    const c = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (write && !c.tv_mac && mac && !c.core) { c.tv_mac = mac; fs.writeFileSync(file, JSON.stringify(c, null, 2) + '\n'); console.log(`config: added tv_mac ${mac}`); }
+    else console.log(`config: kept ${file}`);
+    return;
+  }
+  const c = { tv: ip, client_id: 'tinytv_core', tv_mac: mac, tvcast: 'http://127.0.0.1:8890', light_url: '' };
+  if (!write) { console.log(`\n${file}:\n${JSON.stringify(c, null, 2)}`); return; }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(c, null, 2) + '\n');
+  console.log(`config: created ${file} (TV ${ip}${mac ? ', MAC ' + mac : ''})`);
+}
+
+const args = process.argv.slice(2);
+const [cmd, arg] = args.filter((a) => !a.startsWith('--'));
+const run = { discover: () => discover(arg), install, check, config: () => config(arg, args.includes('--write')) }[cmd];
+if (!run) { console.log('usage: node scripts/tinytv-setup.mjs discover [IP] | install | check | config [TV-IP] [--write]'); process.exitCode = 2; }
 else await run();
