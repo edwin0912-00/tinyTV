@@ -103,7 +103,7 @@ def mux(h, e, video):
     tmp = out + ".part"
     r = subprocess.run([FF, "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", video, "-f", "ac3", "-i", full,
                         "-map", "0:v", "-map", "1:a", "-map", "0:a?", "-map", "0:s?", "-c", "copy",
-                        "-disposition:a:0", "default", "-metadata:s:a:0", "language=ukr", "-metadata:s:a:0", f"title={voice}",
+                        "-disposition:a", "0", "-disposition:a:0", "default", "-metadata:s:a:0", "language=ukr",   # only the voice is default "-metadata:s:a:0", f"title={voice}",
                         "-f", "matroska", tmp], capture_output=True, timeout=3 * 3600)
     if r.returncode != 0 or not os.path.exists(tmp): return False
     os.replace(tmp, out)

@@ -60,7 +60,7 @@ final class TV: ObservableObject {
             .appendingPathComponent("Library/Application Support/tinyTV")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let cfg = TV.config
-        host = cfg["tv"] ?? "192.168.0.38"
+        host = cfg["tv"] ?? "192.168.0.2"
         core = cfg["core"].flatMap(URL.init(string:))
         Caster.shared.tv = self
         if let core {

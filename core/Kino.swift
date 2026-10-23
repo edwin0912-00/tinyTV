@@ -990,7 +990,7 @@ enum Library {
             .filter { !$0.hasPrefix(".") && $0 != "Macintosh HD" && !$0.hasPrefix("com.apple") }
             .map { (name: $0, path: "/Volumes/" + $0) }
         // Not the whole home folder: Desktop / Documents are privacy-protected and the scan waits on a prompt
-        // (measured 2026-10-21: stuck at 0.8 % CPU on /Users/user).
+        // (measured 2026-10-21: stuck at 0.8 % CPU on ~).
         return vols + [(name: "Фільми", path: NSHomeDirectory() + "/Movies"), (name: "Завантаження", path: NSHomeDirectory() + "/Downloads")]
     }
     nonisolated(unsafe) private static var files: [[String: Any]] = []

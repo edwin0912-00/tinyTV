@@ -1,5 +1,5 @@
 // tinyTV - menu bar remote for a Hisense VIDAA TV, in the style of tinyLight.
-// Config: ~/Library/Application Support/tinyTV/config.json {"tv": "192.168.0.38"}
+// Config: ~/Library/Application Support/tinyTV/config.json {"tv": "<TV IP>"}
 import SwiftUI
 import AppKit
 import AVFoundation
