@@ -175,6 +175,45 @@ function infoHashOf(magnet) {
   return m ? m[1].toLowerCase() : null;
 }
 
+// ---- Track probe: header of a release's main video file -> its audio / subtitle tracks (cached in tracks.json).
+const TRACKS_FILE = path.join(os.homedir(), 'Library/Caches/tinyTV-mix/tracks.json');
+const TRACKS = new Map(Object.entries((() => { try { return JSON.parse(fs.readFileSync(TRACKS_FILE, 'utf8')); } catch { return {}; } })()));
+const PROBING = new Set(); let probeRunning = 0;
+const FFPROBE = fs.existsSync(path.join(os.homedir(), 'tinyTV/tools/bin/ffprobe')) ? path.join(os.homedir(), 'tinyTV/tools/bin/ffprobe') : 'ffprobe';
+function saveTracks() { try { fs.writeFileSync(TRACKS_FILE, JSON.stringify(Object.fromEntries(TRACKS))); } catch {} }
+function probeTracks(ih, magnet) {
+  if (PROBING.has(ih) || probeRunning >= 2) return;
+  PROBING.add(ih); probeRunning++;
+  const had = client.torrents.find(t => t.infoHash === ih);
+  const dir = path.join(TMP, 'probe'); fs.mkdirSync(dir, { recursive: true });
+  let t = had, finished = false;
+  const finish = (r) => { if (finished) return; finished = true; clearTimeout(timer); PROBING.delete(ih); probeRunning--;
+    if (r) { TRACKS.set(ih, r); saveTracks(); }
+    if (!had && t) { try { client.remove(t, { destroyStore: true }); } catch {} } };
+  const timer = setTimeout(() => finish({ state: 'failed', error: 'timeout', at: Date.now() }), 120000);
+  const go = () => {
+    const v = t.files.filter(f => VIDEO_RE.test(f.name)); const big = (v.length ? v : t.files).sort((a, b) => b.length - a.length)[0];
+    if (!big) return finish({ state: 'failed', error: 'no video', at: Date.now() });
+    if (!had) t.files.forEach(f => f.deselect());
+    const want = Math.min(big.length, 8 * 1024 * 1024), out = path.join(dir, ih + path.extname(big.name)), chunks = [];
+    let got = 0; const st = big.createReadStream({ start: 0, end: want - 1 });
+    st.on('data', c => { chunks.push(c); got += c.length; });
+    st.on('error', () => finish({ state: 'failed', error: 'read', at: Date.now() }));
+    st.on('end', () => {
+      fs.writeFileSync(out, Buffer.concat(chunks));
+      execFile(FFPROBE, ['-v', 'error', '-show_entries', 'stream=index,codec_type,codec_name,channels:stream_tags=language,title', '-of', 'json', out], { timeout: 20000 }, (e, so) => {
+        try { fs.unlinkSync(out); } catch {}
+        let streams = []; try { streams = JSON.parse(so || '{}').streams || []; } catch {}
+        const tracks = streams.filter(x => x.codec_type === 'audio' || x.codec_type === 'subtitle')
+          .map(x => ({ type: x.codec_type, codec: x.codec_name, ch: x.channels || 0, lang: ((x.tags || {}).language || '').toLowerCase(), title: (x.tags || {}).title || '' }));
+        finish({ state: tracks.length ? 'done' : 'unknown', file: big.name, tracks, at: Date.now() }); });
+    }); };
+  try {
+    if (!t) { t = client.add(magnet, { path: dir, announce: TRACKERS }); t.on('error', () => finish({ state: 'failed', error: 'torrent', at: Date.now() })); }
+    if (t.ready) go(); else t.once('ready', go);
+  } catch (e) { finish({ state: 'failed', error: String(e).slice(0, 80), at: Date.now() }); }
+}
+
 function log(...a) { console.log(new Date().toISOString().slice(11, 19), 'tinytv:', ...a); }
 
 // "2x18" -> the file whose name says S02E18 / 2x18 / "Сезон 2 ... Серія 18"; null when none matches.
@@ -490,6 +529,16 @@ const server = http.createServer((req, res) => {
       res.writeHead(200); res.end('fetching');
     });
     return;
+  }
+  // Real audio tracks of a release (owner 2026-10-24 «чому озвучки лише з рутрекера»): only rutracker / toloka names
+  // list the voices. Read the first 8 MB of the biggest video file and let ffprobe list the tracks. Cached per hash.
+  if (url.pathname === '/tracks') {
+    const m = url.searchParams.get('magnet') || '', ih = infoHashOf(m);
+    if (!ih) { res.writeHead(400); res.end('no magnet'); return; }
+    const done = TRACKS.get(ih);
+    if (!done) probeTracks(ih, m);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(done || { state: 'pending' })); return;
   }
   if (url.pathname === '/list') {
     const dir = storeDir(); let free = 0; try { const st = fs.statfsSync(dir); free = st.bavail * st.bsize; } catch {}

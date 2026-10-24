@@ -159,24 +159,34 @@ def info(ids):
         posters(got)
         for i in part: cache[i] = dict(got.get(i, {'dirs': [], 'at': time.time()}), pv=2, iv=4)
         save('info.json', cache)
-    # Posters fetched before pilicense=any were mostly missing: fetch them once more.
-    old = {i: cache[i] for i in ids if i in cache and cache[i].get('wiki') and cache[i].get('pv') != 2}
+    # Missing posters are tried again (a failed Wikipedia batch was once cached as "no poster" for good: a third of
+    # the cards had none, owner 2026-10-24). Once a day per film, at most 200 per call.
+    day = time.time() - 86400
+    old = {i: cache[i] for i in ids if i in cache and cache[i].get('wiki') and not cache[i].get('poster')
+           and cache[i].get('pt', 0) < day}
     if old:
-        posters(old)
-        for i in old: cache[i]['pv'] = 2
+        old = dict(list(old.items())[:200])
+        done = posters(old)
+        for i in done: cache[i]['pt'] = time.time()
         save('info.json', cache)
     return {i: cache.get(i, {}) for i in ids}
 
 
 def posters(got):
+    """Fills got[id]['poster'] from Wikipedia; returns the ids whose batch was answered (a failed one is tried later)."""
     titles = {g['wiki']: i for i, g in got.items() if g.get('wiki')}
-    names = list(titles)
+    names, done = list(titles), set()
     for k in range(0, len(names), 50):
         # pilicense=any: film posters are non-free images, which pageimages hides by default.
         q = urllib.parse.urlencode({'action': 'query', 'format': 'json', 'prop': 'pageimages', 'piprop': 'thumbnail', 'pilicense': 'any',
                                     'pithumbsize': 360, 'redirects': 1, 'titles': '|'.join(names[k:k + 50])})
-        try: d = json.loads(http('https://en.wikipedia.org/w/api.php?' + q))['query']
-        except Exception: continue
+        d = None
+        for wait in (0, 2, 5):
+            time.sleep(wait)
+            try: d = json.loads(http('https://en.wikipedia.org/w/api.php?' + q))['query']; break
+            except Exception: d = None
+        if d is None: continue
+        done.update(titles[n] for n in names[k:k + 50])
         alias = {}
         for kind in ('normalized', 'redirects'):
             for m in d.get(kind, []): alias[m['to']] = alias.get(m['from'], m['from'])
@@ -184,6 +194,7 @@ def posters(got):
             src = (p.get('thumbnail') or {}).get('source')
             orig = alias.get(p.get('title'), p.get('title'))
             if src and orig in titles: got[titles[orig]]['poster'] = src
+    return done
 
 
 # ---------- lists ----------
@@ -325,7 +336,7 @@ def for_you(movies, awards, new):
             why.append((2.2, ('режисер %s, як у «%s»' % ((d.get('dirs') or dl)[0], src)) if src else 'улюблений режисер ' + (d.get('dirs') or dl)[0]))
         if any(x in bad_dirs for x in d.get('dirsEn', [])[:1]): sc -= 1.5
         dec = '%ds' % (m['y'] // 10 * 10) if m['y'] else ''
-        if dec in eras: sc += 0.7; why.append((0.7, 'ваша епоха: ' + dec))
+        if dec in eras: sc += 0.7; why.append((0.7, 'ваша епоха: ' + ((dec[2:4] + ('-ні' if dec[2:4] == '00' else '-ті')) if dec.endswith('s') else dec)))
         reg = [r for r in regions if set(d.get('countries', [])) & REGIONS.get(r, set())]
         if reg: sc += 0.7; why.append((0.7, {'hollywood': 'англомовне', 'europe': 'європейське', 'asia': 'азійське', 'ukraine': 'українське',
                                               'nordic': 'скандинавське', 'latam': 'латиноамериканське'}.get(reg[0], reg[0]) + ' кіно'))
@@ -407,7 +418,7 @@ def pool():
              'orig': inf.get(i, {}).get('en') or movies[i].get('o', ''), 'year': movies[i]['y']} for i in stale if i in movies]
 
 
-def search(q):
+def search(q, fast=False):
     """Film search that doesn't depend on HDRezka: Wikidata (uk / ru / en names) + the IMDb index."""
     movies = load('movies.json', {})
     q = (q or '').strip()
@@ -418,6 +429,8 @@ def search(q):
     def hit(names): return any(n and n in norm(x) for x in names if x) or (words and any(all(w in norm(x) for w in words) for x in names if x))
     local = [i for i, m in movies.items() if hit([m.get('t'), m.get('o')] + [cache.get(i, {}).get(k) for k in ('uk', 'ru', 'en')])]
     ids = sorted(local, key=lambda i: -movies[i]['v'])[:24]
+    # local=True (typing suggestions): the index only, no Wikidata round trips (a miss cost 4 s, measured 2026-10-24).
+    if fast and not ids: return {'items': []}   # (the name `local` is the id list below)
     if ids:
         awards = load('awards.json', {}); new = load('new.json', [])
         inf = info(ids); seen = seen_titles(); av = availability()
@@ -533,7 +546,7 @@ if __name__ == '__main__':
     elif cmd == 'info': print(json.dumps(info(sys.argv[2:]), ensure_ascii=False))
     elif cmd == 'directors': print(json.dumps(directors(), ensure_ascii=False))
     elif cmd == 'pool': print(json.dumps(pool(), ensure_ascii=False))
-    elif cmd == 'search': print(json.dumps(search(' '.join(sys.argv[2:])), ensure_ascii=False))
+    elif cmd == 'search': print(json.dumps(search(' '.join(a for a in sys.argv[2:] if a != '--local'), fast='--local' in sys.argv[2:]), ensure_ascii=False))
     elif cmd == 'seed': print(json.dumps(seed(), ensure_ascii=False))
     elif cmd == 'avail-path': print(path('avail.json'))
     elif cmd == 'match': print(json.dumps(match(json.load(open(sys.argv[2]))), ensure_ascii=False))

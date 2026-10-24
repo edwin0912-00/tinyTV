@@ -129,6 +129,10 @@ extension Kino: WKNavigationDelegate {
           id, url: page, series,
           title: ((d.querySelector('.b-post__title h1') || {}).textContent || '').trim().replace(/\\s+\\d+\\s+сезон.*$/i, '').replace(/\\s+в озвучке.*$/i, ''),
           original: ((d.querySelector('.b-post__origtitle') || {}).textContent || '').trim(),
+          // For the album-style page (owner 2026-10-24 canon): director, genres, running time from the info table.
+          director: (() => { const r = [...d.querySelectorAll('.b-post__info tr')].find(tr => /Режисс/i.test(tr.textContent)); return r ? [...r.querySelectorAll('[itemprop=name], a span, .item span')].map(x => x.textContent.trim()).filter(Boolean).slice(0, 2).join(', ') : ''; })(),
+          genres: [...d.querySelectorAll('.b-post__info [itemprop=genre]')].map(x => x.textContent.trim()).slice(0, 2),
+          duration: ((d.querySelector('.b-post__info [itemprop=duration]') || {}).textContent || '').trim(),
           poster: (d.querySelector('.b-sidecover img') || {}).src || '',
           year: ((((d.querySelector('.b-post__info') || {}).textContent || '') + ' ' + ((d.querySelector('.b-post__infolast') || {}).textContent || '')).match(/(19|20)\\d\\d/) || [''])[0],
           translators: tr.length ? tr : [{id: defTr, name: 'Default', active: true}],
@@ -139,7 +143,8 @@ extension Kino: WKNavigationDelegate {
         """, ["url": url])
         guard var t = r as? [String: Any] else { return ["error": "HDRezka не відповідає"] }
         if again, (t["id"] as? String ?? "").isEmpty, await recheck(url.components(separatedBy: "#")[0]) { return await title(url, again: false) }
-        if let id = t["id"] as? String { t["progress"] = store.progress(id) ?? NSNull(); t["bookmarked"] = store.isBookmarked(id) }
+        if let id = t["id"] as? String { t["progress"] = store.progress(id) ?? NSNull(); t["bookmarked"] = store.isBookmarked(id)
+            if let p = t["poster"] as? String, !p.isEmpty { store.fillPoster(id, p) } }
         return t
     }
 
@@ -191,11 +196,18 @@ extension Kino: WKNavigationDelegate {
         let pick = list.first { $0.q == want } ?? list.max { rank($0.q) < rank($1.q) }!
         var item = b; item["quality"] = pick.q; item["qualities"] = list.map { $0.q }
         current = item; next = nil; nextTimer?.cancel()
+        // One film = one position (owner): a plain start continues where it stopped; only "З початку" (restart) goes to 0.
+        // Owner 2026-10-24 «скинувся до нуля»: a start without a second wrote 0 over the remembered 17:38.
+        var from = b["from"] as? Double ?? 0
+        let saved = store.episodePosition(id, season: season, episode: episode)
+        let eps = (store.progress(id)?["eps"] as? [String: [Double]])?["\(season ?? 0):\(episode ?? 0)"]
+        let finished = eps.map { $0.count > 1 && $0[1] > 0 && $0[0] >= $0[1] * 0.9 } ?? false
+        if b["restart"] as? Bool != true, from < 1, let saved, saved > 30, !finished { from = saved }
+        // A resume from a page opened earlier carries the second it showed then; after a drop-out the core knows a later one.
+        if from > 0, let saved, abs(saved - from) > 10, !finished { from = saved }
+        item["from"] = from
         store.recordStart(item)
         let label = (b["title"] as? String ?? "HDRezka") + (season.map { " · S\($0)E\(episode ?? 0)" } ?? "")
-        // A resume from a page opened earlier carries the second it showed then; after a drop-out the core knows a later one.
-        var from = b["from"] as? Double ?? 0
-        if from > 0, let saved = store.episodePosition(id, season: season, episode: episode), abs(saved - from) > 10 { from = saved }
         Caster.shared.castAt(pick.url, title: label, from: from)
         // The TV reports no duration for this stream: read it from the file header (needed for progress and "next").
         let streamURL = pick.url, probeTool = Caster.tool("ffprobe")

@@ -19,6 +19,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0e0f13">
+<meta name="apple-mobile-web-app-title" content="tinyTV">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <title>Кіно · tinyTV</title>
 <style>
 /* UX pass 2026-10-22 (ux-review): one action colour (--act) per screen, selection = light fill, links coral; type scale and 4/8/12/16/24 spacing. */
@@ -94,7 +97,7 @@ padding:10px 12px;border-radius:20px;background:rgba(26,28,36,.96);-webkit-backd
 .dk-srcw{display:flex;gap:8px}.dk-srcw .dk-src{flex:1;min-width:0}
 .dk-torb[hidden]{display:none!important}
 .dk-keep{flex:none;padding:0 12px;min-height:48px;border-radius:14px;background:var(--card);color:var(--mute);font-size:20px;font-weight:600}.dk-keep[hidden]{display:none}
-.dk-keep.on{background:#2b3a8a;color:#fff}.dk-mix .dk-keep{min-height:40px;border-radius:12px;font-size:13px}.dk-keep{font-size:13px}
+.dk-keep.on{background:var(--card);color:var(--text,#fff)}.dk-keep{display:inline-flex;align-items:center;gap:8px}.dk-keep .sw{position:relative;width:34px;height:20px;border-radius:10px;background:rgba(255,255,255,.18);transition:background .2s;flex:none}.dk-keep .sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}.dk-keep.on .sw{background:#34c759}.dk-keep.on .sw::after{transform:translateX(14px)}.dk-mix .dk-keep{min-height:40px;border-radius:12px;font-size:13px}.dk-keep{font-size:13px}
 .dk-src{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border-radius:14px;background:var(--card);text-align:left;font-size:14px;width:100%}
 .dk-src .k{color:var(--mute);font-size:12px;flex:none}.dk-src .v{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dk-src .ch{color:var(--mute)}
 .dk-uaw{display:flex;align-items:center;gap:10px;font-size:13px;color:#ff9f0a}.dk-uaw[hidden]{display:none}.dk-uaw button{margin-left:auto;min-height:40px;padding:0 14px;border-radius:12px;background:var(--card);color:var(--text);font-size:13px;font-weight:600}
@@ -105,7 +108,7 @@ padding:10px 12px;border-radius:20px;background:rgba(26,28,36,.96);-webkit-backd
 .dk-mix .v b,.dk-mix .v small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dk-mix .v b{font-weight:600}.dk-mix .v small{color:var(--mute);font-size:12px}
 .dk-mix button{min-width:48px;min-height:40px;border-radius:12px;background:var(--bg);font-size:13px;font-weight:600}.dk-mix .n{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;color:var(--mute);font-size:13px}
 .pct{color:#ff9f0a;font-weight:600}
-#srcP .now{display:flex;flex-direction:column;gap:6px}#srcP .now .h{color:var(--text);font-size:15px}
+#srcP .combo.now{display:flex;flex-direction:column;gap:6px}#srcP .now .h{color:var(--text);font-size:15px}
 #srcP .savep{margin-top:6px;min-height:48px;border-radius:12px;background:var(--link);color:#fff;font-weight:600;font-size:15px}
 #srcP .savep.on{background:var(--card);color:var(--text);box-shadow:inset 0 0 0 1px var(--link)}#srcP .now small{margin:0}
 #prepL[hidden]{display:none}
@@ -134,7 +137,7 @@ padding:10px 12px;border-radius:20px;background:rgba(26,28,36,.96);-webkit-backd
 .ic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:12px}
 .dock .pp{width:56px;height:56px;border-radius:50%;background:var(--act);display:grid;place-items:center;color:#fff;flex:none}.dock .pp svg{fill:#fff;stroke:none}
 .dk-scrub{display:flex;align-items:center;gap:10px}.dk-scrub span{font-size:var(--fs-cap);color:var(--mute);font-variant-numeric:tabular-nums;min-width:40px}.dk-scrub span:last-child{text-align:right}
-.dk-tp{display:flex;align-items:center;justify-content:center;gap:10px}.dk-tp .ic{background:none;width:48px}.dk-tp .ic svg{width:26px;height:26px}
+.dk-tp{display:flex;align-items:center;justify-content:center;gap:2px}.dk-tp .ic{background:none;width:44px}.dk-tp .ic svg{width:26px;height:26px}#dBack5 svg,#dFwd5 svg{width:22px;height:22px}#dPrevEp,#dNextEp{width:36px}
 .dock:not(.mini) .mo{display:none!important}.dock.mini .fo{display:none!important}
 .dk-vol{display:flex;align-items:center;gap:10px}.dk-vol .rg{flex:1;min-width:0}
 .dk-vol #dVolV{width:26px;text-align:right;font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}.dock .ic:disabled{opacity:.3}
@@ -389,23 +392,178 @@ header .ghost{flex:none;padding:0 14px}
 .ph-bar .ic{width:44px;height:44px}
 .lk{position:relative}
 /* Mac panel (?embed) and every width down to 375 px: nothing wraps in a row of chips. */
-@media (max-width:360px){.dk-tp{gap:4px}.dk-acts button{font-size:13px}}
+@media (max-width:360px){.dk-tp{gap:0}.dk-tp .ic{width:40px}.dk-acts button{font-size:13px}}
+/* Owner 2026-10-24: "мені завжди має бути доступна кнопка" - the sending state is a small pill on top, never a modal. */
+body.busy main,body.busy #tabs{filter:none;opacity:1;pointer-events:auto}
+.cw{top:calc(env(safe-area-inset-top) + 8px);width:auto;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:10px;padding:6px 6px 6px 10px;border-radius:999px;text-align:left}
+.cw .cwv{width:24px;height:24px;margin:0;flex:none}.cw .cwv i{display:none}.cw .cwv b{width:24px;height:24px}.cw .cwv b svg{width:13px;height:13px}
+.cw p{margin:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cw .bar{width:48px;flex:none}.cw button{margin:0;min-height:36px}
+/* Polish pass 2026-10-24 (designer review). */
+:root{--act:#d93a30;color-scheme:dark}                                   /* white text on the red: 4.6:1 (was 3.4:1) */
+header{min-height:44px}                                                  /* every tab's title at the same height */
+.act2{background:linear-gradient(var(--bg) 78%,transparent);margin:0 -16px;padding:6px 16px 16px}
+.hero-b{margin-top:12px}
+.ph{display:grid;place-items:center;background:linear-gradient(160deg,#2a2d3a,#15161c)!important;color:rgba(255,255,255,.55);font-weight:700;font-size:20px;letter-spacing:.5px}
+.ph::after{content:attr(data-i)}
+.tor .ph-bar{position:sticky;top:calc(-1 * (env(safe-area-inset-top) + 12px));background:var(--bg);z-index:2;padding-top:calc(env(safe-area-inset-top) + 4px)}
+.choice{padding:0;transition:opacity .25s}.choice-c{max-width:none;margin:0;border-radius:24px 24px 0 0;padding-bottom:calc(env(safe-area-inset-bottom) + 16px);animation:sheetup .38s cubic-bezier(.2,.9,.25,1)}
+@keyframes sheetup{from{transform:translateY(60%);opacity:.4}}
+.choice-c::before{content:"";display:block;width:40px;height:5px;border-radius:9px;background:rgba(255,255,255,.2);margin:-4px auto 6px;flex:none}
+html:has(.choice.show),html:has(.tor.show){overflow:hidden}
+.cw button,.dk-mix button,.dk-uaw button,.pl{min-height:44px}
+/* Designer review: dock and play strip are one card (was two floating cards plus the tab bar, 30% of the screen). */
+#dock.dock{bottom:calc(var(--tabs-h, 64px) + var(--rcs-h, 58px) + 5px)!important;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0;background:rgba(28,29,34,.97)}
+body:has(#dock.show) .rcs{border-top-left-radius:0;border-top-right-radius:0;border-top-color:rgba(255,255,255,.05)}
+.tabs{padding-top:2px}
+/* Designer review: the open dock reads title, time, transport, actions - then what plays (picture, sound). */
+#dock .dk-acts{order:1}#dock .dk-srcw,#dock #dMix,#dock #dPlan,#dock .dk-uaw{order:2}#dock .next{order:3}
+/* Frontend review: the pill sat over the header buttons and cut its text. */
+.cw{top:calc(env(safe-area-inset-top) + 58px);width:max-content;max-width:min(86vw,420px);pointer-events:none!important;visibility:hidden}
+.cw button{pointer-events:none}body.busy .cw{visibility:visible}body.busy .cw button{pointer-events:auto}   /* idle, the invisible Скасувати stopped the TV (frontend review r2) */
+.cw p{white-space:normal;line-height:1.25}
+#dock.stale,body.down .rcs{opacity:.55;filter:saturate(.4)}   /* the core stopped answering */
+/* Designer review round 2. */
+.tor{padding-top:0}.tor .ph-bar{top:0;padding-top:calc(env(safe-area-inset-top) + 12px)}
+.cont .k,.tabs a.on{color:var(--link)}
+.tile .ph{display:grid}
+body.inkino .hbtn.wb.on{background:#fff;color:#0e0f13}
+.rcs #rPP{background:var(--act)}
+#dock.dock{bottom:calc(var(--tabs-h, 64px) + var(--rcs-h, 58px) + 0px)!important}
+#dock.stale{opacity:1;filter:none}#dock.stale>*,body.down .rcs>*{opacity:.5}body.down .rcs{opacity:1;filter:none}
+#srcP .savep,.savep{background:var(--act)}
+.act2{margin:0 -16px -16px}
+.tor.show,#remS.show{animation:sheetup .38s cubic-bezier(.2,.9,.25,1)}.choice.show{animation:fade .25s}
+.choice,.tor{overscroll-behavior:contain}html:has(#remS.show),html:has(.qs.show){overflow:hidden}
+/* Owner 2026-10-24 (screenshots): on short pages (Пошук, a film) the bottom bar sat ~60 pt higher with an empty band under
+   it; long pages (Фільми, Списки) were right. Every page is now at least one screen tall, so all behave like the long ones. */
+body{min-height:calc(100vh + 1px);min-height:calc(100lvh + 1px)}
+#lSeg{margin-bottom:14px}.sgm.lib{margin-bottom:6px}
+.sgm.lib a{min-height:44px;border-radius:12px;font-size:14px;display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit}.sgm.lib a.on{background:var(--sel);font-weight:600}
+.fchips{display:flex;gap:8px;margin:10px 0 2px}.fchips button{min-height:36px;padding:0 14px;border-radius:999px;background:var(--card);font-size:14px;font-weight:600}.fchips button.on{background:var(--sel);color:#fff}
+#fSeg{margin-top:12px}[data-fp]{margin-top:14px}
+.ib .dl-b.ic-b.on{color:var(--link)}
+/* Loading skeleton: calm pulsing boxes where the content will land. */
+.skel{display:flex;flex-direction:column;gap:14px;animation:pulse 1.4s ease-in-out infinite}.skel .ph{background:var(--card)!important}.skel .ph::after{content:none}
+.skel .sl{display:block;height:12px;border-radius:6px;background:var(--card);margin:8px 0 0}.skel .sl.h{height:18px;width:30%;margin-top:10px}
+.skel .row{display:flex;gap:10px;overflow:hidden}.skel .tile{width:104px;flex:none}.skel .tile .ph{width:104px;height:150px;border-radius:10px}.skel .dgrid .tile{width:auto}.skel .dgrid .ph{width:100%;aspect-ratio:2/3;height:auto}
+.skel .cont .ph{width:48px;height:70px;border-radius:8px}@keyframes pulse{50%{opacity:.55}}
+/* Mini dock target chip (designer review): where it plays, a tap changes it. */
+.dock .tgt{height:36px;border-radius:999px;background:var(--card);padding:0 8px 0 12px;font-size:13px;display:inline-flex;align-items:center;gap:4px;max-width:46vw}.dock .tgt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dock .tgt svg{width:14px;height:14px;flex:none}
+/* Search suggestions under the field. */
+.sug{display:flex;flex-direction:column;gap:2px;margin-top:6px;background:var(--card);border-radius:16px;padding:4px;overflow:hidden}.sug[hidden],.sug:empty{display:none}
+.sug .sg{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px 4px 6px;border-radius:12px;background:none;text-align:left;width:100%}
+.sug .sg img,.sug .sg .ph{width:30px;height:44px;border-radius:6px;object-fit:cover;flex:none;font-size:11px}.sug .d{display:flex;flex-direction:column;min-width:0}.sug .d b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sug .d small{color:var(--mute);font-size:12px}
+.sug .fx b{color:var(--link)}
+.dx-why{margin:12px 0 0;font-size:14px;line-height:1.4}
+/* Voice chips under the «Звідки» rows (owner 2026-10-24 mockup). */
+.srw{display:flex;flex-direction:column}.srw>.src{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.vc[data-voices]{cursor:pointer}.vc.wait{background:none;color:var(--mute)}
+.vch{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px 46px;background:var(--card);border-radius:0 0 14px 14px;margin-top:-1px}
+.srw .src.on+.vch{background:rgba(255,255,255,.14)}
+.vc{font-size:12.5px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.09);color:rgba(242,243,247,.75);min-height:28px;display:inline-flex;align-items:center}
+.vc.ua{background:#1e4fa0;color:#ffe066;font-weight:600}.vc.add{background:none;border:1.5px dashed rgba(255,255,255,.35);color:rgba(242,243,247,.7);font-weight:600;cursor:pointer}
+.vc.sync{background:#1e4fa0;color:#ffe066;font-weight:600;outline:2px solid #ffe066;outline-offset:1px;cursor:pointer}
+#srcPlan{font-size:13px;color:#7fd99a;margin:2px 4px 8px}
+.ruv>summary{list-style:none;cursor:pointer;padding:12px 14px;border-radius:14px;background:var(--card);margin-bottom:8px;color:var(--mute);font-size:14px}.ruv>summary::-webkit-details-marker{display:none}.ruv[open]>summary{margin-bottom:8px}
+
+/* ===== Canon 2026-10-24 (owner chose «усі три екрани»): Apple Music language, plain rows, red only for actions. ===== */
+:root{--red:#ff453a;--sep:rgba(84,84,88,.6);--l2:rgba(235,235,245,.6);--l3:rgba(235,235,245,.3);--fill:rgba(118,118,128,.24)}
+.hic{width:44px;height:44px;display:grid;place-items:center;background:none;color:var(--red);margin-left:auto}.hic svg{width:23px;height:23px}.hic.on svg{fill:var(--red)}
+.alb{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:6px}
+.alb-bg{position:absolute;left:-16px;right:-16px;top:-140px;height:640px;background:linear-gradient(var(--tint,#1a1a1c),transparent);z-index:-1;pointer-events:none}
+.alb-p{width:212px;height:318px;border-radius:10px;object-fit:cover;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.alb-t{font:700 22px/1.2 -apple-system,"SF Pro Display",system-ui;letter-spacing:.35px;margin:18px 12px 0}
+.alb-d{background:none;color:var(--red);font-size:20px;margin-top:2px;padding:0 8px;min-height:30px}
+.alb-o{color:var(--l2);font-size:15px;margin:2px 0 0}
+.alb-m{color:var(--l2);font-size:13px;margin:4px 16px 0}
+.alb-b{display:flex;gap:16px;width:100%;margin-top:18px}
+.pbtn{flex:1;height:50px;border-radius:12px;background:var(--fill);color:var(--red);font:600 17px -apple-system,system-ui;display:flex;align-items:center;justify-content:center;gap:8px}
+.pbtn svg{width:17px;height:17px;fill:var(--red);stroke:none}#fromStart svg{fill:none;stroke:var(--red);stroke-width:2.2}
+.alb-to{background:none;color:var(--l2);font-size:13px;margin-top:8px;min-height:36px;display:inline-flex;align-items:center;gap:2px}.alb-to svg{width:14px;height:14px}
+.sh{display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 4px}.sh h2{font:700 22px -apple-system,"SF Pro Display",system-ui;letter-spacing:.35px;margin:0}
+.lnk{background:none;color:var(--red);font-size:15px;cursor:pointer}
+.lst{display:flex;flex-direction:column}
+.trk{display:flex;align-items:center;gap:12px;min-height:58px;padding:8px 0;background:none;text-align:left;width:100%;border-bottom:.5px solid var(--sep);color:var(--text);font:inherit;border-radius:0}
+.lst>.trk:last-of-type{border-bottom:none}
+.trk .n{width:20px;flex:none;text-align:center;color:var(--l2);font-size:15px;font-variant-numeric:tabular-nums;display:grid;place-items:center}
+.trk .tx{flex:1;min-width:0}.trk .tx b{display:block;font-weight:400;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trk .tx>span{display:block;font-size:13px;color:var(--l2);margin-top:2px;line-height:1.35}
+.trk .trl{flex:none;color:var(--l2);font-size:15px;font-variant-numeric:tabular-nums}
+.trk.on .tx b{font-weight:600}
+.ck-r{width:18px;height:18px;flex:none;stroke:var(--red);stroke-width:2.6;fill:none}
+.bars{display:inline-flex;gap:2px;align-items:flex-end;height:14px}.bars i{width:3px;background:var(--red);border-radius:1px;animation:bar 1s ease-in-out infinite}
+.bars i:nth-child(1){height:6px}.bars i:nth-child(2){height:13px;animation-delay:.2s}.bars i:nth-child(3){height:9px;animation-delay:.4s}
+@keyframes bar{50%{transform:scaleY(.45)}}.bars i{transform-origin:bottom}
+.lnk-row{background:none;color:var(--red);font-size:15px;min-height:44px;display:flex;align-items:center;gap:2px;padding:0}.lnk-row svg{width:14px;height:14px}
+.cap{color:var(--l2);font-size:13px;margin:8px 0 0}
+#srcPlan{color:var(--red);font-size:13px;margin:6px 0 0}
+
+/* ===== Canon: the strip is the mini player; the open dock is a full-screen Now Playing sheet. ===== */
+.dock.mini{display:none!important}
+.rcs{gap:8px;padding:6px 10px 6px 6px}
+.rcs #rRem{flex:none}
+.rnp{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;text-align:left;color:var(--text);min-height:44px;padding:0}
+.rnp img{width:40px;height:40px;border-radius:6px;object-fit:cover;flex:none}
+.rnp .t{min-width:0;display:flex;flex-direction:column}.rnp b{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rnp small{font-size:13px;color:var(--l2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.vpill{display:flex;align-items:center;background:var(--fill);border-radius:18px;height:36px;flex:none}
+.vpill .vstep{width:36px;height:36px;background:none;font-size:20px;color:var(--text)}
+.vpill #rVolV{font-size:13px;color:var(--l2);min-width:20px;text-align:center;font-variant-numeric:tabular-nums}
+.rcs #rPP{flex:none;width:44px;height:44px;background:none!important;color:#fff}.rcs #rPP svg{fill:#fff;width:24px;height:24px}
+/* Touch screens only: on the Mac the open player stays the docked panel above the tabs, search visible (owner 2026-10-24). */
+@media (pointer: coarse){
+#dock.dock:not(.mini){position:fixed!important;inset:0!important;max-width:none;margin:0;border-radius:0;border:0;z-index:40;overflow-y:auto;
+  padding:calc(env(safe-area-inset-top) + 26px) 26px calc(env(safe-area-inset-bottom) + 24px);gap:18px;
+  background:linear-gradient(var(--dtint,#2b2620) 0,#141210 55%,#0b0b0c)!important;animation:sheetup .38s cubic-bezier(.2,.9,.25,1)}
+#dock:not(.mini) .dk-top{display:grid;grid-template-columns:1fr auto;align-items:end;gap:14px 10px;position:relative}
+#dock:not(.mini) .dk-top img{grid-column:1/-1;justify-self:center;width:min(62vw,250px);height:auto;aspect-ratio:2/3;border-radius:12px;object-fit:cover;box-shadow:0 18px 50px rgba(0,0,0,.5);margin-top:8px}
+#dock:not(.mini) .dk-t b{font:600 22px -apple-system,system-ui}#dock:not(.mini) .dk-t small{font-size:15px;color:rgba(255,255,255,.62)}
+#dock:not(.mini) #dExp{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:60px;height:24px;background:none}
+#dock:not(.mini) #dExp svg{display:none}#dock:not(.mini) #dExp::before{content:"";display:block;width:38px;height:5px;border-radius:3px;background:rgba(255,255,255,.35);margin:auto}
+#dock:not(.mini) .dk-tp .ic,#dock:not(.mini) .dk-tp .pp{background:none!important}#dock:not(.mini) .dk-tp .pp svg{width:44px;height:44px;fill:#fff}
+#dock:not(.mini) .dk-acts{order:1}#dock:not(.mini) .dk-acts button{background:none!important;color:rgba(255,255,255,.75);font-size:11px}
+#dock:not(.mini) .dk-vol{display:flex!important}
+body:has(#dock.show.mini) .rcs{border-radius:18px;border-top-color:var(--line)}
+
+/* Full player covers the whole screen (Apple Music Now Playing): no strip or tabs over it. */
+#dock.dock:not(.mini){z-index:70}
+body:has(#dock.show:not(.mini)) .rcs,body:has(#dock.show:not(.mini)) .tabs{visibility:hidden}
+#dock:not(.mini) .dk-t small .tag,#dock:not(.mini) .dk-t small i,#dock:not(.mini) .dk-t small b{background:none!important;color:rgba(255,255,255,.62)!important;padding:0!important;font-weight:400!important;font-size:15px!important}
+#dock:not(.mini) #dSet{background:rgba(255,255,255,.14)!important;width:32px;height:32px;border-radius:16px}
+#dock:not(.mini) .dk-vol .vpair{background:none!important}#dock:not(.mini) .dk-vol .vstep{background:none!important}
+#dock:not(.mini) .dk-acts{gap:4px}#dock:not(.mini) .dk-acts button svg{width:24px;height:24px}
+#dock:not(.mini) .dk-srcw,#dock:not(.mini) #dMix{background:none!important;border-top:.5px solid var(--sep);border-radius:0!important}
+#dock:not(.mini) .dk-src,#dock:not(.mini) .dk-keep{background:none!important}
+}
+
+/* Canon: large titles on tab roots, iOS search field, «Продовжити» covers with progress, inbox as rows. */
+header.lg{min-height:52px;align-items:flex-end;margin-top:4px}header.lg h1{font:700 34px/1.1 -apple-system,"SF Pro Display",system-ui;letter-spacing:.37px}
+.search{border-radius:10px!important;height:38px;padding:0 6px 0 10px!important;background:var(--fill)!important}.search button{display:none}.search input{font-size:17px}
+.tile.ct{width:132px}.tile.ct img,.tile.ct .ph{width:132px;height:198px;border-radius:8px}
+.tile .pr{height:3px;border-radius:2px;background:rgba(255,255,255,.18);margin-top:6px;overflow:hidden}.tile .pr i{display:block;height:100%;background:var(--red)}
+.tile.ct span{font-size:15px;margin-top:6px}.tile.ct small{font-size:13px;color:var(--l2)}.tile.ct small.red{color:var(--red)}
+#ibl .ib{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:.5px solid var(--sep);background:none;border-radius:0}
+#ibl .ib:last-child{border-bottom:none}#ibl .dl-t b{font-weight:400;font-size:17px}#ibl .dl-t small{font-size:13px;color:var(--l2)}
+#ibl .dl-b{background:none!important;color:var(--red);font-size:15px;padding:0 6px;min-height:44px}#ibl .dl-b.ic-b{color:var(--l2)}#ibl .dl-b.ic-b.on{color:var(--red)}
+#ibl [data-id]:not(.ic-b){color:var(--l2)}
+
+/* Empty search page: recent searches and recently watched (owner 2026-10-24). */
+.trk.rq{padding:0;min-height:48px;gap:0}.rq-go{flex:1;display:flex;align-items:center;gap:12px;background:none;color:var(--text);font-size:17px;min-height:48px;text-align:left}
+.rq-go svg{width:18px;height:18px;color:var(--l2);flex:none}.rq-x{background:none;color:var(--l3);width:44px;height:44px;display:grid;place-items:center}.rq-x svg{width:14px;height:14px}
 </style>
 </head>
 <body>
 <div class="glow"></div>
 <main id="view"></main>
 <!-- Owner 2026-10-24: «на кожному екрані хоча б має бути плей пауза і гучність в одному місці». -->
-<div class="rcs" id="rcs"><button class="ic" id="rRem" aria-label="Розгорнути пульт"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="8" r="2"/><path d="M10 14h4M10 17h4"/></svg></button><button class="ic" id="rPP" aria-label="Пауза або відтворення"></button>
-  <input class="rg" type="range" id="rVol" min="0" max="100" step="1" aria-label="Гучність ТВ"><span id="rVolV"></span>
-  <span class="vpair"><button class="ic vstep" id="rDn" aria-label="Тихіше">-</button><button class="ic vstep" id="rUp" aria-label="Гучніше">+</button></span></div>
+<div class="rcs" id="rcs"><button class="ic" id="rRem" aria-label="Розгорнути пульт"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="8" r="2"/><path d="M10 14h4M10 17h4"/></svg></button><button class="rnp" id="rNP" aria-label="Відкрити плеєр"><img id="rPo" alt="" hidden><span class="t"><b id="rT">Hisense TV</b><small id="rS">нічого не грає</small></span></button><input class="rg" type="range" id="rVol" min="0" max="100" step="1" aria-label="Гучність ТВ" hidden><span class="vpill"><button class="ic vstep" id="rDn" aria-label="Тихіше">−</button><span id="rVolV"></span><button class="ic vstep" id="rUp" aria-label="Гучніше">+</button></span><button class="ic" id="rPP" aria-label="Пауза або відтворення"></button></div>
 <div class="rem" id="remS"><div class="rem-h"><button class="ic" id="remX" aria-label="Згорнути пульт"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><b>Пульт</b></div><iframe id="remF" title="Пульт"></iframe></div>
 <nav class="tabs" id="tabs">
   <a href="#/" data-t="home"><svg viewBox="0 0 24 24"><path d="m3 10.5 9-7 9 7V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Головна</a>
   <a href="#/d" data-t="d"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>Фільми</a>
   <a href="#/f" data-t="f"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Пошук</a>
-  <a href="#/l" data-t="l"><svg viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4z"/></svg>Списки</a>
-  <a href="#/m" data-t="m"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg>Медіа</a>
+  <a href="#/l" data-t="b"><svg viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4z"/></svg>Бібліотека</a>
+  <a href="#/m" data-t="m"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Медіа</a>
 </nav>
 <div class="tor" id="dx"><div class="ph-bar"><b id="dxT"></b><button class="ic" id="dxX" aria-label="Закрити"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div id="dxB"></div></div>
 <div class="tor" id="tq"><div class="ph-bar"><b id="tqT">Ваш смак</b><button class="ic" id="tqX" aria-label="Закрити"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -417,8 +575,8 @@ header .ghost{flex:none;padding:0 14px}
   <div class="dk-top"><img id="dPoster" alt=""><div class="dk-t"><b id="dTitle"></b><small class="fo" id="dSub"></small><small class="mo" id="dRoute"></small></div>
     <button class="ic fo" id="dSet" aria-label="Якість і звук" hidden><svg viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></svg></button>
     <button class="pp mini-pp mo" id="dPP2" aria-label="Пауза або відтворення"></button>
-    <button class="ic mo" id="dHereM" aria-label="Дивитись тут"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M10 8.5v5l4-2.5z"/><path d="M8 21h8"/></svg></button>
-    <button class="ic mo" id="dGo" aria-label="Куди дивитись"><svg viewBox="0 0 24 24"><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><path d="m12 15 5 6H7z"/></svg></button>
+    <button class="ic mo" id="dHereM" hidden aria-label="Дивитись на iPhone"></button>
+    <button class="tgt mo" id="dGo" aria-label="Де дивитись"><span data-outlabel></span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
     <button class="ic fo" id="dExp" aria-label="Згорнути плеєр"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button></div>
   <select id="dQ" aria-label="Якість"></select><select id="dA" aria-label="Звукова доріжка"></select>
   <div class="dk-srcw fo"><button class="dk-src" id="dSrc" hidden><span class="k">Картинка</span><span class="v" id="dSrcV"></span><span class="ch">›</span></button><button class="dk-keep" id="dKeepP" hidden aria-label="Лишити на диску"></button></div>
@@ -429,7 +587,9 @@ header .ghost{flex:none;padding:0 14px}
   <div class="dk-scrub fo"><span id="dPos">0:00</span><input class="rg" type="range" id="dSeek" min="0" max="1" step="1" aria-label="Позиція"><span id="dDur"></span></div>
   <div class="dk-tp fo"><button class="ic" id="dPrevEp" aria-label="Попередня серія"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg></button>
     <button class="ic" id="dBack" aria-label="Назад 10 с"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.3" font-size="7.6" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text></svg></button>
+    <button class="ic" id="dBack5" aria-label="Назад 5 с"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.3" font-size="7.6" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">5</text></svg></button>
     <button class="pp" id="dPP" aria-label="Пауза або відтворення"></button>
+    <button class="ic" id="dFwd5" aria-label="Вперед 5 с"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.3" font-size="7.6" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">5</text></svg></button>
     <button class="ic" id="dFwd" aria-label="Вперед 30 с"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.3" font-size="7.6" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">30</text></svg></button>
     <button class="ic" id="dNextEp" aria-label="Наступна серія"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button></div>
   <div class="dk-trow fo" id="dTrow"><button class="dk-tor" id="dTor" aria-label="Стан буфера: докладніше"></button>
@@ -439,16 +599,16 @@ header .ghost{flex:none;padding:0 14px}
     <span class="vpair"><button class="ic vstep" id="dVolDn" aria-label="Тихіше">-</button><button class="ic vstep" id="dVolUp" aria-label="Гучніше">+</button></span></div>
   <div class="dk-acts fo"><button class="stop" id="dStop" aria-label="Зупинити на ТВ"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none"/></svg><span>Стоп</span></button>
     <button class="wbtn" id="dWatch" aria-label="Керування з годинника"><svg viewBox="0 0 24 24"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3"/><path class="wx" d="M4 4l16 16"/></svg><span>Годинник</span></button>
-    <button id="dHere" aria-label="Дивитись тут"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M10 8.5v5l4-2.5z"/><path d="M8 21h8"/></svg><span>Тут</span></button>
-    <button id="dQR" aria-label="Куди дивитись"><svg viewBox="0 0 24 24"><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><path d="m12 15 5 6H7z"/></svg><span>Куди</span></button></div>
+    <button id="dHere" aria-label="Дивитись на iPhone"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M10 8.5v5l4-2.5z"/><path d="M8 21h8"/></svg><span>На iPhone</span></button>
+    <button id="dQR" aria-label="Куди дивитись"><svg viewBox="0 0 24 24"><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><path d="m12 15 5 6H7z"/></svg><span>Екрани</span></button></div>
   <button class="next" id="dNext" style="display:none"></button>
 </div>
 <div class="tor" id="srcS"><div class="ph-bar"><b>Змінити джерело</b><button class="ic" id="srcX" aria-label="Закрити"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><p class="mt" id="srcP"></p><div id="srcL"></div></div>
 <div class="tor" id="tor"><div class="ph-bar"><b>Торенти</b><button class="ic" id="torX" aria-label="Закрити"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="chips" id="torQ"></div><div id="torS"></div><div class="legend" id="torLg"></div><div id="torL"></div></div>
 <div class="phone" id="phone"><div class="ph-bar"><button class="ic" id="phMin" aria-label="Згорнути"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><b id="phT"></b><button class="ic" id="phPiP" aria-label="Малий екран (PiP)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1" fill="currentColor"/></svg></button><button class="ic wide" id="phL" hidden aria-label="Скопіювати посилання на потік">Посилання</button><button class="ic" id="phX" aria-label="Закрити"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><video id="phV" controls playsinline x-webkit-airplay="allow"></video><div class="ph-seek" id="phSk" hidden><span id="phC">0:00</span><input class="rg" type="range" id="phS" min="0" max="1" step="1" value="0" aria-label="Перемотка"><span id="phD"></span></div><div class="ph-ctl"><button class="ic" id="phB" aria-label="Назад 10 с"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.3" font-size="7.6" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text></svg></button><button class="pp" id="phP" aria-label="Пауза або відтворення"></button><button class="ic" id="phF" aria-label="Вперед 30 с"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.3" font-size="7.6" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">30</text></svg></button><button class="ic wide" id="phFS" aria-label="На весь екран"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>На весь екран</button></div></div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="qs" id="qs"><div class="qs-c"><b id="qsT"></b><div class="ph-qr" id="qsC"></div><p class="mt" style="text-align:center">Скануйте камерою: Safari або VLC</p><button class="dl-b" id="qsX">Закрити</button></div></div>
-<div class="cw" id="cw"><div class="cwv"><i></i><i></i><i></i><b><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg></b></div>
+<div class="cw" id="cw" role="status" aria-live="polite"><div class="cwv"><i></i><i></i><i></i><b><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg></b></div>
   <p id="cwT"></p><div class="bar"><i id="cwB"></i></div><button id="cwX">Скасувати</button></div>
 <script>
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
@@ -491,9 +651,26 @@ function toast(t, a){ const el = $('toast'); el.textContent = ''; const s = docu
   el.classList.toggle('act', !!a);
   if (a) { const b = document.createElement('button'); b.textContent = a.label; b.onclick = () => { el.classList.remove('show'); clearTimeout(el._t); if (a.fn) a.fn(); }; el.append(b); }
   el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), a ? (a.ms || 6000) : 1800); }
+// A failed HTTP answer rejects like a network error, so every caller's .catch (and its UI revert) runs.
+// Callers without a .catch (volume, stop, seek): one plain message instead of a silent failure (product review).
+addEventListener('unhandledrejection', e => { if (/HTTP \d|fetch|Load failed|NetworkError|abort/i.test(String(e.reason && (e.reason.message || e.reason)))) { e.preventDefault(); toast(ERRNET); } });
 async function api(cmd, body){ const r = await fetch('/api/' + cmd, {method: body === undefined ? 'GET' : 'POST',
-  headers: {'Content-Type':'application/json'}, body: body === undefined ? undefined : JSON.stringify(body)}); return r.json(); }
-const poster = (p, cls='ph') => p ? `<img src="${esc(p)}" loading="lazy" alt="">` : `<div class="${cls}"></div>`;
+  headers: {'Content-Type':'application/json'}, body: body === undefined ? undefined : JSON.stringify(body)});
+  if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+// Poster library (owner 2026-10-24): every cover comes through the core's /poster - kept on core host, found on IMDb by
+// id or title and year when the original link is empty or broken. Nothing found: the plain card stays.
+const PU = x => { x = x || {}; return '/poster?' + new URLSearchParams({u: x.poster || '', t: x.ua || x.ru || x.title || '',
+  o: x.orig || x.original || '', y: String(x.year || '').slice(0, 4), i: /^tt\d+$/.test(x.imdb || '') ? x.imdb : ''}); };
+const hasPU = x => !!(x && (x.poster || x.title || x.ua || x.ru));
+// No cover anywhere: a calm gradient with the title's initials (designer review: a bare grey box looked broken).
+const initials = x => ((x && (x.ua || x.ru || x.title)) || '').split(' / ')[0].split(/\s+/).filter(w => /^[\p{L}\d]/u.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+const ph = (x, cls='ph') => `<div class="${cls}" data-i="${esc(initials(x))}"></div>`;
+// A cover not in the library yet: the core looks it up on IMDb in the background, so ask once more after 5 s.
+const P_RETRY = [3000, 5000, 8000, 12000, 20000, 30000];   // the core finds one title a second; a 404 costs nothing
+function pErr(img){ const n = +(img.dataset.r || 0); if (n < P_RETRY.length) { img.dataset.r = n + 1; img.style.visibility = 'hidden';
+    img.onload = () => img.style.visibility = ''; setTimeout(() => { if (img.isConnected) img.src = img.src.replace(/&r=\d+$/, '') + '&r=' + (n + 1); }, P_RETRY[n]); return; }
+  if (img.dataset.ph) img.outerHTML = img.dataset.ph; else if (img.dataset.t != null) img.replaceWith(document.createTextNode(img.dataset.t)); else img.remove(); }
+const poster = (x, cls='ph') => hasPU(x) ? `<img src="${esc(PU(x))}" loading="lazy" alt="" onerror="pErr(this)" data-ph="${esc(ph(x, cls))}">` : ph(x, cls);
 const playIcon = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>';
 const starIcon = '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>';
 function epLabel(h){ return h.season ? `S${h.season} · E${h.episode}` : 'Фільм'; }
@@ -505,10 +682,13 @@ function histSub(h){ const p = h.position || 0, d = h.duration || 0;
 // A slider's filled part follows its value: --p is read by the track gradient (.rg).
 const rg = el => { const lo = +el.min || 0, hi = +el.max || 1; el.style.setProperty('--p', Math.max(0, Math.min(100, ((+el.value - lo) / ((hi - lo) || 1)) * 100)) + '%'); };
 const ERRNET = 'Немає зв’язку з сервером';
+// Ukrainian plural: 1 сід, 2 сіди, 5 сідів (designer review: «1 сідів»).
+const pl = (n, a, b, c) => { n = Math.abs(+n || 0); return n % 100 > 10 && n % 100 < 15 ? c : n % 10 === 1 ? a : n % 10 > 1 && n % 10 < 5 ? b : c; };
 const CD = '<svg class="cd" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';   // small chevron after a button label
 const MAC = !!(window.webkit && webkit.messageHandlers && webkit.messageHandlers.watch);
 // ---- Icons: one set, 1.8 px line (names follow SF Symbols); no emoji and no text glyphs in the UI (ux-review 27) ----
 const IC = {
+  restart: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   tv: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
   phone: '<svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
   mac: '<svg viewBox="0 0 24 24"><rect x="4.5" y="5" width="15" height="10.5" rx="1.5"/><path d="M2.5 19h19"/></svg>',
@@ -555,13 +735,16 @@ window.addEventListener('hashchange', route);
 let PREV = '#/';
 const backTo = () => /^#\/t\//.test(PREV) ? '#/' : (PREV || '#/');
 function go(h){ buzz(); PREV = location.hash || '#/'; location.hash = h; }
-function markTab(){ const h = location.hash.slice(1) || '/', t = h.startsWith('/d') ? 'd' : h === '/l' ? 'l' : h.startsWith('/m') ? 'm' : h.startsWith('/f') ? 'f' : 'home';
+function markTab(){ const h = location.hash.slice(1) || '/', t = h.startsWith('/m') ? 'm' : h === '/dl' || h === '/l' ? 'b' : h.startsWith('/d') ? 'd' : h.startsWith('/f') ? 'f' : 'home';
   document.querySelectorAll('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.t === t)); }
 addEventListener('hashchange', markTab);
-function route(){ markTab();
+// Route token (frontend review): a slow answer for the screen left behind must not paint over the new one.
+let RT = 0; const stale = my => my !== RT;
+function route(){ markTab(); RT++;
   const h = location.hash.slice(1) || '/';
   if (h.startsWith('/s/')) { location.replace('#/f/' + h.slice(3)); return; }   // one search for everything (ux-review 9)
   if (h.startsWith('/t/')) return title(decodeURIComponent(h.slice(3)));
+  if (h === '/dl') return dlView();
   if (h === '/d' || h.startsWith('/d/')) return discover(h.split('/')[2] || 'foryou', decodeURIComponent(h.split('/')[3] || ''));
   if (h === '/l') return lists();
   if (h === '/f' || h.startsWith('/f/')) return findAll(decodeURIComponent(h.slice(3)));
@@ -569,14 +752,40 @@ function route(){ markTab();
   home();
 }
 
-const head = (t, back, extra) => `<header>${back ? `<a href="${back}"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Назад</a>` : `<a href="/"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Пульт</a>`}<h1>${t}</h1>${extra || ''}</header>`;
+// «Бібліотека» = Закладки | Завантаження; «Медіа» is its own tab again (owner 2026-10-24).
+const libBar = act => `<div class="sgm lib">${[['l', 'Закладки', '#/l'], ['dl', 'Завантаження', '#/dl']]
+  .map(([k, n, h]) => `<a class="${k === act ? 'on' : ''}" href="${h}"><span class="t">${n}</span></a>`).join('')}</div>`;
+function dlView(){ view.innerHTML = head('Бібліотека') + libBar('dl') + '<div id="dls"><div class="spin"></div></div>'; downloads(); }
+// Skeleton of the screen that is coming (the same boxes the data will fill), instead of one spinner and a jump.
+const skel = grid => `<div class="skel" aria-hidden="true">${grid ? '' : '<div class="cont"><div class="cont-m"><div class="ph"></div><div style="flex:1"><i class="sl" style="width:40%"></i><i class="sl" style="width:70%"></i><i class="sl" style="width:55%"></i></div></div></div><i class="sl h"></i>'}
+  <div class="${grid ? 'dgrid' : 'row'}">${'<div class="tile"><div class="ph"></div><i class="sl" style="width:80%"></i><i class="sl" style="width:50%"></i></div>'.repeat(grid ? 6 : 4)}</div></div>`;
+const head = (t, back, extra) => back ? `<header><a href="${back}"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Назад</a><h1>${t}</h1>${extra || ''}</header>`
+  : `<header class="lg"><h1>${t}</h1>${extra || ''}</header>`;
 const SEARCH_PH = 'Фільм, файл, торент, посилання';
 const searchBox = (q='') => `<form class="search" id="sf"><svg viewBox="0 0 24 24" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
   <input id="q" placeholder="${SEARCH_PH}" value="${esc(q)}" enterkeyhint="search" autocomplete="off"><button aria-label="Шукати"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>`;
 function bindSearch(){ $('sf').onsubmit = e => { e.preventDefault(); const q = $('q').value.trim(); if (!q) return;
   if (/rezka/.test(q) && /^https?:/.test(q)) { api('kino/links', {}).catch(() => {}); go('/t/' + encodeURIComponent(q)); }
   else if (/^(https?:|magnet:)/i.test(q) || /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(q)) linkTargets(q);
-  else go('/f/' + encodeURIComponent(q)); }; }
+  else go('/f/' + encodeURIComponent(q)); }; suggestOn($('q'), $('sf')); }
+// Owner 2026-10-24 «пошук самовиправляє?»: (1) names appear while typing (the local IMDb index answers in under a
+// second), (2) a query typed in the Latin layout («rdfhnbhf») is read as Ukrainian («квартира») when nothing matches.
+const LAYOUT = Object.fromEntries("qwertyuiop[]asdfghjkl;'zxcvbnm,.".split('').map((c, i) => [c, "йцукенгшщзхїфівапролджєячсмитьбю"[i]]));
+const fixLayout = q => { const f = q.toLowerCase().split('').map(c => LAYOUT[c] || c).join(''); return /^[a-z\[\];',.\s]+$/i.test(q) && f !== q.toLowerCase() && /[а-яіїє]{3}/.test(f) ? f : null; };
+function suggestOn(input, form){ if (!input || !form) return;
+  let box = form.nextElementSibling; if (!box || !box.classList.contains('sug')) { box = document.createElement('div'); box.className = 'sug'; box.hidden = true; form.insertAdjacentElement('afterend', box); }
+  let t = 0, n = 0; const hide = () => { box.innerHTML = ''; box.hidden = true; };
+  input.addEventListener('input', () => { clearTimeout(t); const q = input.value.trim(); if (q.length < 2 || /^(https?:|magnet:)/i.test(q)) return hide();
+    t = setTimeout(async () => { const my = ++n, d = await api('kino/suggest', {q}).catch(() => null); if (my !== n || input.value.trim() !== q) return;
+      let l = ((d && d.items) || []).slice(0, 6), fx = fixLayout(q);
+      if (fx) { const d2 = l.length ? null : await api('kino/suggest', {q: fx}).catch(() => null); if (my !== n) return;
+        if (d2 && (d2.items || []).length) l = d2.items.slice(0, 6); else fx = null; }
+      box.innerHTML = (fx ? `<button class="sg fx"><span class="d"><b>Шукати «${esc(fx)}»</b><small>набрано в латинській розкладці</small></span></button>` : '')
+        + l.map((x, i) => `<button class="sg" data-i="${i}">${poster(x)}<span class="d"><b>${esc((x.ua || x.title || '').split(' / ')[0])}</b><small>${esc([x.year, (x.dirs || [])[0]].filter(Boolean).join(' · '))}</small></span></button>`).join('');
+      box.hidden = !box.innerHTML;
+      box.querySelectorAll('[data-i]').forEach(b => b.onpointerdown = e => { e.preventDefault(); buzz(); hide(); const x = l[+b.dataset.i]; x.rz ? go('/t/' + encodeURIComponent(x.rz)) : detail(x); });
+      const f = box.querySelector('.fx'); if (f) f.onpointerdown = e => { e.preventDefault(); buzz(); input.value = fx; hide(); form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', {cancelable: true})); }; }, 300); });
+  form.addEventListener('submit', hide); input.addEventListener('blur', () => setTimeout(hide, 350)); }
 // A link (pasted, recent or from the inbox): the TV, here or a screen. The TV path keeps it in the recent links.
 const linkTargets = (u, title) => { const full = /^\w+:/.test(u) ? u : 'https://' + u;
   chooseTarget(/^magnet:/i.test(u) ? {magnet: u, tv: () => openLink(u)} : {page: full, tv: () => openLink(u)}, title || host(u)); };
@@ -611,53 +820,60 @@ function drawLinks(d){ const box = $('lks'); if (!box) return;
     b.onpointerup = b.onpointerleave = () => clearTimeout(t); });
 }
 // A tile opens the film page; a favourite saved from a Discover card (no page address, only imdb) opens that card: data-fi = its index in FAV.
-const tile = (x, sub, fi) => `<button class="tile fade" ${x.url || fi == null ? `data-url="${esc(x.url)}"` : `data-fi="${fi}"`}>${poster(x.poster)}<span>${esc(x.ua || x.title)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
+const tile = (x, sub, fi) => `<button class="tile fade" ${x.url || fi == null ? `data-url="${esc(x.url)}"` : `data-fi="${fi}"`}>${poster(x)}<span>${esc((x.ua || x.title || '').split(' / ')[0])}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
 function bindTiles(){ view.querySelectorAll('[data-url]').forEach(b => b.onclick = () => go('/t/' + encodeURIComponent(b.dataset.url))); }
 
 let FAV = [];
 async function home(){
-  view.innerHTML = head('Головна') + searchBox() + '<div class="lks" id="lks" hidden></div><div class="spin"></div>'; bindSearch();
+  view.innerHTML = head('Головна') + searchBox() + '<div class="lks" id="lks" hidden></div>' + skel(); bindSearch();
   api('kino/links', {}).then(drawLinks).catch(() => {});
-  let d = null; try { d = await api('kino/home'); } catch(e) {}
-  const sp = view.querySelector('.spin'); if (!sp) return;
+  const my = RT; let d = null; try { d = await api('kino/home'); } catch(e) {}
+  if (stale(my)) return;
+  const sp = view.querySelector('.skel, .spin'); if (!sp) return;
   if (!d || d.error) { sp.outerHTML = emptyState('Немає зв’язку з сервером', 'Перевірте, що tinyTV Core увімкнений', 'Повторити'); const re = view.querySelector('[data-es]'); if (re) re.onclick = () => home(); return; }
   const h = d.history || [];
+  // History without a cover (owner 2026-10-24, КітПес): reading the film page once makes the core keep its cover.
+  h.filter(x => !x.poster && /rezka/.test(x.url || '')).slice(0, 4).forEach(x => api('kino/title', {url: x.url}).catch(() => {}));
   // "Обране" is one list in the core now (the film-page star and the Discover star feed the same one).
   FAV = d.fav || d.bookmarks || []; HOMELISTS = {fav: d.fav || [], watch: d.watch || []};
   let html = '';
-  const c = h[0];
-  if (c) { const pos = c.position || 0, started = pos >= 60, pct = c.duration ? Math.min(100, pos / c.duration * 100) : 0;
-    const onTV = !!(S && S.cast && S.cast.title && S.kino && String(S.kino.id) === String(c.id)), verb = started ? 'Продовжити' : 'Дивитись';
-    const sub = [c.season ? `S${c.season} · E${c.episode}` : '', started ? clock(pos) + (c.duration ? ' з ' + clock(c.duration) : '') : 'Не починали', c.translatorName ? esc(c.translatorName) : ''].filter(Boolean).join(' · ');
-    html += `<div class="cont fade"><button class="cont-m" id="contGo">${poster(c.poster)}<div style="flex:1;min-width:0">
-      <span class="k"${onTV ? '' : ` data-outlabel data-pre="${verb}"`}>${onTV ? 'Зараз на ТВ' : verb}</span><b>${esc(c.ua || c.title)}</b><small>${sub}</small>
-      ${started ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div></button>
-      <button class="cont-go" id="contWhere" aria-label="Куди дивитись" data-outicon></button></div>`; }
-  html += '<section id="ibs" hidden><h2>Надіслано вам</h2><p class="lbl">Те, що додали ваші помічники</p><div id="ibl"></div></section>';
-  html += `<section><h2>Історія</h2>${h.length ? `<div class="row">${h.map(x => tile(x, histSub(x))).join('')}</div>` : '<p class="empty">Тут з\'являться переглянуті фільми й серії.</p>'}</section>`;
-  html += `<section><h2>Обране</h2>${FAV.length ? `<div class="row">${FAV.map((x, i) => tile(x, x.year, i)).join('')}</div>` : '<p class="empty">Натискайте «В обране» на картці фільму.</p>'}</section>`;
-  html += `<section><h2>Завантаження</h2><div id="dls"><p class="empty">…</p></div></section>`;
+  const c = h[0], onTvId = S && S.cast && S.cast.title && S.kino ? String(S.kino.id) : '';
+  const unf = h.filter(x => { const p = epPos(x); return String(x.id) === onTvId || x.season || p >= 60 && (!x.duration || p / x.duration < .9); }).slice(0, 12);
+  const cont = unf.map((x, i) => { const pos = epPos(x), pct = x.duration ? Math.min(100, pos / x.duration * 100) : 0, tv = onTvId && onTvId === String(x.id);
+    const sub = tv ? 'грає на ТВ' : x.season ? `S${x.season} · E${x.episode}` + (pos >= 60 ? ' · ' + clock(pos) : '') : pos >= 60 ? clock(pos) + (x.duration ? ' з ' + clock(x.duration) : '') : 'не починали';
+    return `<button class="tile ct" data-ci="${i}">${poster(x)}<div class="pr"><i style="width:${pct}%"></i></div><span>${esc((x.ua || x.title || '').split(' / ')[0])}</span><small${tv ? ' class="red"' : ''}>${esc(sub)}</small></button>`; }).join('');
+  html += unf.length ? `<section><div class="sh"><h2>Продовжити</h2></div><div class="row">${cont}</div></section>` : '';
+  html += h.length ? `<section><div class="sh"><h2>Історія</h2></div><div class="row">${h.slice(0, 20).map(x => tile(x, String(x.id) === onTvId ? 'грає на ТВ' : histSub(x))).join('')}</div></section>`
+    : '<p class="cap">Тут з\'являться фільми й серії, які ви дивились.</p>';
+  html += FAV.length ? `<section><div class="sh"><h2>Закладки</h2></div><div class="row">${FAV.slice(0, 20).map(x => tile(x, x.year ? String(x.year) : '')).join('')}</div></section>` : '';
+  html += '<section id="dlsec" hidden><div class="sh"><h2>Завантаження</h2></div><div id="dls"></div></section>';
+  html += '<section id="ibs" hidden><div class="sh"><h2>Надіслано вам</h2></div><div id="ibl" class="lst"></div></section>';
   sp.outerHTML = html; bindTiles(); downloads(); inbox(); syncOut();
-  view.querySelectorAll('[data-fi]').forEach(b => b.onclick = () => { buzz(); detail(FAV[+b.dataset.fi]); });
-  if (c) { const open = () => go('/t/' + encodeURIComponent(c.url) + '?resume');
-    $('contGo').onclick = open;
-    // The chevron picks where it plays (remembered), then the film page starts it there from the saved second.
-    $('contWhere').onclick = async () => { const to = await pickRoute(c.ua || c.title); if (to && to !== '__dev') open(); }; }
+  // A cover continues where it stopped (the film page starts it on the remembered target).
+  view.querySelectorAll('[data-ci]').forEach(b => b.onclick = () => { buzz(); const x = unf[+b.dataset.ci]; if (x && x.url) go('/t/' + encodeURIComponent(x.url) + (String(x.id) === onTvId ? '' : '?resume')); });
 }
 
 // Films agents sent ("відправ на ТВ", "запиши подивитись"): "Дивитись" asks where, "Переглянуто" marks it watched.
+const inBm = x => [...HOMELISTS.watch, ...HOMELISTS.fav].some(y => sameFilm(x, y) || (x.title && y.title === x.title && String(y.year || '') === String(x.year || '')));
 async function inbox(d){ d = d || await api('kino/inbox', {}).catch(() => null); const box = $('ibl'); if (!box || !d) return;
   const l = (d.items || []).filter(x => !x.seen || Date.now() / 1000 - x.seen < 86400 * 3).slice(0, 8);
   $('ibs').hidden = !l.length;
   box.innerHTML = l.map(x => `<div class="ib ${x.seen ? 'seen' : ''}"><div class="dl-t"><b>${esc(x.title)}${x.year ? ' (' + esc(x.year) + ')' : ''}</b>
     <small>${esc(x.from || 'помічник')}${x.note ? ' · ' + esc(x.note) : ''}</small></div>
     ${x.url || x.magnet || x.path || x.imdb ? `<button class="dl-b on" data-io="${esc(x.id)}">Дивитись${CD}</button>` : ''}
+    ${x.url || x.imdb ? `<button class="dl-b ic-b ${inBm(x) ? 'on' : ''}" data-ib="${esc(x.id)}" aria-label="Закладка" aria-pressed="${inBm(x)}">${IC.bookmark}</button>` : ''}
     <button class="dl-b${x.seen ? ' ic-b' : ''}" data-id="${esc(x.id)}"${x.seen ? ' aria-label="Прибрати"' : ''}>${x.seen ? IC.x : 'Переглянуто'}</button></div>`).join('');
   box.querySelectorAll('[data-io]').forEach(b => b.onclick = () => { const x = l.find(y => y.id === b.dataset.io);
     if (x.url && /rezka/.test(x.url)) return go('/t/' + encodeURIComponent(x.url));
     if (x.imdb && !x.url && !x.magnet && !x.path) return detail({title: x.title, ru: x.title, orig: x.orig || '', year: +x.year || 0, poster: x.poster || '', imdb: x.imdb, rz: '', badges: [], dirs: [], av: null});
     if (x.path) return chooseTarget({path: x.path}, x.title);
     linkTargets(x.url || x.magnet, x.title); });
+  // Owner 2026-10-24: the same bookmark here as on the film page and the cards.
+  box.querySelectorAll('[data-ib]').forEach(b => b.onclick = async () => { buzz(); const x = l.find(y => y.id === b.dataset.ib), on = !inBm(x);
+    const item = {title: x.title, ru: x.title, year: +x.year || 0, imdb: x.imdb || undefined, url: x.url, rz: x.url, poster: x.poster || ''};
+    b.classList.toggle('on', on);
+    try { const h = await api('kino/list', {list: 'watch', item, on}); if (!h || h.error) throw 0; HOMELISTS = {fav: h.fav || [], watch: h.watch || []}; toast(on ? 'Додано в закладки' : 'Прибрано із закладок'); }
+    catch (e) { b.classList.toggle('on', !on); toast(ERRNET); } });
   box.querySelectorAll('[data-id]').forEach(b => b.onclick = async () => { buzz(); const x = l.find(y => y.id === b.dataset.id);
     inbox(await api('kino/inbox', x.seen ? {remove: x.id} : {done: x.id})); });
 }
@@ -678,32 +894,84 @@ async function downloads(){
   box.innerHTML = (t.length ? t.map(x => `<div class="dl tr ${x.active ? 'on' : ''}"><div class="dl-t"><b title="${esc(x.name)}">${esc(torName(x.name))}</b>
       <small>${x.done ? '<i class="n-ok">готово</i>' : `<i class="n-pct">${Math.floor((x.progress || 0) * 100)}%</i>`} з ${gb(x.size || 0)}${x.done ? ''
         : x.paused ? ' · <i class="n-mid">на паузі</i>' : ` · <i class="n-down">${mb(x.down || 0)} МБ/с</i>` + ((x.down || 0) < 20000 ? ' · <i class="n-mid">чекає пірів</i>' : x.eta > 0 && x.eta < 172800 ? ` · ще <i class="n-eta">${x.eta >= 3600 ? Math.floor(x.eta / 3600) + ' год ' : ''}${Math.round(x.eta % 3600 / 60)} хв</i>` : '')}
-        · <i class="${peerC(x.peers || 0)}">${x.peers || 0} пір.</i></small>
+        · <i class="${peerC(x.peers || 0)}">${x.peers || 0} ${pl(x.peers || 0, "пір", "піри", "пірів")}</i></small>
       <div class="bar"><i style="width:${Math.max(1, (x.progress || 0) * 100)}%"></i></div></div>
     <div class="dl-acts">
     <button class="dl-b on" data-go="${esc(x.magnet || '')}">Дивитись${x.pos > 60 ? ' з ' + clock(x.pos) : ''}${CD}</button>
     ${x.done || x.active ? '' : `<button class="dl-b ic-b" data-pz="${x.hash}" data-on="${x.paused ? 0 : 1}" aria-label="${x.paused ? 'Продовжити завантаження' : 'Пауза завантаження'}">${x.paused ? goI : pp}</button>`}
     <button class="dl-b del ic-b" data-rm="${x.hash}" aria-label="Видалити з файлами"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button></div></div>`).join('')
     : '<p class="empty">Нічого не качається.</p>') + `<p class="empty">${esc(d.folder || '')} · вільно ${gb(d.free || 0)}</p>`;
+  if ($('dlsec')) $('dlsec').hidden = !t.length;
   box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => b.dataset.go && pick(b, {magnet: b.dataset.go}));
   box.querySelectorAll('[data-pz]').forEach(b => b.onclick = async () => { buzz();
     const r = await api('kino/download/pause', {hash: b.dataset.pz, on: b.dataset.on === '1'}).catch(() => ({error: ERRNET}));
     if (r && r.error) return toast(r.error); downloads(); });
   box.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { buzz();
-    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Точно?'; return; }
-    await api('kino/download/remove', {hash: b.dataset.rm}); toast('Видалено разом з файлами'); downloads(); });
+    if (b.dataset.sure !== '1') { const was = b.textContent; b.dataset.sure = '1'; b.textContent = 'Видалити?';
+      setTimeout(() => { b.dataset.sure = ''; b.textContent = was; }, 4000); return; }
+    const r = await api('kino/download/remove', {hash: b.dataset.rm}).catch(() => ({error: ERRNET}));
+    toast(r && r.error ? r.error : 'Видалено разом з файлами'); downloads(); });
 }
-setInterval(() => { if (document.visibilityState === 'visible' && $('dls') && !document.querySelector('#dls [data-sure="1"]')) downloads(); }, 3000);
+// Not under a finger: no refresh within 3 s of a touch on the list (rows were swapped mid-tap, frontend review).
+let dlsTouch = 0; document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('#dls')) dlsTouch = Date.now(); }, true);
+setInterval(() => { if (document.visibilityState === 'visible' && $('dls') && Date.now() - dlsTouch > 3000 && !document.querySelector('#dls [data-sure="1"]')) downloads(); }, 3000);
 
 // (The old "Пошук" page of the home screen is gone: the home search goes to the same page as the Пошук tab, ux-review 9.)
-let T = null, sel = {};
+let T = null, sel = {}, DXN = 0, RESTART = false;
+// Owner 2026-10-24 «UA Sync»: a Ukrainian voice for any picture - a torrent without UA sound gets the HDRezka UA voice mixed in.
+// Voice rows on the film page: the chosen voice first (tick), then the other Ukrainian ones, then the original - at most 3.
+function voiceRows(trs, curTr){
+  const isO = t => /оригинал/i.test(t.name), pick = [curTr, ...trs.filter(t => t !== curTr && isUAname(t.name)), ...trs.filter(t => t !== curTr && isO(t))].filter(Boolean).slice(0, 3);
+  const ontv = S && S.cast && S.cast.title && S.kino && String(S.kino.id) === String(T.id) && !S.kino.source;
+  return {n: pick.length, html: pick.map(t => { const on = String(t.id) === String(sel.translator);
+    const nm = isO(t) ? 'Оригінал + субтитри' : trName(t.name).replace(/^Українськ(а|ий)\s*\(?/i, m => m.replace('(', '').trim() + ' ').replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+    const playing = ontv && String(S.kino.translator) === String(t.id);
+    return `<button class="trk ${on ? 'on' : ''}" data-tr="${esc(t.id)}"><span class="tx"><b>${esc(nm)}</b><span>HDRezka · ${playing ? 'грає на ТВ' : 'одразу'}</span></span>${on ? CK_RED : ''}</button>`; }).join('')}; }
+const CK_RED = '<svg class="ck-r" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+// The page takes its colour from the cover (Apple Music): the average colour, darkened, behind the top of the page.
+function tintFrom(img, el, prop, k0){ try { const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(img, 0, 0, 8, 8);
+  const d = g.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; }
+  const n = d.length / 4, k = k0 || 0.42, bg = el || $('albBg'); if (bg) bg.style.setProperty(prop || '--tint', `rgb(${Math.round(r / n * k)},${Math.round(gg / n * k)},${Math.round(b / n * k)})`); } catch (e) {} }
+// The full player takes the colour of what plays (Apple Music Now Playing).
+document.addEventListener('DOMContentLoaded', () => { const d = $('dPoster'); if (d) d.addEventListener('load', () => tintFrom(d, $('dock'), '--dtint', 0.5)); });
+// ---- One voice catalogue for the film (owner 2026-10-24: the «Озвучка» row showed 9 HDRezka voices, the dock «Звук»
+// a longer list - now both, and the «UA +» chips, read this one list). HDRezka voices + voices named in the releases;
+// Ukrainian first, then the rest except Russian; Russian ones folded.
+function voiceCatalog(){
+  const out = [], seen = new Set();
+  for (const v of (T && T.translators) || []) { const ua = isUAname(v.name), orig = /оригинал/i.test(v.name);
+    out.push({kind: 'rz', id: String(v.id), name: orig ? 'Оригінал + субтитри' : trShort(v.name), full: v.name, ua, ru: !ua && !orig, src: 'HDRezka', hint: 'HDRezka · одразу'}); }
+  for (const t of (SRC.raw || SRC.list || []).filter(t => ctxOk(t, [T.title, T.original, T.ru], T.year, T.series) && (!T.series || epOk(t, sel.season, sel.episode)))) {
+    const rt = realTracks(t);
+    for (const [n] of rt ? rt.tags : audioTags(t.title)) { const isUa = n === 'UA' || /^UA /.test(n); if (!isUa && n !== 'Коментар') continue;
+      const nm = isUa ? (n === 'UA' ? 'UA' : n) + ' · ' + (t.tracker || 'торент') : 'Коментар режисера · ' + (t.tracker || 'торент');
+      if (seen.has(nm)) continue; seen.add(nm);
+      out.push({kind: 'tor', t, name: nm, ua: isUa, cm: !isUa, ru: false, hint: `звук з торента ${qName(t.quality)} · ${fmtSize(t.size)}${rt ? ' · перевірено' : ''}`}); } }
+  return out;
+}
+// The sheet: Ukrainian, then others except Russian, Russian behind one row. Resolves with the picked entry or null.
+async function voiceSheet(title, sub, cur){
+  const all = voiceCatalog(), ua = all.filter(x => x.ua), other = all.filter(x => !x.ua && !x.ru), ru = all.filter(x => x.ru);
+  const row = x => ({n: x.name, v: x, hint: x.hint, cur: !!cur && cur(x)});
+  const opts = [...(ua.length ? [{h: 'Українська'}, ...ua.map(row)] : [{h: 'Української озвучки не знайшов'}]),
+    ...(other.length ? [{h: 'Інші, крім російських'}, ...other.map(row)] : []), ...(ru.length ? [{n: `Російські · ${ru.length}`, v: '__ru', chev: true}] : [])];
+  const v = await choose(title, opts, {sub, rows: true});
+  if (v === '__ru') { const r = await choose('Російські озвучки', ru.map(row), {sub: title, rows: true}); return r || null; }
+  return v || null;
+}
+// Where an entry really stopped: the episode's own memory first (the history line could say 0 for a series).
+const epPos = h => { const m = h && h.eps && h.eps[(h.season || 0) + ':' + (h.episode || 0)]; return m && m[0] > 0 ? m[0] : (h && h.position) || 0; };
 async function title(raw){
-  const resume = raw.endsWith('?resume'); const url = raw.replace(/\?resume$/, '');
+  const play = raw.endsWith('?play'), resume = play || raw.endsWith('?resume'); const url = raw.replace(/\?(resume|play)$/, ''), my = RT;
+  // Read once: left in the address, Back to this page started the film on the TV again (frontend review).
+  if (resume) history.replaceState(null, '', '#/t/' + encodeURIComponent(url));
   view.innerHTML = head('', backTo()) + '<div class="spin"></div>';
-  T = await api('kino/title', {url}).catch(() => null);
+  const got = await api('kino/title', {url}).catch(() => null);
+  if (stale(my)) return;   // another page opened meanwhile: T stays that page's film (Дивитись started the old one)
+  T = got;
   if (!T || T.error || !T.id) {
     // HDRezka refuses: the same film as a card with torrents (owner was blocked on every action).
-    const h = await api('kino/home').catch(() => ({})), all = [...(h.history || []), ...(h.fav || h.bookmarks || [])];
+    const h = await api('kino/home').catch(() => ({})); if (stale(my)) return; const all = [...(h.history || []), ...(h.fav || h.bookmarks || [])];
     const e = all.find(x => x.url === url) || {};
     const t0 = e.title || decodeURIComponent((url.match(/\/\d+-([^/]+?)(-\d{4})?(-latest)?\.html/) || [])[1] || '').replace(/-/g, ' ');
     view.innerHTML = head('', backTo()) + `<p class="empty">HDRezka зараз не відповідає, тому показую торенти цього фільму.</p>`;
@@ -725,7 +993,7 @@ async function title(raw){
   const st = await fetch('/api/state', {cache: 'no-store'}).then(r => r.json()).catch(() => S) || {};
   const onTV = st.cast && st.cast.title && st.kino && String(st.kino.id) === String(T.id);
   // From the home "continue" card: it starts where the card says (this device's remembered target; the TV off = this phone).
-  if (resume && p && !onTV) { if (!S && st && st.cast) S = st; castTo(outNow().to, p.position || 0); }
+  if (resume && (p || play) && !onTV) { if (!S && st && st.cast) S = st; castTo(outNow().to, p ? epPos(p) : 0); }
 }
 
 function draw(p){
@@ -754,37 +1022,48 @@ function draw(p){
   const seasonCtl = seasons.length <= 7 ? `<div class="sgm">${seasons.map(s => `<button class="${s.n === sel.season ? 'on' : ''}" data-s="${s.n}">${s.n}</button>`).join('')}</div>`
     : `<button class="rowsel" id="sSel"><span class="l">Сезон</span><b>${esc(sel.season)}</b>${IC.chev}</button>`;
   const anyPart = !!(cur && cur.episodes.some(e => { const m = memOf(sel.season, e); return !isSeen(sel.season, e) && m && m.f > 0.02; }));
-  view.innerHTML = head('', backTo()) + `
-  <div class="hero fade">${T.poster ? `<img src="${esc(T.poster)}" alt="">` : ''}<div style="min-width:0">
-    <h3>${esc(T.title)}</h3><p>${esc([T.original, T.year, T.series ? 'серіал' : 'фільм'].filter(Boolean).join(' · '))}</p>
-    <div class="hero-b"><button class="ghost ${T.bookmarked ? 'on' : ''}" id="star">${starIcon}${T.bookmarked ? 'В обраному' : 'В обране'}</button></div></div></div>
-  <div class="act2"><div class="split"><button class="play" id="play">${playIcon}<span class="pt"><b>${esc(line1)}</b>${line2 ? `<small class="ontv"${tvLocked ? '' : ` data-outlabel${ep ? ` data-pre="${ep}"` : ''}`}>${esc(line2)}</small>` : ''}</span></button>
-      <button class="go" id="onPhone" aria-label="Куди дивитись">${IC.chevd}</button></div>
-    ${resumeAt && !playingHere ? '<button class="ghost fs" id="fromStart">З початку</button>' : ''}</div>
-  ${tvLocked ? '' : '<p class="note" id="offNote" style="margin:-12px 2px 0" hidden></p>'}
-  ${trs.length > 1 ? (trSeg ? `<section><p class="lbl">Озвучка</p><div class="sgm">${trs.map(t =>
-     `<button class="${String(t.id) === String(sel.translator) ? 'on' : ''}" data-tr="${esc(t.id)}"><span class="t">${esc(trShort(t.name))}</span></button>`).join('')}</div></section>`
-    : `<section><button class="rowsel" id="trSel"><span class="l">Озвучка</span><b>${esc(trShort(curTr.name))}</b>${IC.chev}</button></section>`) : ''}
+  // Owner 2026-10-24 canon: the film page reads like an Apple Music album page - centred cover, title, director in red,
+  // one meta line, two equal buttons, then «Озвучка» and «Звідки» as plain rows (no cards, no coloured badges).
+  const meta = [(T.genres || []).join(', '), T.year, T.duration, T.series ? 'серіал' : ''].filter(Boolean).join(' · ');
+  const primary = playingHere ? 'Грає на ТВ' : switchAt ? 'Змінити озвучку' : resumeAt ? 'Продовжити' : 'Дивитись';
+  const toPre = playingHere ? '' : [ep, switchAt ? `з ${clock(switchAt)}` : resumeAt ? `з ${clock(resumeAt)}` : ''].filter(Boolean).join(' · ');
+  const vrows = voiceRows(trs, curTr);
+  view.innerHTML = head('', backTo(), `<button class="hic ${T.bookmarked ? 'on' : ''}" id="star" aria-label="${T.bookmarked ? 'У закладках' : 'Закладка'}" aria-pressed="${!!T.bookmarked}">${IC.bookmark}</button>`) + `
+  <div class="alb fade"><div class="alb-bg" id="albBg"></div>${hasPU(T) ? `<img class="alb-p" src="${esc(PU(T))}" alt="" onerror="pErr(this)" onload="tintFrom(this)">` : ph(T, 'alb-p ph')}
+    <h1 class="alb-t">${esc(T.title)}</h1>
+    ${T.director ? `<button class="alb-d" id="albDir">${esc(T.director)}</button>` : T.original ? `<p class="alb-o">${esc(T.original)}</p>` : ''}
+    ${meta ? `<p class="alb-m">${esc(meta)}</p>` : ''}
+    <div class="alb-b"><button class="pbtn" id="play">${playIcon}<span>${esc(primary)}</span></button>${resumeAt && !playingHere ? `<button class="pbtn" id="fromStart">${IC.restart || '↺'}<span>З початку</span></button>` : ''}</div>
+    ${playingHere ? '' : `<button class="alb-to" id="onPhone"><span${tvLocked ? '' : ` data-outlabel${toPre ? ` data-pre="${esc(toPre)}"` : ''}`}>${esc((toPre ? toPre + ' · ' : '') + (switchAt ? 'на ТВ' : outLine()))}</span>${IC.chevd}</button>`}
+    ${tvLocked ? '' : '<p class="note" id="offNote" hidden></p>'}</div>
+  ${trs.length ? `<section><div class="sh"><h2>Озвучка</h2>${trs.length > vrows.n ? `<button class="lnk" id="trSel">Усі ${trs.length}</button>` : ''}</div><div class="lst">${vrows.html}</div>
+    ${!trs.some(t => isUAname(t.name)) ? `<p class="cap">Української на HDRezka немає. Українську з торентів можна додати до будь-якого джерела нижче.</p>` : ''}</section>` : ''}
   ${T.series ? `<section>${seasons.length <= 7 ? '<p class="lbl">Сезон</p>' : ''}${seasonCtl}</section>
   <section><p class="lbl">Серія</p><div class="eps">${(cur ? cur.episodes : []).map(e =>
      { const m = memOf(sel.season, e), seen = isSeen(sel.season, e), part = !seen && m && m.f > 0.02;
        return `<button class="ep ${e === sel.episode ? 'cur' : ''} ${seen ? 'seen' : ''} ${part ? 'part' : ''}" data-e="${e}"
          ${m ? `title="${clock(m.pos)} з ${clock(m.dur)}"` : ''}>${e}${part ? `<i style="width:${Math.round(m.f * 100)}%"></i>` : ''}</button>`; }).join('')}</div>
      ${anyPart ? '<p class="legend"><span class="lg seen"></span>переглянуто <span class="lg part"></span>почато</p>' : ''}</section>` : ''}
-  <section><p class="lbl">Звідки</p><div class="srcs" id="srcs">${srcRows()}</div><p class="note">Позиція спільна для всіх джерел</p></section>`;
+  <section><div class="sh"><h2>Звідки</h2><button class="lnk" id="srcAll2" hidden></button></div><div class="lst" id="srcs">${srcRows()}</div><p class="cap">Позиція спільна для всіх джерел</p></section>`;
   bindSrc(p);
-  $('star').onclick = async () => { buzz(); T.bookmarked = !T.bookmarked;
-    await api('kino/bookmark', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series, on: T.bookmarked}); draw(p); toast(T.bookmarked ? 'Додано в обране' : 'Прибрано з обраного'); };
-  const setTr = async id => { sel.translator = id;
-    if (T.series) { const s = await api('kino/episodes', {id: T.id, translator: sel.translator}).catch(() => []); if (s.length) T.seasons = s;
+  $('star').onclick = async () => { buzz(); const my = RT, on = !T.bookmarked;
+    try { await api('kino/bookmark', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series, on}); } catch (e) { return toast(ERRNET); }
+    if (stale(my)) return; T.bookmarked = on; draw(p); toast(on ? 'Додано в закладки' : 'Прибрано із закладок'); };
+  const setTr = async id => { sel.translator = id; const my = RT;
+    if (T.series) { const s = await api('kino/episodes', {id: T.id, translator: sel.translator}).catch(() => []); if (stale(my)) return; if (s.length) T.seasons = s;
       if (!T.seasons.find(x => x.n === sel.season)) sel.season = T.seasons[0].n;
       const ss = T.seasons.find(x => x.n === sel.season); if (!ss.episodes.includes(sel.episode)) sel.episode = ss.episodes[0]; }
     draw(p); };
   view.querySelectorAll('[data-tr]').forEach(b => b.onclick = () => { buzz(); setTr(b.dataset.tr); });
-  if ($('trSel')) $('trSel').onclick = async () => { buzz();
-    const v = await choose('Озвучка', trs.map((t, i) => ({n: trName(t.name), v: String(t.id), no: i + 1, cur: String(t.id) === String(sel.translator),
-      hint: c.title && String(k.id) === String(T.id) && String(k.translator) === String(t.id) ? 'грає на ТВ' : ''})), {sub: T.title});
-    if (v !== null && v !== undefined) setTr(v); };
+  // One voice list for the «Озвучка» row and the HDRezka row chips (owner 2026-10-24).
+  window.openVoices = async () => { buzz();
+    if (onTvNow()) { await sourceSheet(false); const g = [...document.querySelectorAll('#srcL .g')].find(x => /^Звук/.test(x.textContent)); if (g) g.scrollIntoView({block: 'start'}); return; }
+    const v = await voiceSheet('Озвучка', T.title, x => x.kind === 'rz' && x.id === String(sel.translator) && SRC.sel === 'rz');
+    if (!v) return;
+    if (v.kind === 'rz') { SRC.sel = 'rz'; return setTr(v.id); }
+    // A voice that lives in a release: that release becomes the source (its own file carries the voice).
+    const i = SRC.list.indexOf(v.t); if (i >= 0) { SRC.sel = String(i); draw(p); toast('Джерело: ' + v.name); } };
+  if ($('trSel')) $('trSel').onclick = window.openVoices;
   const setSeason = n => { sel.season = +n; sel.episode = (T.seasons.find(x => x.n === sel.season).episodes || [])[0]; draw(p); };
   view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { buzz(); setSeason(b.dataset.s); });
   if ($('sSel')) $('sSel').onclick = async () => { buzz();
@@ -793,9 +1072,10 @@ function draw(p){
   view.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { buzz(); sel.episode = +b.dataset.e; draw(p); });
   const from0 = switchAt ? ((S && S.cast && S.cast.position) || switchAt) : resumeAt, toNow = () => tvLocked ? 'tv' : outNow().to;   // read at the press: the target may change after the page is drawn
   $('play').onclick = () => playingHere ? toast('Вже грає на ТВ. Щоб змінити озвучку, виберіть іншу нижче.') : castTo(toNow(), from0);
-  if ($('fromStart')) $('fromStart').onclick = () => castTo(toNow(), 0);
+  if ($('fromStart')) $('fromStart').onclick = () => { RESTART = true; castTo(toNow(), 0); };   // the only start that goes to 0 on purpose
   // The chevron: pick the target (remembered) and start there at once; a film the TV plays moves from the TV's second.
-  $('onPhone').onclick = () => chooseTarget(srcOf(nowPos > 30 ? nowPos : from0), T.title + (T.series ? ` · S${sel.season}E${sel.episode}` : ''));
+  if ($('albDir')) $('albDir').onclick = () => { buzz(); go('/f/' + encodeURIComponent(T.director.split(',')[0].trim())); };
+  if ($('onPhone')) $('onPhone').onclick = () => chooseTarget(srcOf(nowPos > 30 ? nowPos : from0), T.title + (T.series ? ` · S${sel.season}E${sel.episode}` : ''));
   syncOut();
 }
 // What the film page plays: the picked source (HDRezka or a torrent) with its own handlers for the TV, this device and paired screens.
@@ -806,7 +1086,9 @@ const castTo = (to, from) => sendTo(to, srcOf(from));
 // Voiceover names for people (ux-review 14): HDRezka's Russian words in Ukrainian; a Ukrainian voice is short "UA · 1+1".
 const trName = n => { n = String(n || ''); const multi = /многоголос/i.test(n);   // "Украинский многоголосый" -> "Український багатоголосий", "Украинский (1+1)" -> "Українська (1+1)"
   return n.replace(/Украинский/gi, multi ? 'Український' : 'Українська').replace(/Казахский/gi, multi ? 'Казахський' : 'Казахська').replace(/многоголосый/gi, 'багатоголосий')
-    .replace(/Оригинал/gi, 'Оригінал').replace(/субтитры/gi, 'субтитри').replace(/Видеосервис/gi, 'Відеосервіс'); };
+    .replace(/Оригинал/gi, 'Оригінал').replace(/субтитры/gi, 'субтитри').replace(/Видеосервис/gi, 'Відеосервіс')
+    .replace(/Одноголосый/gi, 'Одноголосий').replace(/Двухголосый/gi, 'Двоголосий').replace(/закадровый/gi, 'закадровий').replace(/Авторский/gi, 'Авторський')
+    .replace(/Профессиональный/gi, 'Професійний').replace(/Любительский/gi, 'Аматорський'); };
 const trShort = n => { if (!isUAname(n)) return trName(n); const r = trName(n).replace(/^Українська\s*/i, '').replace(/^Український\s*/i, '').replace(/[()]/g, '').trim(); return r ? 'UA · ' + r : 'UA'; };
 
 // ---------- One film, several sources (owner, 2026-10-21): HDRezka and torrents in the same rows, one position ----------
@@ -842,12 +1124,55 @@ function srcRows(){
     SRC.all = SRC.list.length;
     // The chosen release by its magnet / topic: indexes move when the episode filter changes the list.
     if (SRC.sel !== 'rz') { const i = id ? SRC.list.findIndex(t => (t.magnet || t.topic) === id) : -1; SRC.sel = i >= 0 ? String(i) : 'rz'; } }
-  const tr = T.translators.find(t => String(t.id) === String(sel.translator)), ua = isUAname(tr && tr.name);
-  const q = (SRC.list.length ? '' : '');
-  const rz = `<button class="src ${SRC.sel === 'rz' ? 'on' : ''}" data-src="rz"><span class="nm"><b>HDRezka</b>${ua ? '<i class="ua-t">UA</i>' : ''}</span><span class="mt">${esc(sel.quality || 'макс. якість')} · одразу</span></button>`;
-  const rows = SRC.list.slice(0, 3).map((t, i) => torRow(`data-src="${i}"`, SRC.sel === String(i), t)).join('');
-  return rz + (SRC.loading ? '<p class="mt" style="padding:6px 2px">Шукаю торенти…</p>' : rows) + (SRC.all ? `<button class="src-all" id="srcAll">Усі (${SRC.all})${IC.chev}</button>` : '');
+  // Owner 2026-10-24 canon: rows like album tracks - number (or the playing bars), name, a grey line in words, the size.
+  const tr = T.translators.find(t => String(t.id) === String(sel.translator)), ontv = onTvNow(), now = ontv ? nowSel() : null;
+  const BARS = '<span class="bars"><i></i><i></i><i></i></span>';
+  const WORD = {UA: 'українська', EN: 'англійська', RU: 'російська', 'Суб': 'субтитри', 'Суб UA': 'субтитри UA', 'Коментар': 'коментар режисера', 'Оригінал': 'оригінал'};
+  const words = tags => { const out = []; for (const [n] of tags) { const w = /^UA /.test(n) ? 'українська ' + n.slice(5) : WORD[n] || WORD[n.replace(/ 5\.1$/, '')] && WORD[n.replace(/ 5\.1$/, '')] + (/ 5\.1$/.test(n) ? ' 5.1' : '') || n; if (!out.includes(w)) out.push(w); } return out; };
+  const cap = x => x ? x[0].toUpperCase() + x.slice(1) : x;
+  const row = (key, n, title, sub, trail) => { const on = SRC.sel === key, playing = now === key;
+    return `<button class="trk ${on ? 'on' : ''}" data-src="${key}"><span class="n">${playing ? BARS : on && !ontv ? CK_RED : n}</span><span class="tx"><b>${title}</b><span>${sub}</span></span>${trail ? `<span class="trl">${trail}</span>` : ''}</button>`; };
+  const rzv = tr ? trName(tr.name).replace(/^Українськ(а|ий)\s*\(?/i, m => 'Українська ').replace(/[()]/g, '').trim() : 'Озвучка HDRezka';
+  let html = row('rz', 1, `HDRezka · ${esc(sel.quality || 'найкраща якість')}`, `${esc(rzv)} · одразу`, '');
+  // The best Ukrainian release is always among the first rows, the best pictures (4K, TV ✓) stay too.
+  const isUAt = t => { const rt = realTracks(t); return (rt ? rt.tags : audioTags(t.title)).some(([n]) => n === 'UA' || /^UA /.test(n)); }, ua0 = SRC.list.findIndex(isUAt);
+  const top = [...new Set([ua0, 0, 1, 2, 3].filter(i => i >= 0 && i < SRC.list.length))].slice(0, 4); SRC.top = top;
+  if (SRC.loading) html += '<p class="cap" style="margin:8px 0 0">Шукаю торенти…</p>';
+  else top.forEach((i, k) => { const t = SRC.list[i], rt = realTracks(t), tags = rt ? rt.tags : audioTags(t.title), has = isUAt(t), d = SRC.dub && SRC.dub[btih(t.magnet) || t.topic];
+    const w = words(tags), parts = w.length ? [cap(w.join(', '))] : [];
+    if (tvDirect(t)) parts.push(parts.length ? 'без перекодування' : 'Без перекодування');
+    if ((t.seeds || 0) < 5) parts.push(`${t.seeds || 0} ${pl(t.seeds || 0, 'сід', 'сіди', 'сідів')}`);
+    if (!rt && SRC.trk && SRC.trk[btih(t.magnet)] === 'pending') parts.push('читаю доріжки…');
+    let sub = esc(parts.join(' · '));
+    if (!has) sub += d ? ` · <span class="lnk" data-uaplus="${i}">${esc(d.name)} підкладено</span>` : ` · <span class="lnk" data-uaplus="${i}">додати українську</span>`;
+    html += row(String(i), k + 2, `${qName(t.quality)}${t.hdr ? ' HDR' : ''} · ${esc(t.tracker || 'торент')}`, sub, esc(fmtSize(t.size))); });
+  html += `<p class="st" id="srcPlan" hidden></p>`;
+  if (SRC.all > top.length) html += `<button class="lnk-row" id="srcAll">Ще ${SRC.all - top.length} ${pl(SRC.all - top.length, 'джерело', 'джерела', 'джерел')}${IC.chev}</button>`;
+  return html;
 }
+// Real tracks read from the release's file (engine /tracks via kino/tracks); null while unknown.
+const LANG = {ukr: 'UA', eng: 'EN', rus: 'RU', fre: 'FR', fra: 'FR', ger: 'DE', deu: 'DE', ita: 'IT', spa: 'ES', pol: 'PL', jpn: 'JA', chi: 'ZH', zho: 'ZH'};
+function realTracks(t){ const r = SRC.trk && SRC.trk[btih(t.magnet)]; if (!r || r === 'pending' || r.state !== 'done') return null;
+  const tags = [], aud = r.tracks.filter(x => x.type === 'audio'), sub = r.tracks.filter(x => x.type === 'subtitle');
+  for (const a of aud) { const cm = /comment|коммент|комент/i.test(a.title), lg = LANG[a.lang] || (a.lang ? a.lang.toUpperCase() : (aud.length === 1 ? 'Оригінал' : 'Звук'));
+    const ttl = (a.title || '').replace(/\b(ac3|dts|aac|eac3|flac|5\.1|2\.0|stereo|mono)\b/ig, '').trim();
+    tags.push([cm ? 'Коментар' : lg === 'UA' && ttl ? 'UA · ' + ttl : lg + (a.ch > 2 ? ' 5.1' : ''), cm ? 'cm' : lg.toLowerCase()]); }
+  if (sub.some(x => x.lang === 'ukr')) tags.push(['Суб UA', 'sb']); else if (sub.length) tags.push(['Суб', 'sb']);
+  return {tags: [...new Map(tags.map(x => [x[0], x])).values()], raw: r}; }
+// Ask the core for the tracks of the rows on screen, one by one; redraw the chips as answers come.
+async function probeRows(key, idx, p){
+  SRC.trk = SRC.trk || {};
+  for (const i of idx) { const t = SRC.list[i]; if (!t || !t.magnet) continue; const h = btih(t.magnet); if (!h || (SRC.trk[h] && SRC.trk[h] !== 'pending')) continue;
+    SRC.trk[h] = 'pending';
+    for (let n = 0; n < 40; n++) { const r = await api('kino/tracks', {magnet: t.magnet}).catch(() => null); if (SRC.key !== key) return;
+      if (r && (r.error || (r.state && r.state !== 'pending'))) { SRC.trk[h] = r.error ? {state: 'failed'} : r; break; } await new Promise(z => setTimeout(z, 4000)); }
+    if (SRC.trk[h] === 'pending') SRC.trk[h] = {state: 'failed'};
+    if ($('srcs') && SRC.key === key) { $('srcs').innerHTML = srcRows(); bindSrc(p); } } }
+// This film on the TV now, and which row of «Звідки» gives its picture ('rz', a release index, or null when not listed).
+const onTvNow = () => !!(T && S && S.cast && S.cast.title && S.kino && String(S.kino.id) === String(T.id));
+const btih = m => ((/btih:([a-z0-9]+)/i.exec(m || '') || [])[1] || '').toLowerCase();
+const nowSel = () => { const c = S.cast || {}, tor = S.kino.source === 'torrent' || /^magnet:/i.test(c.link || '');
+  if (!tor) return 'rz'; const i = SRC.list.findIndex(t => btih(t.magnet) && btih(t.magnet) === btih(c.link)); return i >= 0 ? String(i) : null; };
 function bindSrc(p){
   const key = T.id + '|' + (T.series ? sel.season : '');
   if (SRC.key !== key) { SRC = {key, list: [], sel: 'rz', loading: true, all: 0};
@@ -855,16 +1180,43 @@ function bindSrc(p){
       const GR = {g: 0, y: 1, u: 1, r: 2}, isUA = t => audioTags(t.title).some(([n]) => n === 'UA');
       let l = Array.isArray(r) ? r : [];
       if (T.series) l = l.filter(t => !(t.seasons || []).length || (t.seasons || []).includes(+sel.season));
-      l.sort((a, b) => (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || tvRank(a) - tvRank(b) || isUA(b) - isUA(a) || tvDirect(b) - tvDirect(a) || (b.quality || 0) - (a.quality || 0) || (b.seeds || 0) - (a.seeds || 0));
+      // Grade, TV fit, quality, seeds; the best Ukrainian release is pinned into the first rows by srcRows().
+      l.sort((a, b) => (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || tvRank(a) - tvRank(b) || tvDirect(b) - tvDirect(a) || (b.quality || 0) - (a.quality || 0) || isUA(b) - isUA(a) || (b.seeds || 0) - (a.seeds || 0));
       SRC.raw = l; SRC.list = l; SRC.all = l.length; SRC.loading = false;
       // Default source: Ukrainian sound that starts at once - HDRezka with a UA voiceover, else a green UA torrent.
       const tr = T.translators.find(t => String(t.id) === String(sel.translator));
       // A good Ukrainian release of THIS episode (by its own name), not just the first of the season.
       const ua0 = l.find(t => t.grade === 'g' && isUA(t) && ctxOk(t, [T.title, T.original, T.ru], T.year, T.series) && (!T.series || epOk(t, sel.season, sel.episode)));
       if (!isUAname(tr && tr.name) && ua0) SRC.sel = String(l.indexOf(ua0));
-      if ($('srcs')) { $('srcs').innerHTML = srcRows(); bindSrc(p); } }).catch(() => { SRC.loading = false; });
+      if (onTvNow() && nowSel() != null) SRC.sel = nowSel();   // the tick shows what really plays (owner 2026-10-24)
+      if ($('srcs')) { $('srcs').innerHTML = srcRows(); bindSrc(p); }
+      probeRows(key, (SRC.top || []).concat([0, 1, 2, 3, 4, 5]).filter((v, j, a) => a.indexOf(v) === j && v < SRC.list.length), p); }).catch(() => { SRC.loading = false; });
   }
-  view.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { buzz(); SRC.sel = b.dataset.src; $('srcs').innerHTML = srcRows(); bindSrc(p); });
+  // Owner 2026-10-24: "при натисканні нічого не відбувається". While this film plays on the TV a tap switches the picture,
+  // the same way as the «Джерело» sheet: a release over HDRezka is planned ahead, between releases from this second.
+  view.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { buzz(); SRC.sel = b.dataset.src; $('srcs').innerHTML = srcRows(); bindSrc(p);
+    if (!onTvNow() || SRC.sel === nowSel()) return;
+    const c = S.cast, from = Math.max(0, Math.round((c.position || 0) - 2)), t = SRC.sel === 'rz' ? null : SRC.list[+SRC.sel];
+    const done = msg => r => { if (r && r.error) toast(r.error); else toast(msg); };
+    if (!t) return start(from);
+    if (nowSel() === 'rz') return api('kino/switch/plan', t.topic ? {topic: t.topic} : {magnet: t.magnet}).catch(() => ({error: ERRNET}))
+      .then(done('Рахую, коли буфер буде готовий - перехід видно під рядком'));
+    api('kino/torrent/use', Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {film: filmOf(), from})).catch(() => ({error: ERRNET}))
+      .then(done('Перемикаю з ' + clock(from) + '…')); });
+  view.querySelectorAll('[data-voices]').forEach(b => b.onclick = e => { e.stopPropagation(); window.openVoices && window.openVoices(); });
+  view.querySelectorAll('[data-uaplus]').forEach(b => b.onclick = async e => { e.stopPropagation(); buzz(); const i = +b.dataset.uaplus, t = SRC.list[i];
+    const k0 = btih(t.magnet) || t.topic, d0 = SRC.dub && SRC.dub[k0];
+    const v = await voiceSheet(`Озвучка для ${qName(t.quality)} · ${fmtSize(t.size)}`, 'У цьому файлі української немає. Підкладу звук з іншого джерела.',
+      x => d0 ? x.name === d0.name : x.ua && x.kind === 'rz');
+    if (!v) return; if (v.kind === 'tor' && v.t === t) return;
+    SRC.dub = SRC.dub || {}; SRC.dub[k0] = v; SRC.sel = String(i); $('srcs').innerHTML = srcRows(); bindSrc(p);
+    if (!onTvNow()) return toast('«' + v.name + '» буде з цією картинкою');
+    if (nowSel() === String(i)) return applyDub(v);   // this picture plays already: only the voice changes
+    // Another picture plays: switch the picture first (HDRezka -> planned), the voice follows once it plays.
+    const c = S.cast, from = Math.max(0, Math.round((c.position || 0) - 2));
+    if (nowSel() === 'rz' && v.kind === 'rz' && String(v.id) === String(S.kino.translator)) return api('kino/switch/plan', t.topic ? {topic: t.topic} : {magnet: t.magnet}).catch(() => ({error: ERRNET}))
+      .then(r => toast(r && r.error ? r.error : 'Рахую, коли буфер буде готовий - перехід видно під рядком'));
+    playTorrent(t, from); });
   if ($('srcAll')) $('srcAll').onclick = () => { TOR = SRC.list; torF = {q: 'all', s: T.series && sel.season ? String(sel.season) : 'all'}; $('tor').classList.add('show'); drawTor(); };
 }
 const filmOf = () => T && T.id ? {id: String(T.id), url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series,
@@ -873,41 +1225,74 @@ async function playTorrent(t, from){
   buzz(); toast('Запускаю торент на ТВ…');
   const body = Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {film: filmOf()});
   if (from != null) body.from = from;
+  if (RESTART) { body.restart = true; RESTART = false; }
   const r = await api('kino/torrent/use', body).catch(() => ({error: ERRNET}));
-  if (r && r.error) toast(r.error);
+  if (r && r.error) return toast(r.error);
+  // A voice picked for this release with its «UA +» chip: once the picture plays, it is laid over it.
+  const dub = SRC.dub && SRC.dub[btih(t.magnet) || t.topic];
+  if (dub) { toast('Картинка з торента, «' + dub.name + '» підкладу слідом…');
+    for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 2000)); const st = await fetch('/api/state').then(r => r.json()).catch(() => ({})), cc = st.cast || {};
+      if (!cc.title) return; if (cc.playing && !cc.status) break; }
+    applyDub(dub); }
+}
+// Lay a picked voice over what plays: an HDRezka voice is aligned at once, a release's voice is planned ahead.
+async function applyDub(dub){
+  const m = dub.kind === 'rz'
+    ? await api('kino/mix', {id: T.id, translator: dub.id, translatorName: dub.full || dub.name, season: T.series ? sel.season : null, episode: T.series ? sel.episode : null}).catch(() => ({error: ERRNET}))
+    : await api('kino/switch/plan', Object.assign(dub.t.topic ? {topic: dub.t.topic} : {magnet: dub.t.magnet}, {kind: 'sound', label: dub.name})).catch(() => ({error: ERRNET}));
+  toast(m && m.error ? m.error : dub.kind === 'rz' ? 'Підлаштовую «' + dub.name + '» під картинку…' : 'Рахую, коли звук «' + dub.name + '» буде готовий');
 }
 
 async function start(from){
   buzz(); toast('Запускаю на ТВ…');
+  // Owner 2026-10-24: a start that replaces another film on the TV offers it back for 6 s.
+  const k0 = (S && S.kino) || {}, c0 = (S && S.cast) || {}, back = k0.id && String(k0.id) !== String(T.id) ? stopSnap() : null;
+  const backName = back ? `«${(k0.title || '').split(' / ')[0]}» з ${clock(c0.position)}` : '';
   const tr = T.translators.find(t => String(t.id) === String(sel.translator));
+  const restart = RESTART; RESTART = false;
   const r = await api('kino/play', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series,
     translator: String(sel.translator), translatorName: tr ? tr.name : '', season: T.series ? sel.season : null, episode: T.series ? sel.episode : null,
-    seasons: T.seasons, quality: sel.quality, from}).catch(() => ({error: ERRNET}));
+    seasons: T.seasons, quality: sel.quality, from, restart}).catch(() => ({error: ERRNET}));
   if (r.error) return toast(r.error);
-  toast('Грає на ТВ · ' + r.quality);
+  if (back) toast('Грає на ТВ · ' + r.quality, {label: 'Повернути ' + backName, ms: 6000, fn: () => { toast('Повертаю…'); back(); }});
+  else toast('Грає на ТВ · ' + r.quality);
 }
 
 // Player on every screen: what the TV plays, with cover, quality, scrubber, ±, pause, stop, next episode.
 let S = null, seeking = false;
+// One poll at a time, 4 s at most, answers in order (frontend review: a slow answer overwrote a newer one, and a hung
+// request stacked polls on Safari's connections). Three misses in a row: the waiting pill goes, the dock dims.
+let polling = false, pollMiss = 0, cancelAt = 0, failSeen = '';
 async function poll(){
-  try { S = await (await fetch('/api/state')).json(); } catch(e) { return; }
+  if (polling) return; polling = true;
+  try { const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
+    const st = await (await fetch('/api/state', {signal: ac.signal})).json(); clearTimeout(t);
+    if (!st || !st.cast) throw 0; S = st; pollMiss = 0; $('dock').classList.remove('stale'); document.body.classList.remove('down'); }
+  catch(e) { if (++pollMiss >= 3) { document.body.classList.remove('busy'); document.body.classList.add('down'); $('dock').classList.add('stale'); if ($('dRoute')) $('dRoute').textContent = 'Немає зв’язку з tinyTV Core'; } return; }
+  finally { polling = false; }
+  // Product review: the tap shows at once; for 3.5 s the poll keeps the owner's choice, then the TV's word counts.
+  if (ppAim && S.cast) { if (Date.now() - ppAim.at < 3500) S.cast.playing = ppAim.play;
+    else { if (S.cast.title && S.cast.playing !== ppAim.play) toast('ТВ не відповів. Спробуйте ще раз'); ppAim = null; } }
   const c = S.cast || {}, k = S.kino || {};
-  const busy = !!c.status && !c.failed; document.body.classList.toggle('busy', busy);
+  const busy = !!c.status && !c.failed && Date.now() - cancelAt > 4000; document.body.classList.toggle('busy', busy);
+  // A start that failed later (CDN, TV refused) said nothing here: the pill just vanished (frontend review).
+  if (c.failed && c.status && c.status !== failSeen) { failSeen = c.status; toast(c.status); } else if (!c.failed) failSeen = '';
   if (busy) { $('cwT').textContent = c.status; $('cwB').parentElement.style.visibility = c.progress >= 0 ? '' : 'hidden';
     if (c.progress >= 0) $('cwB').style.width = Math.max(2, c.progress * 100) + '%'; }
   $('dock').classList.toggle('show', !!c.title);
   syncOut();   // the "на Hisense TV / на iPhone" lines follow the TV's state (offline = this phone)
   if (!c.title) return;
-  $('dTitle').textContent = k.ua || k.title || fileTitle(c.title);
+  $('dTitle').textContent = (k.ua || k.title || '').split(' / ')[0] || fileTitle(c.title);
+  setTimeout(stripNow, 0);
   // Owner 2026-10-23: the dock shows what really plays. A torrent: badge, episode read from the file, quality, dub;
   // a red warning when the file is another episode than the one chosen.
   const fe = epOf(c.title), tor = k.source === 'torrent' || /^magnet:/i.test(c.link || '');
   const pad = n => String(n).padStart(2, '0'), q = (/(2160|1080|720|480)p/i.exec(c.title || '') || [])[0] || '';
   const bad = tor && fe && k.season && (fe.s !== +k.season || +k.episode < fe.a || +k.episode > fe.b);
   $('dSub').innerHTML = tor
-    ? `<i class="srcb">Торент</i> ${esc([fe ? `S${pad(fe.s)}E${pad(fe.a)}` : (k.season ? `S${k.season} · E${k.episode}` : ''), q, audioTags(c.title || '').map(([n]) => n).join(' '), c.status || ''].filter(Boolean).join(' · '))}`
+    ? esc(['Торент ' + q, fe ? `S${pad(fe.s)}E${pad(fe.a)}` : (k.season ? `S${k.season} · E${k.episode}` : ''), audioTags(c.title || '').map(([n]) => n).join(' '), c.status || ''].filter(Boolean).join(' · ').replace(/\s+·\s+$/, ''))
       + (bad ? ` <b class="srcw">не та серія: обрано S${pad(k.season)}E${pad(k.episode)}</b>` : '')
-    : esc([k.season ? `S${k.season} · E${k.episode}` : '', k.translatorName ? 'HDRezka · ' + k.translatorName : '', c.status || ''].filter(Boolean).join(' · '));
+    : esc([k.season ? `S${k.season} · E${k.episode}` : '', k.translatorName ? 'HDRezka · ' + trShort(k.translatorName) : '', c.status || ''].filter(Boolean).join(' · '));
   $('dSub').title = '';
   const uaTr = (c.tracks || []).some(x => /\bUKR?\b|укр|ukr|україн/i.test(x.label || ''));
   $('dSrc').hidden = !k.id;
@@ -924,16 +1309,19 @@ async function poll(){
   if (plOn) window.PLANHID = false;
   if (!$('dPlan').hidden) { const left = Math.max(0, Math.round(((pl.eta || 0) * 1000 - Date.now()) / 60000)), at = new Date((pl.eta || 0) * 1000);
     $('dPlanV').textContent = pl.state === 'failed' ? 'Перехід скасовано' : pl.at ? `Перехід на ${clock(pl.at)} серії` : 'Готую перехід на торент…';
-    $('dPlanS').textContent = pl.state === 'failed' ? pl.error : pl.at ? `о ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}, через ~${left} хв · буфер ${Math.round((pl.ready || 0) * 100)}%${pl.state === 'syncing' ? ' · синхрон' : pl.state === 'ready' ? ' · готово' : ''}`
+    $('dPlanS').textContent = pl.state === 'failed' ? pl.error : pl.at ? `о ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}, через ~${left} хв · буфер ${Math.round((pl.ready || 0) * 100)}%${pl.state === 'syncing' ? ' · підлаштовую звук' : pl.state === 'ready' ? ' · готово' : ''}`
       : {meta: 'беру голову й хвіст файлу', measure: 'міряю швидкість'}[pl.state] || ''; }
+  // The same state under the release row on the film page (owner: «нічого не відбувається» after a tap).
+  if ($('srcPlan')) { const on = !$('dPlan').hidden; $('srcPlan').hidden = !on; if (on) $('srcPlan').textContent = $('dPlanV').textContent + ($('dPlanS').textContent ? ' · ' + $('dPlanS').textContent : ''); }
   // "↓" on the release that gives the picture (title / inputs) and the one that gives the sound (mix dub).
   const base = x => (x || '').split('/').pop().replace(/\.part$/, ''), kp = Array.isArray(k.keep) ? k.keep : [];
   const owner = f => kp.find(e => (e.files || []).some(p => base(p) === base(f)));
   const kPic = owner(c.title) || owner((c.inputs || [])[0]), kSnd = c.mix && c.mix.dub ? owner(c.mix.dub) : null;
   for (const [id, e] of [['dKeepP', kPic], ['dKeepS', kSnd && kSnd !== kPic ? kSnd : null]]) { const b = $(id); b.hidden = !e;
     // Owner: watch online; "Залишити" blue = kept on the disk, grey = deleted after viewing. No other buttons.
-    if (e) { b.textContent = e.keep ? '✓ Залишити' : 'Залишити'; b.classList.toggle('on', !!e.keep); b.title = ''; b.dataset.h = e.hash;
-      b.setAttribute('aria-label', e.keep ? 'Лишається на диску. Натисніть, щоб стерти після перегляду' : 'Стерти після перегляду. Натисніть, щоб лишити на диску'); } }
+    // A poll already on its way at the tap must not flip the switch back: the tap holds for 2.5 s.
+    if (e) { if (!(b._at && Date.now() - b._at < 2500)) keepFace(b, !!e.keep); b.title = ''; b.dataset.h = e.hash;
+      b.setAttribute('aria-label', 'Завантажити на tinyTV Core'); } }
   const mx = c.mix || {};
   // Owner 2026-10-24: the sound row is always there - what sounds now, a tap shows every voice (sheet, «Звук»).
   $('dMix').hidden = !c.title;
@@ -942,16 +1330,16 @@ async function poll(){
     // Planned (owner 2026-10-24): the old sound plays until the switch second, shown here.
     const wait = mx.live === false && mx.at ? Math.max(0, Math.round(mx.at - (c.position || 0))) : null;
     $('dMixV').textContent = voice; $('dMixS').textContent = wait !== null ? `${src ? src + ' · ' : ''}перехід на ${clock(mx.at)} (через ~${wait} с)`
-      : [src, mx.state === 'done' ? 'синхрон ✓' : `синхрон до ${clock(mx.until || 0)}`].filter(Boolean).join(' · ');
+      : [src, mx.state === 'done' ? 'звук підлаштовано ✓' : `підлаштовую звук до ${clock(mx.until || 0)}`].filter(Boolean).join(' · ');
     $('dMixN').textContent = (mx.nudge > 0 ? '+' : '') + (mx.nudge || 0).toFixed(1).replace('.', ',') + ' с'; }
   else { const t = (c.tracks || []).find(x => x.i === c.track);
     const lab = ((t && t.label) || '').trim();   // a track without language or name reads " 5.1"
-    $('dMixV').textContent = k.translatorName && !tor ? k.translatorName : lab && !/^\d/.test(lab) ? lab : 'Звук релізу' + (lab ? ' · ' + lab : '');
-    $('dMixS').textContent = (k.translatorName && !tor ? 'HDRezka' : 'у цій роздачі') + ' · усі озвучки ›'; }
+    $('dMixV').textContent = k.translatorName && !tor ? k.translatorName : lab && !/^\d/.test(lab) ? lab : 'Звук торента' + (lab ? ' · ' + lab : '');
+    $('dMixS').textContent = (k.translatorName && !tor ? 'HDRezka' : 'у цьому торенті') + ' · усі озвучки ›'; }
   // A release that promised Ukrainian (by its own name) but whose file has no Ukrainian track (owner 2026-10-23).
   $('dUaw').hidden = !(tor && (c.tracks || []).length && !uaTr && audioTags(c.title || '').some(([n]) => n === 'UA'));
   $('dRoute').textContent = 'На Hisense TV · ' + clock(c.position);
-  const img = $('dPoster'); if (k.poster && img.src !== k.poster) img.src = k.poster; img.style.display = k.poster ? '' : 'none';
+  const img = $('dPoster'), pu = PU(k); if (hasPU(k) && !(img.getAttribute('src') || '').startsWith(pu)) { img.dataset.r = '0'; img.onerror = () => { img.style.display = 'none'; const n = +img.dataset.r; if (n < 6) { img.dataset.r = n + 1; setTimeout(() => { if (img.getAttribute('src') === pu) img.src = pu + '&r=' + (n + 1); }, [3000, 5000, 8000, 12000, 20000, 30000][n]); } }; img.onload = () => img.style.display = ''; img.src = pu; } if (!hasPU(k)) img.style.display = 'none';
   const qs = k.qualities || []; const qsel = $('dQ'); qsel.style.display = qs.length ? '' : 'none';
   if (qsel._q !== qs.join()) { qsel._q = qs.join(); qsel.innerHTML = qs.map(q => `<option>${esc(q)}</option>`).join(''); }
   if (document.activeElement !== qsel && k.quality) qsel.value = k.quality;
@@ -981,7 +1369,7 @@ async function poll(){
   else nb.style.display = 'none';
 }
 // Mini player by default (owner: the full one took half the screen); the arrow or the title opens it, choice remembered.
-const setMini = on => { $('dock').classList.toggle('mini', on); try { localStorage.setItem('kinoMini', on ? '1' : '0'); } catch (e) {} };
+const setMini = on => { $('dock').classList.toggle('mini', on); if (typeof pinPage === 'function' && $('dock').classList.contains('show') && matchMedia('(pointer: coarse)').matches) pinPage(!on); try { localStorage.setItem('kinoMini', on ? '1' : '0'); } catch (e) {} };
 let miniPref = '1'; try { miniPref = localStorage.getItem('kinoMini') ?? '1'; } catch (e) {}
 setMini(miniPref !== '0');
 // Apple Watch / lock screen control, on every screen (owner): white = the watch drives the TV, grey with a slash = phone is free.
@@ -993,17 +1381,37 @@ $('dExp').onclick = () => { buzz(); setMini(!$('dock').classList.contains('mini'
 // The whole top row opens and closes the dock (not only the title); the buttons inside keep their own jobs.
 $('dock').querySelector('.dk-top').addEventListener('click', e => { if (e.target.closest('button')) return; buzz(); setMini(!$('dock').classList.contains('mini')); });
 $('dPP2').onclick = () => $('dPP').onclick();
+// Canon 2026-10-24: the strip is the mini player - poster and title of what plays; a tap opens the full player.
+$('rNP').onclick = () => { buzz(); if (S && S.cast && S.cast.title) setMini(false); else remOpen(); };
+function stripNow(){ const c = (S && S.cast) || {}, on = !!c.title, img = $('dPoster');
+  $('rT').textContent = on ? ($('dTitle').textContent || 'Hisense TV') : 'Hisense TV';
+  $('rS').textContent = on ? 'Hisense TV · ' + clock(c.position) : (S && S.offline ? 'не в мережі' : 'нічого не грає');
+  const src = on && img && img.style.display !== 'none' ? img.getAttribute('src') : ''; $('rPo').hidden = !src; if (src && $('rPo').getAttribute('src') !== src) $('rPo').src = src; }
 // The strip: a cast -> pause / play it; nothing of ours on the TV -> the TV's own play/pause key. Volume = the TV's.
 const PAUSE_SVG = '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 // The full remote unfolds from the strip's first button (and from «‹ Пульт»), the same page as on the phone.
-const remOpen = () => { buzz(); const f = $('remF'); if (!f.src) f.src = '/?inkino=1'; $('remS').classList.add('show'); };
-const remClose = () => { buzz(); $('remS').classList.remove('show'); };
+let remIdle = 0;
+// iOS scrolls the page under a full-screen sheet even with overflow:hidden (owner 2026-10-24 «на фоні сторінка гортається»):
+// while a sheet is open the page is pinned where it was and comes back to the same place after.
+let pinY = null;
+function pinPage(on){ const b = document.body;
+  if (on && pinY === null) { pinY = scrollY; b.style.position = 'fixed'; b.style.top = -pinY + 'px'; b.style.left = b.style.right = '0'; }
+  else if (!on && pinY !== null) { b.style.position = b.style.top = b.style.left = b.style.right = ''; scrollTo(0, pinY); pinY = null; } }
+const remOpen = () => { buzz(); clearTimeout(remIdle); const f = $('remF'); if (!f.src || f.src.startsWith('about:')) f.src = '/?inkino=1'; $('remS').classList.add('show'); pinPage(true); };
+// Closed for a minute: unload the remote (it polled the core and kept its own silent track while hidden).
+const remClose = () => { buzz(); $('remS').classList.remove('show'); pinPage(false); clearTimeout(remIdle); remIdle = setTimeout(() => { $('remF').src = 'about:blank'; }, 60000); };
 $('rRem').onclick = remOpen; $('remX').onclick = remClose;
 addEventListener('message', e => { if (e.origin !== location.origin || !e.data || e.data.tinytv !== 'kino') return;
-  $('remS').classList.remove('show'); if (e.data.hash) location.hash = e.data.hash.replace(/^#/, ''); });
+  $('remS').classList.remove('show'); pinPage(false); if (e.data.hash) location.hash = e.data.hash.replace(/^#/, ''); });
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href="/"]'); if (a) { e.preventDefault(); remOpen(); } });
-$('rPP').onclick = () => { buzz(); const c = (S && S.cast) || {};
-  if (c.title) api('cast/pause', {play: !c.playing}); else api('key', {key: 'KEY_PLAY'}); };
+// One play / pause for the strip and the dock: explicit play or pause from what the screen shows, shown at once.
+let ppAim = null;
+function playPause(){ buzz(); const c = (S && S.cast) || {};
+  if (!c.title) return api('key', {key: 'KEY_PLAY'}).catch(() => toast(ERRNET));
+  const play = !c.playing; ppAim = {play, at: Date.now()}; c.playing = play;
+  const ic = play ? PAUSE_SVG : playIcon; $('rPP').innerHTML = ic; $('dPP').innerHTML = ic;
+  api('cast/pause', {play}).catch(() => { ppAim = null; c.playing = !play; toast(ERRNET); }); }
+$('rPP').onclick = playPause;
 let rEdit = 0, rT = 0, rTick = -1;
 const rStep = d => { const v = Math.max(0, Math.min(100, +$('rVol').value + d)); $('rVol').value = v; $('rVolV').textContent = v; rg($('rVol')); rEdit = Date.now(); buzz(); api('volume', {v}); };
 $('rDn').onclick = () => rStep(-2); $('rUp').onclick = () => rStep(2);
@@ -1013,7 +1421,7 @@ const rcsSync = () => { if (!S) return; const c = S.cast || {};
   $('rPP').innerHTML = c.title && c.playing ? PAUSE_SVG : playIcon;
   if (Date.now() - rEdit > 2500 && S.volume != null) { $('rVol').value = S.volume; $('rVolV').textContent = S.volume; rg($('rVol')); } };
 setInterval(rcsSync, 1000);
-$('dPP').onclick = () => { buzz(); api('cast/pause', {play: !(S && S.cast && S.cast.playing)}); };
+$('dPP').onclick = playPause;
 // Stop is one tap with a way back (ux-review 7): the film and its second are kept for 6 s and "Повернути" starts it again from there.
 // Only a film from HDRezka can be rebuilt from the state (a torrent, a file or a link has no way back from here).
 function stopSnap(){ const k = (S && S.kino) || {}, c = (S && S.cast) || {}; if (!k.id || k.source || !c.title) return null;
@@ -1038,10 +1446,22 @@ const kVolStep = d => { const v = Math.max(0, Math.min(100, +$('dVol').value + d
 $('dVolDn').onclick = () => kVolStep(-2); $('dVolUp').onclick = () => kVolStep(2);
 let volTick = -1; $('dVol').addEventListener('pointerdown', () => buzz()); $('dVol').addEventListener('change', () => buzz());
 $('dVol').oninput = e => { volEdit = Date.now(); $('dVolV').textContent = e.target.value; rg(e.target); const t = Math.floor(e.target.value / 5); if (t !== volTick) { volTick = t; buzz(); } clearTimeout(volT); volT = setTimeout(() => api('volume', {v: +e.target.value}), 80); };
-$('dBack').onclick = () => { buzz(); api('cast/seek', {t: ((S && S.cast.position) || 0) - 10}); };
-$('dFwd').onclick = () => { buzz(); api('cast/seek', {t: ((S && S.cast.position) || 0) + 30}); };
+// Owner: "I watch and press back/forward right away". Taps add up from the last target (not from a position the TV
+// has not reached yet), the time shows at once, and the core restarts the stream once the taps stop.
+let seekAim = null, seekAimAt = 0;
+function seekBy(d){
+  buzz(); const base = seekAim != null && Date.now() - seekAimAt < 4000 ? seekAim : (((S && S.cast) || {}).position || 0);
+  const dur = ((S && S.cast) || {}).duration || 0; seekAim = Math.max(0, dur > 0 ? Math.min(dur - 5, base + d) : base + d); seekAimAt = Date.now();
+  $('dPos').textContent = clock(seekAim); $('dSeek').value = seekAim; rg($('dSeek'));
+  api('cast/seek', {t: seekAim});
+}
+$('dBack').onclick = () => seekBy(-10); $('dBack5').onclick = () => seekBy(-5);
+$('dFwd').onclick = () => seekBy(30); $('dFwd5').onclick = () => seekBy(5);
 $('dSeek').oninput = e => { seeking = true; $('dPos').textContent = clock(+e.target.value); rg(e.target); };
-$('dSeek').onchange = e => { buzz(); api('cast/seek', {t: +e.target.value}); setTimeout(() => seeking = false, 2500); };
+// One timer for the drag (stacked timers ended a second drag early); a cancelled touch frees the scrubber too.
+let seekT = 0; const seekDone = ms => { clearTimeout(seekT); seekT = setTimeout(() => seeking = false, ms); };
+$('dSeek').onchange = e => { buzz(); api('cast/seek', {t: +e.target.value}).catch(() => toast(ERRNET)); seekDone(2500); };
+['pointercancel', 'touchcancel'].forEach(t => $('dSeek').addEventListener(t, () => seekDone(300)));
 $('dQ').onchange = async e => {
   // New quality from the same second: restart the stream with the same choice.
   const k = (S && S.kino) || {}; if (!k.id) return;
@@ -1063,7 +1483,7 @@ async function rzScreen(id, from){ toast('Готую потік для екра�
   const q = await api('kino/screens/send', {id, url: r.url, title: T.title + (T.series ? ` · S${sel.season}E${sel.episode}` : ''), from: from || 0}).catch(() => ({error: ERRNET}));
   const sc = SCREENS.find(x => x.id === id); toast(q.error || ('Грає на «' + (sc ? sc.name : 'екрані') + '»')); }
 async function watchHere(from){
-  buzz(); toast('Відкриваю тут…');
+  buzz(); phUnlock(); toast('Відкриваю тут…');
   const tr = T.translators.find(t => String(t.id) === String(sel.translator));
   const r = await api('kino/stream', {id: T.id, url: T.url, title: T.title, poster: T.poster, year: T.year, series: T.series,
     translator: String(sel.translator), translatorName: tr ? tr.name : '', season: T.series ? sel.season : null, episode: T.series ? sel.episode : null,
@@ -1072,7 +1492,7 @@ async function watchHere(from){
   // Mac panel: the same direct HDRezka stream in the tinyTV window (PiP, snapping); the window keeps the film's second.
   if (nativeWatch({direct: r.url, title: T.title + (T.series ? ` · S${sel.season}E${sel.episode}` : ''), from: from || 0, rz: String(T.id)})) return;
   const v = $('phV'); $('phT').textContent = T.title + (T.series ? ` · S${sel.season}E${sel.episode}` : '') + ' · ' + r.quality;
-  phoneOpen(); window.npLocal = v; PHMODE = 'rz'; $('phL').hidden = true; v.controls = true; $('phSk').hidden = true; v.src = r.url;
+  phoneOpen(); window.npLocal = v; PHMODE = 'rz'; $('phL').hidden = true; v.controls = true; $('phSk').hidden = true; v.onerror = null; phQuiet(v); v.src = r.url; phPlay(v);
   v.onloadedmetadata = () => { if (from > 0) v.currentTime = from; v.play().catch(() => {}); };
   clearInterval(v._t); v._t = setInterval(() => { if (!v.paused && v.duration) api('kino/progress', {id: T.id, position: v.currentTime, duration: v.duration}); }, 10000);
 }
@@ -1105,7 +1525,8 @@ function tvInfo(t, mins){ const s = (t.title || '').toLowerCase();
   const codec = /\bav1\b/.test(s) ? 'av1' : /\bvp9\b/.test(s) ? 'vp9' : /hevc|h\.?265|x265/.test(s) ? 'hevc' : /\bavc\b|h\.?264|x264/.test(s) ? 'avc' : '';
   const dv = /dolby ?vision|\bdovi\b|\bdv\b/.test(s), hdr10 = /hdr10|\bhdr\b/.test(s.replace(/dolby ?vision|\bdovi\b|\bdv\b/g, ''));
   const bytes = sizeBytes(t.size), mbps = bytes ? Math.round(bytes * 8 / ((mins || 120) * 60) / 1e6) : 0;
-    const direct = !(dv && !hdr10) && (codec === 'hevc' || codec === 'avc') && mbps > 0 && mbps <= 36;
+    // The core re-encodes torrents over 20 Mbit/s (core host' Wi-Fi also carries the download, 2026-10-24): only up to 20 goes as is.
+    const direct = !(dv && !hdr10) && (codec === 'hevc' || codec === 'avc') && mbps > 0 && mbps <= 20;
   return {codec, dv5: dv && !hdr10, mbps, direct, tenbit: /10.?bit|hdr|main ?10/.test(s)}; }
 const tvDirect = t => tvInfo(t).direct ? 1 : 0, tvRank = t => tvInfo(t).dv5 ? 1 : 0;
 const CK = '<svg class="ck" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
@@ -1118,8 +1539,8 @@ const tvShort = (t, mins) => { const i = tvInfo(t, mins);
     : i.direct ? `<i class="tvok" title="ТВ грає без перекодування">TV${CK}${i.tenbit ? ' 10-біт' : ''}</i>` : i.mbps > 36 ? `<i class="tvenc" title="перекодую під Wi-Fi ТВ">~${i.mbps} Мбіт/с</i>` : ''; };
 // A result row keeps the warning about a Dolby Vision file in words (a tooltip does not exist on a phone); everything else is the short tag.
 const tvRow = t => tvInfo(t).dv5 ? tvTags(t) : tvShort(t);
-const fmtSize = s => String(s || '').replace(/\bGB\b/i, 'ГБ').replace(/\bMB\b/i, 'МБ').replace(/\bTB\b/i, 'ТБ');
-const torRow = (attr, on, t, mins) => `<button class="src ${on ? 'on' : ''}" ${attr}><b class="dot ${t.grade || 'r'}"></b><span class="nm"><b>${qName(t.quality)}${t.hdr ? ' HDR' : ''}</b>${audioTags(t.title).some(([n]) => n === 'UA') ? '<i class="ua-t">UA</i>' : ''}${tvShort(t, mins)}</span><span class="mt">${esc(fmtSize(t.size))} · ${t.seeds} сід.</span></button>`;
+const fmtSize = s => String(s || '').replace(/(\d)\.(\d)/, '$1,$2').replace(/\bGB\b/i, 'ГБ').replace(/\bMB\b/i, 'МБ').replace(/\bTB\b/i, 'ТБ');
+const torRow = (attr, on, t, mins) => `<button class="src ${on ? 'on' : ''}" ${attr}><b class="dot ${t.grade || 'r'}"></b><span class="nm"><b>${qName(t.quality)}${t.hdr ? ' HDR' : ''}</b>${audioTags(t.title).some(([n]) => n === 'UA') ? '<i class="ua-t">UA</i>' : ''}${tvShort(t, mins)}</span><span class="mt">${esc(fmtSize(t.size))} · ${t.seeds} ${pl(t.seeds, "сід", "сіди", "сідів")}</span></button>`;
 const qName = q => q >= 2160 ? '4K' : q >= 1080 ? '1080p' : q >= 720 ? '720p' : 'SD';
 // First line of a result for people (ux-review 2): source and codec read from the release name ("BDRip · HEVC"); the raw name stays below.
 function relInfo(t){ const s = String(t.title || ''), SRCN = {remux: 'REMUX', bdremux: 'BDRemux', bluray: 'BluRay', bdrip: 'BDRip', brrip: 'BRRip', webdl: 'WEB-DL', webrip: 'WEBRip', hdtv: 'HDTV', dvdrip: 'DVDRip', hdrip: 'HDRip', camrip: 'CAMRip'};
@@ -1131,7 +1552,7 @@ function relInfo(t){ const s = String(t.title || ''), SRCN = {remux: 'REMUX', bd
 const torCard = (t, idx, k) => { const ua = audioTags(t.title).some(([n]) => n === 'UA');
   return `<div class="tr rowt ${ua ? 'ua' : ''} ${tvInfo(t).dv5 ? 'bad' : ''}"><span class="q"><b class="dot ${t.grade || 'r'}"></b>${t.quality ? qName(t.quality) : '-'}${t.hdr ? '<i>HDR</i>' : ''}</span>
     <span class="t" data-x><span class="nm">${esc(relInfo(t) || torName(t.title))}</span><span class="atags">${tvRow(t)}${audioTags(t.title).map(([n, c]) => `<i class="at ${c}">${n}</i>`).join('')}</span>
-    <span class="m">${esc(fmtSize(t.size))}${k.nofit && TOR_FREE && sizeBytes(t.size) > TOR_FREE ? ' <b class="nofit">не влізе на диск</b>' : ''} · ${t.seeds} сід.${t.peers ? ' / ' + t.peers + ' пір.' : ''} · ${esc(t.tracker)}${k.seasons && (t.seasons || []).length ? ' · сезон ' + t.seasons.join(', ') : ''}</span>
+    <span class="m">${esc(fmtSize(t.size))}${k.nofit && TOR_FREE && sizeBytes(t.size) > TOR_FREE ? ' <b class="nofit">не влізе на диск</b>' : ''} · ${t.seeds} ${pl(t.seeds, "сід", "сіди", "сідів")}${t.peers ? ' / ' + t.peers + ' пір.' : ''} · ${esc(t.tracker)}${k.seasons && (t.seasons || []).length ? ' · сезон ' + t.seasons.join(', ') : ''}</span>
     <span class="raw" title="${esc(t.title)}">${esc(t.title)}</span></span>
     <span class="tbtn"><button class="use" data-${k.use}="${idx}">Дивитись${CD}</button><button class="dl-add" data-${k.dl}="${idx}" aria-label="Скачати на сервер" title="Скачати на сервер">${IC.dl}</button></span></div>`; };
 // Fixed quality order and one control per filter (ux-review 41): a segment up to 7 values, else a row that opens a list.
@@ -1155,7 +1576,7 @@ function drawTor(){
   $('torL').querySelectorAll('[data-x]').forEach(x => x.onclick = () => { buzz(); x.classList.toggle('open'); });
   $('torL').querySelectorAll('[data-a]').forEach(b => b.onclick = async () => { buzz(); const t = TOR[+b.dataset.a];
     const r = await api('kino/download/add', t.topic ? {topic: t.topic} : {magnet: t.magnet}).catch(() => ({error: ERRNET}));
-    toast(r && r.error ? r.error : 'Качається на сервері', r && r.error ? undefined : {label: 'Відкрити', fn: () => { $('tor').classList.remove('show'); $('dx').classList.remove('show'); go('/m'); }});
+    toast(r && r.error ? r.error : 'Качається на сервері', r && r.error ? undefined : {label: 'Відкрити', fn: () => { $('tor').classList.remove('show'); $('dx').classList.remove('show'); go('/dl'); }});
     if (!r.error) { b.innerHTML = IC.check; b.disabled = true; } });
   $('torL').querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const t = TOR[+b.dataset.i];
     pick(b, Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {tv: async () => { toast('Запускаю торент на ТВ…');
@@ -1177,9 +1598,13 @@ $('dHere').onclick = $('dHereM').onclick = watchNow;
 $('dQR').onclick = $('dGo').onclick = () => pick($('dQR'), {now: true});
 $('dSrc').onclick = () => sourceSheet(false); $('dUaFind').onclick = () => sourceSheet(true);
 const nudge = d => { buzz(); api('kino/mix/nudge', {d}).then(m => { if (m && m.label) $('dMixN').textContent = (m.nudge > 0 ? '+' : '') + m.nudge.toFixed(1).replace('.', ',') + ' с'; }).catch(() => toast(ERRNET)); };
-['dKeepP', 'dKeepS'].forEach(id => $(id).onclick = () => { buzz(); const b = $(id), on = !b.classList.contains('on'); b.classList.toggle('on', on);
-  b.textContent = on ? '✓ Залишити' : 'Залишити';
-  api('kino/keep', {hash: b.dataset.h, keep: on}).then(() => toast(on ? 'Залишиться на диску tinyTV Core' : 'Зітру після перегляду')).catch(() => toast(ERRNET)); });
+// Owner 2026-10-24: "Залишити ... не втімо" -> a "Завантажити" switch: on = download and keep on tinyTV Core, off = erase after viewing.
+function keepFace(b, on){ b.classList.toggle('on', on); b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', on);
+  if (!b.querySelector('.sw')) b.innerHTML = '<span>Завантажити</span><i class="sw"></i>'; }
+['dKeepP', 'dKeepS'].forEach(id => $(id).onclick = () => { buzz(); const b = $(id), on = !b.classList.contains('on');
+  keepFace(b, on); b._at = Date.now();
+  api('kino/keep', {hash: b.dataset.h, keep: on}).then(() => toast(on ? 'Завантажую: файл лишиться на tinyTV Core' : 'Не завантажую: зітру після перегляду'))
+    .catch(() => { b._at = 0; keepFace(b, !on); toast(ERRNET); }); });
 $('dPlanX').onclick = () => { buzz(); if ($('dPlanX').textContent === 'Закрити') { window.PLANHID = true; $('dPlan').hidden = true; return; }
   api('kino/switch/cancel', {}).then(() => toast('Перехід скасовано')).catch(() => toast(ERRNET)); };
 $('dMix').querySelector('.v').onclick = async () => { await sourceSheet(false);
@@ -1194,12 +1619,15 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
   const ep = k.season ? `S${pad(k.season)}E${pad(k.episode)}` : '', tor = k.source === 'torrent' || /^magnet:/i.test(c.link || '');
   $('srcP').textContent = `Продовжить з ${clock(from)}${ep ? ' · ' + ep : ''}${uaOnly ? ' · лише з українською' : ''}`;
   $('srcL').innerHTML = '<div class="spin"></div>'; $('srcS').classList.add('show');
-  const tt = await api('kino/title', {url: k.url}).catch(() => null) || {};
+  const lim = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+  const [tt0, tl0] = await Promise.all([lim(api('kino/title', {url: k.url}).catch(() => null), 12000), lim(api('kino/torrents', {title: k.title, original: ''}).catch(() => null), 12000)]);
+  const tt = tt0 || {}, rzDown = !tt0, tl = Array.isArray(tl0) ? tl0 : [];
+  if (!$('srcS').classList.contains('show')) return;
   const names = [k.title, tt.original, tt.title], series = !!(tt.series || k.season);
-  const tl = await api('kino/torrents', {title: k.title, original: tt.original || ''}).catch(() => []);
   const GR = {g: 0, y: 1, u: 1, r: 2}, isUA = t => audioTags(t.title).some(([n]) => n === 'UA'), hash = m => ((/btih:([a-z0-9]+)/i.exec(m || '') || [])[1] || '').toLowerCase();
   const tors = (Array.isArray(tl) ? tl : []).filter(t => ctxOk(t, names, tt.year, series) && (!series || epOk(t, k.season, k.episode)) && (!uaOnly || isUA(t)))
-    .sort((a, b) => isUA(b) - isUA(a) || (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || tvRank(a) - tvRank(b) || (b.seeds || 0) - (a.seeds || 0)).slice(0, 8);
+    // The same order as the film page's «Звідки» (owner 2026-10-24: the 4K 10-bit shown there was missing here).
+    .sort((a, b) => isUA(b) - isUA(a) || (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || tvRank(a) - tvRank(b) || tvDirect(b) - tvDirect(a) || (b.quality || 0) - (a.quality || 0) || (b.seeds || 0) - (a.seeds || 0)).slice(0, 10);
   // Owner 2026-10-23 (approved sketch): two independent choices - КАРТИНКА and ЗВУК - and the combo on top. A tap changes
   // only its own side from this second; the same source plays natively, different ones go through the sync (kino/mix).
   const voices = (tt.translators || []).filter(v => !/оригинал/i.test(v.name) && (!uaOnly || isUAname(v.name)))
@@ -1217,7 +1645,7 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
   const curQ = (/(2160|1080|720|480)p/i.exec(c.title || '') || [])[0] || '', curDn = decodeURIComponent(((/[?&]dn=([^&]+)/.exec(c.link || '') || [])[1] || '').replace(/\+/g, ' '));
   const curTr = curTor ? curTor.tracker : (/\b(YTS|RARBG|HHWEB|SPiLNO|seleZen|NTb|FLUX|EZTV)\b/i.exec((c.title || '') + ' ' + curDn) || [])[1] || '';
   const picName = tor ? (curTor ? `${curTor.tracker || "Торент"} ${qName(curTor.quality)}` : `${curQ || 'Торент'} ${curTr}`.trim()) : `HDRezka ${k.quality || ''}`;
-  const sndName = mx ? `${mxVoice || mx.label} (${mxVoice ? 'HDRezka' : 'інша роздача'})` : tor ? (curT ? curT.label + ' (у роздачі)' : 'звук роздачі') : `${k.translatorName || ''} (HDRezka)`;
+  const sndName = mx ? `${mxVoice || mx.label} (${mxVoice ? 'HDRezka' : 'інший торент'})` : tor ? (curT ? curT.label + ' (у торенті)' : 'звук торента') : `${k.translatorName || ''} (HDRezka)`;
   // Owner 2026-10-24 (approved): «Зараз грає» card - the pair on the TV and "save this pair for later" (the release
   // downloads to the end, the voice is aligned over the whole film and muxed in; plays offline with no sync step).
   const kpl = Array.isArray(k.keep) ? k.keep : [], bse = x => (x || '').split('/').pop().replace(/\.part$/, '');
@@ -1227,9 +1655,9 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
     : {download: `Зберігається · качаю ${svPct} %`, after: 'Докачано · вшию озвучку після перегляду', align: 'Вирівнюю озвучку по всьому фільму…',
        mux: 'Вшиваю озвучку у файл…', done: 'Збережено ✓', failed: 'Не вийшло: ' + (sv.error || '')}[sv.state] || 'Зберігається…';
   $('srcP').innerHTML = `<span class="combo now"><b class="h">Зараз грає</b><span><b>Картинка:</b> ${esc(picName.trim())}${curTor ? ' · ' + fmtSize(curTor.size) : ''}${tvShort(curTor || {title: (c.title || '') + ' ' + curDn})}</span>`
-    + `<span><b>Звук:</b> ${esc(sndName)}${mx ? ' · синхрон ' + (mx.state === 'done' ? '✓' : 'іде') : ''}</span>`
-    + (own ? `<button class="savep ${own.keep ? 'on' : ''}" id="saveP">${esc(svText)}</button><small>${mx ? 'Докачає цей реліз і збереже вирівняну озвучку в файлі. Потім грає без інтернету і без синхрону.' : 'Докачає цей реліз і лишить на диску tinyTV Core.'}</small>`
-      : `<small>HDRezka не зберігається на диск - для збереження оберіть роздачу в «Картинка».</small>`)
+    + `<span><b>Звук:</b> ${esc(sndName)}${mx ? ' · звук ' + (mx.state === 'done' ? 'підлаштовано ✓' : 'підлаштовую') : ''}</span>`
+    + (own ? `<button class="savep ${own.keep ? 'on' : ''}" id="saveP">${esc(svText)}</button><small>${mx ? 'Докачаю файл і вшию озвучку. Далі грає без інтернету.' : 'Докачаю файл і лишу на диску tinyTV Core.'}</small>`
+      : `<small>HDRezka не зберігається на диск - для збереження оберіть торент у «Картинка».</small>`)
     + `</span><small>Продовжить з ${clock(from)}${ep ? ' · ' + ep : ''}</small>`;
   if (own) $('saveP').onclick = () => { if (own.keep) return; buzz();
     api('kino/keep', {hash: own.hash, keep: true}).then(() => { $('saveP').textContent = 'Зберігається…'; $('saveP').classList.add('on'); toast('Зберігаю пару: видно в «Медіа» з %'); }).catch(() => toast(ERRNET)); };
@@ -1247,23 +1675,27 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
         esc(`Грає зараз · ${torName(curDn || (c.title || '').replace(/\.part$/, ''))}`)) : '')
     + quals.map(x => row(`data-q="${esc(x)}"`, !tor && k.quality === x, 'HDRezka ' + (x ? esc(x) : '· найкраща якість'), x ? '' : 'одразу, без завантаження')).join('')
     + (tors.length ? tors.map((t, i) => row(`data-t="${i}"`, tor && t === curTor,
-        `${qName(t.quality)}${isUA(t) ? ' <i class="ua-t">UA</i>' : ''}${tvShort(t)}`, esc(`${fmtSize(t.size)} · ${t.seeds} сід. · ${t.tracker || ''} · ${torName(t.title)}`))).join('')
+        `${qName(t.quality)}${isUA(t) ? ' <i class="ua-t">UA</i>' : ''}${tvShort(t)}`, esc(`${fmtSize(t.size)} · ${t.seeds} ${pl(t.seeds, "сід", "сіди", "сідів")} · ${t.tracker || ''} · ${torName(t.title)}`))).join('')
       : `<p class="mt">${uaOnly ? 'Торентів з українською для цієї серії не знайшов.' : 'Торентів для цієї серії не знайшов.'}</p>`)
     // «Підготувати на потім»: a release with the voice that sounds now, downloaded in order and muxed (owner 2026-10-24).
     // Other releases for later: one collapsed row (owner: saving is a capability of the current pair first).
     + (want && want.id && tors.length ? `<button class="sr more" id="prepT"><span class="d">Інша версія на потім · ${Math.min(4, tors.length)}<small>з «${esc(want.name || '')}», качається по порядку</small></span><span class="ok">›</span></button><div id="prepL" hidden>`
-      + tors.slice(0, 4).map((t, i) => row(`data-p="${tors.indexOf(t)}"`, false, `↓ ${qName(t.quality)}${tvShort(t)}`, esc(`${fmtSize(t.size)} · ${t.seeds} сід. · ${t.tracker || ''}`))).join('') + '</div>' : '')
+      + tors.slice(0, 4).map((t, i) => row(`data-p="${tors.indexOf(t)}"`, false, `↓ ${qName(t.quality)}${tvShort(t)}`, esc(`${fmtSize(t.size)} · ${t.seeds} ${pl(t.seeds, "сід", "сіди", "сідів")} · ${t.tracker || ''}`))).join('') + '</div>' : '')
     + '<p class="g">Звук · українська першою</p>'
-    + voices.map(v => row(`data-v="${esc(v.id)}"`, !!want && String(want.id) === String(v.id) || (!!mxVoice && mxVoice === v.name), esc(v.name),
-        'HDRezka' + (tor ? ' · синхрон з картинкою ~20 с' : ''))).join('')
-    + (tor ? ((c.tracks || []).length ? (c.tracks || []).map(x => row(`data-a="${x.i}"`, !mx && c.track === x.i, esc((x.label || '').trim() && !/^\d/.test((x.label || '').trim()) ? x.label : 'Звук самого релізу' + ((x.label || '').trim() ? ' · ' + x.label.trim() : '')), 'у цій роздачі · одразу')).join('')
-      : row('data-a="0"', !mx, 'Звук самого релізу', 'у цій роздачі · одразу')) : '')
-    + done.map((d, i) => row(`data-f="${i}"`, !!mx && !mxVoice && mx.label === d.name, esc(torName(d.name)), 'інша роздача на tinyTV Core · синхрон ~20 с')).join('')
+    // The same order as the film page's voice list: Ukrainian, then the rest except Russian; Russian folded (owner 2026-10-24).
+    + (() => { const vr = v => row(`data-v="${esc(v.id)}"`, !!want && String(want.id) === String(v.id) || (!!mxVoice && mxVoice === v.name), esc(trShort(v.name)),
+        'HDRezka' + (tor ? ' · підлаштую під картинку ~20 с' : '')), isRu = v => !isUAname(v.name) && !/оригинал/i.test(v.name);
+      const cur = v => (!!want && String(want.id) === String(v.id)) || (!!mxVoice && mxVoice === v.name);
+      const main = voices.filter(v => !isRu(v) || cur(v)), ru = voices.filter(v => isRu(v) && !cur(v));
+      return main.map(vr).join('') + (ru.length ? `<details class="ruv"><summary>Російські · ${ru.length}</summary>${ru.map(vr).join('')}</details>` : ''); })()
+    + (tor ? ((c.tracks || []).length ? (c.tracks || []).map(x => row(`data-a="${x.i}"`, !mx && c.track === x.i, esc((x.label || '').trim() && !/^\d/.test((x.label || '').trim()) ? x.label : 'Звук самого торента' + ((x.label || '').trim() ? ' · ' + x.label.trim() : '')), 'у цьому торенті · одразу')).join('')
+      : row('data-a="0"', !mx, 'Звук самого торента', 'у цьому торенті · одразу')) : '')
+    + done.map((d, i) => row(`data-f="${i}"`, !!mx && !mxVoice && mx.label === d.name, esc(torName(d.name)), 'інший торент на tinyTV Core · підлаштую ~20 с')).join('')
     // Owner 2026-10-24: every voice of the green releases under the main ones; a tap plans the switch ahead (only this
     // episode's file downloads, from the switch point on), the picture plays on meanwhile.
-    + (green.length ? '<p class="g">Озвучки з зелених роздач · перехід наперед</p>' + green.map((t, i) => row(`data-s="${i}"`, false,
+    + (green.length ? '<p class="g">Озвучки з зелених торентів · перехід наперед</p>' + green.map((t, i) => row(`data-s="${i}"`, false,
         `${esc(audioTags(t.title).map(([n]) => n).join(' · ') || 'Звук')} · ${esc(t.tracker || '')} ${qName(t.quality)}`,
-        esc(`${t.seeds} сід. · ${torName(t.title)}`))).join('') : '');
+        esc(`${t.seeds} ${pl(t.seeds, "сід", "сіди", "сідів")} · ${torName(t.title)}`))).join('') : '');
   const film = {id: k.id, url: k.url, title: k.title, poster: k.poster, year: tt.year, series, season: k.season || null, episode: k.episode || null};
   const close = msg => r => { if (r && r.error) return toast(r.error); $('srcS').classList.remove('show'); toast(msg || 'Перемикаю з ' + clock(from) + '…'); return r; };
   const rz = (translator, quality) => { const v = (tt.translators || []).find(x => String(x.id) === String(translator)) || {};
@@ -1274,7 +1706,7 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
   // After a picture switch the TV needs a few seconds to play the new release; then the chosen voice is mixed over it.
   const remix = async v => { for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 2000));
       const st = await (await fetch('/api/state')).json().catch(() => ({})); const cc = st.cast || {};
-      if (cc.playing && cc.title && !cc.status) return mix(v).then(r => r && r.error ? toast(r.error) : toast('Синхронізую озвучку з картинкою…')); } };
+      if (cc.playing && cc.title && !cc.status) return mix(v).then(r => r && r.error ? toast(r.error) : toast('Підлаштовую озвучку під картинку…')); } };
   // Picture taps: HDRezka keeps an HDRezka voice (native), else the first Ukrainian voice; a release keeps the voice through the sync.
   $('srcL').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { buzz();
     const v = want && want.id ? want : voices[0] || {}; rz(v.id || k.translator, b.dataset.q || undefined); });
@@ -1283,14 +1715,14 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
     if (!tor) return api('kino/switch/plan', t.topic ? {topic: t.topic} : {magnet: t.magnet}).catch(() => ({error: ERRNET}))
       .then(close('Рахую, коли буфер буде готовий - перехід покажу в доці'));
     api('kino/torrent/use', Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {film, from})).catch(() => ({error: ERRNET}))
-      .then(close(keep ? 'Перемикаю картинку, потім синхронізую «' + keep.name + '»…' : null)).then(r => { if (r && !r.error && keep) remix(keep); }); });
+      .then(close(keep ? 'Перемикаю картинку, потім підлаштую «' + keep.name + '»…' : null)).then(r => { if (r && !r.error && keep) remix(keep); }); });
   // Sound taps.
   $('srcL').querySelectorAll('[data-v]').forEach(b => b.onclick = () => { buzz(); const v = voices.find(x => String(x.id) === b.dataset.v) || {};
-    if (!tor) return rz(v.id, k.quality); mix(v).then(close('Синхронізую озвучку з картинкою…')); });
+    if (!tor) return rz(v.id, k.quality); mix(v).then(close('Підлаштовую озвучку під картинку…')); });
   $('srcL').querySelectorAll('[data-a]').forEach(b => b.onclick = () => { buzz(); api('cast/audio', {i: +b.dataset.a}).catch(() => ({error: ERRNET})).then(close('Перемикаю доріжку…')); });
   $('srcL').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { buzz(); const d = done[+b.dataset.f];
-    if (!tor) return toast('Звук з роздачі - коли картинка теж з роздачі або файлу');
-    api('kino/mix', {path: folder + '/' + d.name, label: d.name, season: k.season || null, episode: k.episode || null}).catch(() => ({error: ERRNET})).then(close('Синхронізую озвучку з картинкою…')); });
+    if (!tor) return toast('Звук з торента - коли картинка теж з торента або файлу');
+    api('kino/mix', {path: folder + '/' + d.name, label: d.name, season: k.season || null, episode: k.episode || null}).catch(() => ({error: ERRNET})).then(close('Підлаштовую озвучку під картинку…')); });
   if ($('prepT')) $('prepT').onclick = () => { buzz(); $('prepL').hidden = !$('prepL').hidden; };
   $('srcL').querySelectorAll('[data-p]').forEach(b => b.onclick = () => { buzz(); const t = tors[+b.dataset.p];
     api('kino/prepare', Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {id: k.id, translator: String(want.id), translatorName: want.name || '',
@@ -1301,12 +1733,22 @@ async function sourceSheet(uaOnly){ buzz(); const k = (S && S.kino) || {}, c = (
       .catch(() => ({error: ERRNET})).then(close('Рахую, коли звук буде готовий - перехід покажу в доці')); });
 }
 // The core's HLS in the page player (or the Mac panel's own window); "QR" opens the same stream on any screen.
+// iOS starts a video only from a tap, and the answer comes seconds later: play() inside the tap unlocks this player for good
+// (owner 2026-10-24: "немає відео на iPhone").
+// What this device's player does goes to core host (~/Library/Logs/tinyTV-client.log): the iPhone has no console for us (owner 2026-10-24).
+const phLog = (ev, x) => { const v = $('phV'); api('kino/clientlog', Object.assign({ev, mode: PHMODE, rs: v.readyState, err: v.error ? v.error.code : 0,
+  at: Math.round(v.currentTime || 0), pwa: !!(navigator.standalone || matchMedia('(display-mode: standalone)').matches), src: String(v.currentSrc || '').slice(0, 60)}, x || {})).catch(() => {}); };
+const phPlay = v => v.play().catch(e => phLog('play-' + e.name));
+// The silent lock-screen track (np.js) stands down first: iOS pausing it used to pause this video too.
+const phQuiet = v => { v._at = Date.now(); if (window.npHush) window.npHush(); };
+const phUnlock = () => { const v = $('phV'); phQuiet(v); if (v._ok) return; v._ok = 1; const p = v.play(); if (p) p.catch(() => {}); v.pause(); };
 function phonePlay(r, def){ if (nativeWatch(r)) return null;
-  const v = $('phV'); clearInterval(v._t); $('phT').textContent = r.title || def; phoneOpen(); window.npLocal = v;
+  const v = $('phV'); clearInterval(v._t); v.onerror = null; phQuiet(v); $('phT').textContent = r.title || def; phoneOpen(); window.npLocal = v;
   if (r.direct) { PHMODE = 'direct'; PHURL = r.direct; PHF = 0; PHD = r.dur || 0; v.controls = true; $('phSk').hidden = true; $('phL').hidden = false;
-    v.src = r.direct; v.onloadedmetadata = () => { if (r.from > 5) v.currentTime = r.from; v.play().catch(() => {}); }; return v; }
+    v.src = r.direct + (r.from > 5 ? '#t=' + Math.floor(r.from) : ''); phPlay(v);
+    v.onloadedmetadata = () => { if (r.from > 5 && Math.abs(v.currentTime - r.from) > 5) v.currentTime = r.from; phPlay(v); }; return v; }
   PHMODE = 'hls'; PHURL = location.origin + r.url; $('phL').hidden = false; PHF = r.from || 0; PHD = r.dur || 0; v.controls = false; $('phSk').hidden = false;
-  v.src = r.url; v.onloadedmetadata = () => v.play().catch(() => {}); return v; }
+  v.src = r.url; phPlay(v); v.onloadedmetadata = () => phPlay(v); return v; }
 // Owner: "роздати на QR" next to Play here / Stream on TV - a sheet on demand, never in the player.
 // Owner: one "Дивитись" per file; it opens the targets - here, the TV, every paired screen (QR in Списки → Екрани).
 let SCREENS = [];
@@ -1336,18 +1778,22 @@ async function sendTo(to, src){ buzz();
   const sc = SCREENS.find(x => x.id === to); toast(r.error || ('Грає на «' + (sc ? sc.name : 'екрані') + '»')); }
 // "Грати тут", two planes (owner 2026-10-22): the core says what and from where; this device fetches the media
 // straight from the source; core host HLS only for files/torrents on core host or when the source does not open in ~8 s.
-async function here(src, pip){ toast('Готую…');
+let HERE = 0;
+async function here(src, pip){ phUnlock(); toast('Готую…'); const g = ++HERE;
   const r = await api('kino/here/start', src).catch(() => ({error: ERRNET}));
+  phLog('here', {direct: !!r.direct, url: r.url || '', error: r.error || '', from: r.from || 0});
   if (r.error) return toast(r.error);
   r.src = src; if (pip) r.pip = true;
   const v = phonePlay(r, src.magnet ? 'Торент' : 'Відео'); if (!v) return;
   const key = r.key || r.hash || (r.path ? 'file:' + r.path : '');
   v._t = setInterval(() => { if (key && !v.paused && v.currentTime > 5)
     api('kino/media/progress', Object.assign(r.hash ? {hash: r.hash} : {key}, {position: (PHMODE === 'hls' ? PHF : 0) + v.currentTime, duration: PHD || v.duration || 0, name: r.title})); }, 10000);
-  if (r.direct) setTimeout(async () => { if (v.readyState >= 2 && !v.error) return;   // the source did not open here
-    toast('Напряму не вийшло, граю через сервер…');
-    const f = await api('kino/here/start', Object.assign({hls: true}, src)).catch(() => ({error: ERRNET}));
-    if (!f.error) phonePlay(f, r.title); }, 8000); }
+  // A big file with its index at the end needs ~6-10 s before the first picture: the 8 s cut killed streams that were about to play.
+  if (r.direct) { let done = false; const fb = async () => { if (done || g !== HERE || v.readyState >= 2 && !v.error) return; done = true;
+      phLog('fallback', {why: v.error ? 'error' : 'timeout'}); toast('Напряму не вийшло, граю через сервер…');
+      const f = await api('kino/here/start', Object.assign({hls: true}, src)).catch(() => ({error: ERRNET}));
+      if (g !== HERE) return; if (f.error) return toast(f.error); phonePlay(f, r.title); };
+    v.onerror = fb; setTimeout(fb, 20000); } }
 // Owner: one pill split in two - monitor = play here in the window, the PiP logo = straight into PiP. Icons only.
 const hereSplit = attr => `<span class="seg" role="group" aria-label="Тут"><button data-${attr}="here" title="Тут, у вікні" aria-label="Тут, у вікні">${hereIcon}</button><i aria-hidden="true"></i><button data-${attr}="pip" title="Тут, PiP" aria-label="Тут, PiP">${pipIcon}</button></span>`;
 // One icon set for the targets (ux-review 27): the TV, this iPhone / this Mac and a paired screen no longer look alike.
@@ -1383,6 +1829,7 @@ $('torX').onclick = () => { buzz(); $('tor').classList.remove('show'); };
 // Own controls under the video, and real full screen: iPhone opens its system player, the Mac panel the element.
 const phV = $('phV'), phIcon = () => { $('phP').innerHTML = phV.paused ? playIcon : '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'; };
 // With the system player's own controls (a direct stream) the page's second row of buttons is hidden: one set only (ux-review 13).
+['playing', 'error', 'stalled'].forEach(e => phV.addEventListener(e, () => { if (phV.currentSrc) phLog(e); }));
 ['play', 'pause', 'loadedmetadata'].forEach(e => phV.addEventListener(e, () => { phIcon(); $('phP').classList.toggle('playing', !phV.paused); $('phone').classList.toggle('nat', PHMODE === 'direct' || PHMODE === 'rz'); }));
 // "Тут" can be minimised (ux-review 13): the film keeps playing in a small window above the tab bar; a tap opens it again, the cross stops it.
 const phMini = on => { $('phone').classList.toggle('mini', on); phV.controls = on ? false : (PHMODE === 'direct' || PHMODE === 'rz'); };
@@ -1399,8 +1846,8 @@ async function phSeek(x){ x = Math.max(0, Math.min(PHD || 1e9, x));
   if (x >= PHF && x - PHF <= have - 2) { phV.currentTime = x - PHF; return; }
   toast('Перемотую на ' + clock(x) + '…');
   const r = await api('kino/phone/seek', {at: Math.floor(x)}).catch(() => ({error: ERRNET}));
-  if (r.error) return toast(r.error);
-  PHF = r.from || x; if (r.dur) PHD = r.dur; phV.src = r.url; phV.onloadedmetadata = () => phV.play().catch(() => {}); }
+  if (r.error || !r.url) return toast(r.error || 'Не вийшло перемотати');
+  PHF = r.from || x; if (r.dur) PHD = r.dur; phQuiet(phV); phV.src = r.url; phPlay(phV); phV.onloadedmetadata = () => phPlay(phV); }
 phV.addEventListener('timeupdate', () => { if (PHMODE !== 'hls') return; const t = PHF + phV.currentTime;
   if (!PHD && isFinite(phV.duration)) PHD = PHF + phV.duration;
   $('phS').max = Math.max(1, PHD); if (!phDrag) $('phS').value = t; rg($('phS')); $('phC').textContent = clock(t); $('phD').textContent = PHD ? clock(PHD) : ''; });
@@ -1409,7 +1856,7 @@ $('phS').onchange = () => { phDrag = false; phSeek(+$('phS').value); };
 $('phFS').onclick = () => { buzz();
   if (phV.webkitEnterFullscreen && !document.fullscreenEnabled) { try { phV.webkitEnterFullscreen(); return; } catch (e) {} }
   (phV.requestFullscreen || phV.webkitRequestFullscreen || (() => {})).call(phV); };
-$('phX').onclick = () => { const v = $('phV'); if (PHMODE === 'rz' && T && v.duration) api('kino/progress', {id: T.id, position: v.currentTime, duration: v.duration});
+$('phX').onclick = () => { HERE++; const v = $('phV'); if (PHMODE === 'rz' && T && v.duration) api('kino/progress', {id: T.id, position: v.currentTime, duration: v.duration});
   PHMODE = ''; $('phL').hidden = true;
   clearInterval(v._t); window.npLocal = null; v.pause(); v.removeAttribute('src'); v.load(); $('phone').classList.remove('show', 'mini', 'nat'); };
 // ---------- Відкрити (owner-approved concept 2026-10-21) ----------
@@ -1428,7 +1875,7 @@ const keep = x => DF === 'all' || (DF === 'best' && (x.gold || (x.imdbR || 0) >=
   || (DF === 'palme' && (x.badges || []).some(b => /пальма/.test(b.n))) || (DF === 'unseen' && !x.seen);
 const inList = (l, x) => x.imdb != null && (HOMELISTS[l] || []).some(y => y.imdb === x.imdb);
 const sameFilm = (a, b) => (a.imdb != null && a.imdb === b.imdb) || (!!a.url && a.url === b.url);
-$('cwX').onclick = () => { buzz(); fetch('/api/cast/stop', {method: 'POST', body: '{}'}); document.body.classList.remove('busy'); };
+$('cwX').onclick = () => { buzz(); cancelAt = Date.now(); fetch('/api/cast/stop', {method: 'POST', body: '{}'}).catch(() => toast(ERRNET)); document.body.classList.remove('busy'); };
 $('phL').onclick = async () => { buzz();
   try { await navigator.clipboard.writeText(PHURL); toast('Посилання скопійовано: відкрийте у VLC чи Safari на будь-якому пристрої в Tailscale'); }
   catch(e) { if (await askText('Посилання на потік', PHURL, {ro: true, ok: 'Скопіювати'})) toast('Посилання скопійовано'); } };
@@ -1442,12 +1889,11 @@ document.addEventListener('click', e => { const t = e.target.closest('[data-bh]'
 const bPrio = b => b.k === 'gold' || b.k === 'silver' ? 0 : b.k === 'top' ? 1 : b.k === 'new' ? 2 : 3;
 function card(x, i){
   const bs = [...(x.badges || [])].sort((a, b) => bPrio(a) - bPrio(b)), main = bs[0], rest = bs.slice(1, 3);
-  return `<button class="dc fade" data-dx="${i}"><div class="pv">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : esc(x.ua || x.title)}
+  return `<button class="dc fade" data-dx="${i}"><div class="pv"><img src="${esc(PU(x))}" alt="" loading="lazy" onerror="pErr(this)" data-t="${esc(x.ua || x.title)}">
     ${main ? `<span class="bdg"><span class="bd ${main.k}" ${bh(main)}>${esc(main.n)}</span></span>` : ''}${x.seen ? '<span class="seen">Переглянуто</span>' : ''}</div>
     <div class="in"><b>${esc(x.ua || x.title)}</b><small>${x.year || ''}${(x.dirs || []).length ? ' · ' + esc(x.dirs[0]) : ''}</small>
     ${rest.length ? `<div class="more">${rest.map(b => esc(b.n)).join(' · ')}</div>` : ''}
     <div class="avc">${x.av && x.av.ua ? '<i class="ua">UA</i>' : ''}${x.av && x.av.rz ? '<i class="rz">HDRezka</i>' : ''}${x.av && x.av.k4 ? '<i class="k4">4K</i>' : x.av && x.av.tor ? '<i>торент</i>' : ''}</div>
-    ${(x.why || []).length ? `<div class="why">${x.why.map(esc).join(' · ')}</div>` : ''}
     <div class="rt">${x.imdbR ? 'IMDb ' + x.imdbR.toFixed(1) : ''}${x.rt ? ' · RT ' + esc(x.rt) : ''}${inList('watch', x) ? `<span class="wl" aria-label="У списку «Хочу подивитись»">${IC.bookmark}</span>` : ''}</div></div></button>`;
 }
 function drawGrid(box, list){
@@ -1458,13 +1904,13 @@ function drawGrid(box, list){
   fillPosters(box);
 }
 // No poster from Wikipedia: take HDRezka's, one at a time (owner: "проходитись по постерам").
-async function fillPosters(box){
+async function fillPosters(box){ return;   // frontend review: one kino/find per card held the connections; covers come from /poster, the link from detail()
   for (const c of box.querySelectorAll('[data-dx]')) {
     const x = DLIST[+c.dataset.dx]; if (!x || x.poster || x._pt) continue; x._pt = 1;
     const f = await api('kino/find', {imdb: x.imdb, ru: x.ru, title: x.title, orig: x.orig, year: x.year}).catch(() => null);
     if (!document.body.contains(c)) return;
     if (f && f.url) x.rz = f.url;
-    if (f && f.poster) { x.poster = f.poster; const pv = c.querySelector('.pv'); pv.insertAdjacentHTML('afterbegin', `<img src="${esc(f.poster)}" alt="">`); pv.childNodes.forEach(n => { if (n.nodeType === 3) n.remove(); }); }
+    if (f && f.poster && !c.querySelector('.pv img')) { x.poster = f.poster; const pv = c.querySelector('.pv'); pv.insertAdjacentHTML('afterbegin', `<img src="${esc(f.poster)}" alt="">`); pv.childNodes.forEach(n => { if (n.nodeType === 3) n.remove(); }); }
   }
 }
 async function discover(tab, param){
@@ -1518,8 +1964,8 @@ async function discover(tab, param){
     if ($('dCtx')) $('dCtx').onclick = () => { buzz(); pickSub('director', param); };
   }
   const key = tab + '|' + param;
-  const d = DCACHE[key] || await api('kino/discover', {tab, param}).catch(() => ({error: ERRNET}));
-  if (!$('dbox')) return;
+  const my = RT, d = DCACHE[key] || await api('kino/discover', {tab, param}).catch(() => ({error: ERRNET}));
+  if (!$('dbox') || stale(my)) return;
   if (!d || d.error) { $('dbox').innerHTML = emptyState(d && d.error && d.error !== ERRNET ? 'Не вийшло завантажити список' : 'Немає зв’язку з сервером', d && d.error && d.error !== ERRNET ? d.error : 'Перевірте, що tinyTV Core увімкнений', 'Повторити');
     const re = $('dbox').querySelector('[data-es]'); if (re) re.onclick = () => discover(tab, param); return; }
   if (d.needTaste) { $('dbox').innerHTML = `<div class="nprow" style="flex-direction:column;align-items:flex-start"><b>Налаштуйте смак</b>
@@ -1532,7 +1978,7 @@ async function discover(tab, param){
 }
 function detail(x){
   if (x.av && x.av.rzUrl) x.rz = x.av.rzUrl;
-  $('dxT').textContent = 'Фільм';
+  $('dxT').textContent = (x.ua || x.title || 'Фільм').split(' / ')[0];
   const gName = g => (GENRES.find(y => y[0] === g) || [])[1] || g;
   const votes = v => v >= 1e6 ? (v / 1e6).toFixed(1).replace('.', ',') + ' млн' : v >= 1000 ? Math.round(v / 1000) + ' тис.' : String(v);
   // One line of ratings, each part kept whole (ux-review 37): "IMDb 9.0 · 1,6 млн оцінок · RT 98 %".
@@ -1540,16 +1986,16 @@ function detail(x){
   const b = (x.badges || []).map(b => `<span class="bd ${b.k}" ${bh(b)} style="position:static;display:inline-block;margin:0 4px 4px 0">${esc(b.n)}</span>`).join('');
   const genres = (x.genres || []).slice(0, 3).map(g => `<button class="chip" data-bh="/d/genre/${encodeURIComponent(g)}">${esc(gName(g))}</button>`).join('');
   const wOn = inList('watch', x), fOn = inList('fav', x);
-  $('dxB').innerHTML = `<div class="dx-h">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : ''}<div><h3 style="margin:0">${esc(x.ua || x.title)}</h3>
+  $('dxB').innerHTML = `<div class="dx-h">${hasPU(x) ? `<img src="${esc(PU(x))}" alt="" onerror="pErr(this)">` : ''}<div><h3 style="margin:0">${esc(x.ua || x.title)}</h3>
     <p>${esc(x.orig || '')}${x.year ? ` · <a class="pl" data-bh="/d/year/${x.year}">${x.year}</a>` : ''}</p>
     ${(x.dirs || []).length ? `<p>Режисер: ${(x.dirs || []).map((n, i) => `<a class="pl" data-pr="director" data-pn="${esc((x.dirsEn || [])[i] || n)}">${esc(n)}</a>`).join(', ')}</p>` : ''}
     ${(x.dops || []).length ? `<p>Оператор: ${(x.dops || []).map((n, i) => `<a class="pl" data-pr="dop" data-pn="${esc((x.dopsEn || [])[i] || n)}">${esc(n)}</a>`).join(', ')}</p>` : ''}
     ${rate.length ? `<p class="rate">${rate.map(s => `<span>${esc(s)}</span>`).join(' · ')}</p>` : ''}<div>${b}</div></div></div>
+    ${(x.why || []).length ? `<p class="why dx-why">Чому вам: ${x.why.map(esc).join(' · ')}</p>` : ''}
     <div class="act2" id="dxCta"></div>
     <section><p class="lbl">Звідки</p><div class="srcs" id="dxSrc"><p class="mt">Шукаю, де подивитись…</p></div></section>
     <div class="dx-i"><button class="ghost" id="dxTr">${IC.trailer}<span>Трейлер<br><small id="dxTrL"></small></span></button>
-    <button class="ghost ${wOn ? 'on' : ''}" id="dxW" aria-pressed="${wOn}">${IC.bookmark}<span>Хочу подивитись</span></button>
-    <button class="ghost ${fOn ? 'on' : ''}" id="dxF" aria-pressed="${fOn}">${starIcon}<span>${fOn ? 'В обраному' : 'В обране'}</span></button></div><div id="dxV"></div>
+    <button class="ghost ${wOn || fOn ? 'on' : ''}" id="dxW" aria-pressed="${wOn || fOn}">${IC.bookmark}<span>${wOn || fOn ? 'У закладках' : 'Закладка'}</span></button></div><div id="dxV"></div>
     ${genres ? `<section><p class="lbl">Жанри</p><div class="chips">${genres}</div></section>` : ''}`;
   $('dx').classList.add('show');
   // One trailer button: on the TV when this device sends to the TV, else here (the YouTube player under the buttons).
@@ -1574,22 +2020,25 @@ function detail(x){
   const drawCta = () => { const box = $('dxCta'); if (!box) return;
     const rz = (dsel === 'rz' || dsel === null) && x.rz && !RZDOWN, t = !rz && tors[+(dsel ?? 0)];
     if (loading) box.innerHTML = `<button class="play" disabled>${playIcon}<span class="pt"><b>Шукаю, де подивитись…</b></span></button>`;
-    else if (rz) box.innerHTML = `<button class="play" id="dxPlay">${playIcon}<span class="pt"><b>Відкрити</b><small class="ontv">вибрати озвучку</small></span></button>`;
+    // Owner 2026-10-24: two taps from a search result - «Дивитись» starts at once (UA voice first); the voice is a side link.
+    else if (rz) box.innerHTML = `<button class="play" id="dxPlay">${playIcon}<span class="pt"><b>Дивитись</b><small class="ontv" data-outlabel>${esc(outLine())}</small></span></button><button class="ghost fs" id="dxVoice">Озвучка…</button>`;
     else if (t) box.innerHTML = `<div class="split"><button class="play" id="dxPlay">${playIcon}<span class="pt"><b>Дивитись</b><small class="ontv" data-outlabel>${esc(outLine())}</small></span></button><button class="go" id="dxGo" aria-label="Куди дивитись">${IC.chevd}</button></div>`;
     else box.innerHTML = `<button class="play" disabled>${playIcon}<span class="pt"><b>Ніде не знайшов</b></span></button>`;
     const src = () => Object.assign(t.topic ? {topic: t.topic} : {magnet: t.magnet}, {tv: () => playTorrent(t, null)});
     if ($('dxPlay')) $('dxPlay').onclick = () => { buzz();
-      if (rz) { $('dx').classList.remove('show'); return go('/t/' + encodeURIComponent(x.rz) + '?resume'); }
+      if (rz) { $('dx').classList.remove('show'); return go('/t/' + encodeURIComponent(x.rz) + '?play'); }
       filmCtx(); sendTo(outNow().to, src()); };
+    if ($('dxVoice')) $('dxVoice').onclick = () => { buzz(); $('dx').classList.remove('show'); go('/t/' + encodeURIComponent(x.rz)); };
     if ($('dxGo')) $('dxGo').onclick = () => { filmCtx(); chooseTarget(src(), x.ua || x.title); }; };
   const bindRows = () => { $('dxSrc').innerHTML = rows(); drawCta();
     $('dxSrc').querySelectorAll('[data-ds]').forEach(b => b.onclick = () => { buzz(); dsel = b.dataset.ds; bindRows(); });
     if ($('dxAll')) $('dxAll').onclick = () => { filmCtx(); TOR = tors; torF = {q: 'all', s: 'all'}; $('tor').classList.add('show'); drawTor(); }; };
   drawCta();
+  const mine = ++DXN;
   (async () => {
     const [f, t] = await Promise.all([api('kino/find', {imdb: x.imdb, ru: x.ru, title: x.title, orig: x.orig, year: x.year}).catch(() => null),
       api('kino/torrents', {title: x.ru || x.title, original: x.orig || ''}).catch(() => null)]);
-    if (!$('dxSrc')) return;
+    if (!$('dxSrc') || mine !== DXN) return;   // another film's sheet is open now: its rows, not these
     if (f && f.url) x.rz = f.url;
     const GR = {g: 0, y: 1, u: 1, r: 2}, isUA = t => audioTags(t.title).some(([n]) => n === 'UA');
     tors = (Array.isArray(t) ? t : []).sort((a, b) => (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || tvRank(a) - tvRank(b) || isUA(b) - isUA(a) || tvDirect(b) - tvDirect(a) || (b.quality || 0) - (a.quality || 0) || (b.seeds || 0) - (a.seeds || 0));
@@ -1598,25 +2047,38 @@ function detail(x){
   const mark = async (l, el, label) => { buzz(); const on = !inList(l, x);
     const h = await api('kino/list', {list: l, item: x, on}).catch(() => null); if (h) HOMELISTS = {fav: h.fav || [], watch: h.watch || []};
     el.classList.toggle('on', on); el.setAttribute('aria-pressed', on); if (label) el.querySelector('span').textContent = label(on); };
-  $('dxW').onclick = e => mark('watch', e.currentTarget);
-  $('dxF').onclick = e => mark('fav', e.currentTarget, on => on ? 'В обраному' : 'В обране');
+  // Owner 2026-10-24: one bookmark. On = in «Закладки»; off = out of both old lists (Хочу подивитись, Обране).
+  $('dxW').onclick = async e => { buzz(); const el = e.currentTarget, on = !(inList('watch', x) || inList('fav', x));
+    const face = v => { el.classList.toggle('on', v); el.setAttribute('aria-pressed', v); el.querySelector('span').textContent = v ? 'У закладках' : 'Закладка'; };
+    face(on);
+    try { let h = await api('kino/list', {list: 'watch', item: x, on});
+      if (!on && inList('fav', x)) h = await api('kino/list', {list: 'fav', item: x, on: false});
+      if (!h || h.error) throw 0; HOMELISTS = {fav: h.fav || [], watch: h.watch || []}; }
+    catch (err) { face(!on); toast(ERRNET); } };
 }
 $('dxX').onclick = () => { buzz(); $('dx').classList.remove('show'); $('dxV') && ($('dxV').innerHTML = ''); };
 async function lists(){
-  view.innerHTML = head('Списки', null, `<button class="ghost" id="devBtn">${IC.screen}Пристрої</button>`) + '<div class="spin"></div>';
+  view.innerHTML = head('Бібліотека', null, `<button class="ghost" id="devBtn">${IC.screen}Пристрої</button>`) + libBar('l') + skel(true);
   $('devBtn').onclick = () => devicesSheet();
-  const h = await api('kino/home').catch(() => null);
-  const sp = view.querySelector('.spin'); if (!sp) return;
+  const my = RT, h = await api('kino/home').catch(() => null);
+  if (stale(my)) return;
+  const sp = view.querySelector('.skel, .spin'); if (!sp) return;
   if (!h || h.error) { sp.outerHTML = emptyState('Немає зв’язку з сервером', 'Перевірте, що tinyTV Core увімкнений', 'Повторити'); const re = view.querySelector('[data-es]'); if (re) re.onclick = () => lists(); return; }
   HOMELISTS = {fav: h.fav || [], watch: h.watch || []};
   const all = [...HOMELISTS.watch, ...HOMELISTS.fav.filter(x => !HOMELISTS.watch.some(y => sameFilm(x, y)))];
-  sp.outerHTML = `<section><h2>Хочу подивитись</h2><div id="lw"></div></section><section><h2>Обране</h2><div id="lf"></div></section>`;
+  // Owner 2026-10-24: one bookmark list, «Далі» (still to watch) and «Переглянуто» (90 % and more in the history).
+  const done = x => (h.history || []).some(e => sameFilm(e, x) && e.duration > 0 && epPos(e) / e.duration >= 0.9);
+  const next = all.filter(x => !done(x)), seen = all.filter(done);
+  sp.outerHTML = `<div class="sgm" id="lSeg"><button class="on" data-ls="lw"><span class="t">Далі · ${next.length}</span></button><button data-ls="lf"><span class="t">Переглянуто · ${seen.length}</span></button></div>
+    <div id="lw"></div><div id="lf" hidden></div>`;
+  view.querySelectorAll('[data-ls]').forEach(b => b.onclick = () => { buzz(); view.querySelectorAll('[data-ls]').forEach(x => x.classList.toggle('on', x === b));
+    $('lw').hidden = b.dataset.ls !== 'lw'; $('lf').hidden = b.dataset.ls !== 'lf'; });
   // "Обране" is one list in the core: a film saved from its page opens that page, one saved from a Discover card opens the card.
   const put = (id, l) => { const box = $(id);
     if (!l.length) { box.innerHTML = emptyState('Тут поки порожньо', 'Додавайте фільми з вкладки «Фільми»', 'Відкрити «Фільми»', IC.bookmark); box.querySelector('[data-es]').onclick = () => go('/d'); return; }
     box.innerHTML = `<div class="dgrid">${l.map(x => card(x, all.indexOf(x) >= 0 ? all.indexOf(x) : all.findIndex(y => sameFilm(x, y)))).join('')}</div>`;
     box.querySelectorAll('[data-dx]').forEach(c => c.onclick = () => { const x = all[+c.dataset.dx]; x.url ? go('/t/' + encodeURIComponent(x.url)) : detail(x); }); };
-  DLIST = all; put('lw', HOMELISTS.watch); put('lf', HOMELISTS.fav);
+  DLIST = all; put('lw', next); put('lf', seen);
 }
 // Devices (ux-review 36, owner 2026-10-22): the TV and every screen paired by QR. A sheet: from "Де дивитись" and from the Lists header.
 $('devX').onclick = () => { buzz(); $('dev').classList.remove('show'); };
@@ -1645,7 +2107,7 @@ const fsize = mb => mb >= 1000 ? (mb / 1000).toFixed(1).replace('.', ',') + ' Г
 // A file that matched the catalogue looks like the film cards: poster, Ukrainian title, year, IMDb; the poster opens the card.
 let MCARDS = [];
 const mrow = x => { const c = x.card; if (c) MCARDS.push(c);
-  return `<div class="dl mf tr">${c ? `<button class="mpo" data-mc="${MCARDS.length - 1}">${c.poster ? `<img src="${esc(c.poster)}" alt="" loading="lazy">` : ''}</button>` : ''}<div class="dl-t">
+  return `<div class="dl mf tr">${c ? `<button class="mpo" data-mc="${MCARDS.length - 1}">${hasPU(c) ? `<img src="${esc(PU(c))}" alt="" loading="lazy" onerror="pErr(this)">` : ''}</button>` : ''}<div class="dl-t">
   <b>${esc(c ? c.title : (x.name || x.file))}${c && c.year ? ` <span class="yr">${c.year}</span>` : ''}</b>
   ${c ? `<small class="mrt">${c.imdbR ? 'IMDb ' + c.imdbR.toFixed(1) : ''}${(c.dirs || []).length ? ' · ' + esc(c.dirs[0]) : ''}</small>` : ''}
   <small>${x.pct !== undefined && x.pct < 1 ? `<b class="pct">${Math.floor(x.pct * 100)} %</b> · ` : ''}${esc(x.disk)}${x.folder && x.folder !== x.disk ? ' · ' + esc(x.folder) : ''} · ${fsize(x.mb)}${x.pos ? ' · ' + clock(x.pos) + (x.dur ? ' з ' + clock(x.dur) : '') : ''}</small>
@@ -1653,7 +2115,7 @@ const mrow = x => { const c = x.card; if (c) MCARDS.push(c);
   <div class="dl-acts"><button class="dl-b on" data-mgo="${esc(x.path)}">Дивитись${x.pos > 60 ? ' з ' + clock(x.pos) : ''}${CD}</button></div>
 </div>`; };
 // A Media file on this phone (HLS from the core, from where it stopped); AirPlay from the player, "Посилання" for any device.
-async function phoneFile(path){ buzz(); toast('Готую потік…');
+async function phoneFile(path){ buzz(); phUnlock(); toast('Готую потік…');
   const r = await api('kino/media/phone', {path}).catch(() => ({error: ERRNET}));
   if (r.error) return toast(r.error);
   const v = phonePlay(r, 'Відео'); if (!v) return;
@@ -1668,51 +2130,86 @@ function bindMedia(box){ box.querySelectorAll('[data-mgo]').forEach(b => b.oncli
 // Search tab (owner 2026-10-21): type anything - films (IMDb, local), files on the core host's disks, every torrent index
 // (not only films) - and pull it to core host with one tap. A link goes straight to the TV.
 let FTOR = [];
+// Recent searches on this device (newest first, 10 at most) - shown on the empty search page like Apple TV.
+const recentQ = { get(){ try { return JSON.parse(localStorage.getItem('recentQ') || '[]'); } catch (e) { return []; } },
+  set(l){ try { localStorage.setItem('recentQ', JSON.stringify(l.slice(0, 10))); } catch (e) {} },
+  add(q){ const l = this.get().filter(x => x.toLowerCase() !== q.toLowerCase()); l.unshift(q); this.set(l); },
+  del(q){ this.set(this.get().filter(x => x !== q)); } };
+// The empty search page: recent searches and what was watched lately (one tap back into either).
+async function searchHome(){ const box = $('fres'); if (!box) return; const my = RT, rq = recentQ.get();
+  const draw = h => { if (!$('fres') || stale(my)) return;
+    const hist = (h || []).slice(0, 10);
+    box.innerHTML = (rq.length ? `<section><div class="sh"><h2>Нещодавні пошуки</h2><button class="lnk" id="rqClr">Очистити</button></div><div class="lst">${rq.map((q, i) =>
+        `<div class="trk rq"><button class="rq-go" data-rq="${i}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>${esc(q)}</span></button><button class="rq-x" data-rx="${i}" aria-label="Прибрати">${IC.x}</button></div>`).join('')}</div></section>` : '')
+      + (hist.length ? `<section><div class="sh"><h2>Нещодавно дивились</h2></div><div class="row">${hist.map((x, i) => { const pos = epPos(x), pct = x.duration ? Math.min(100, pos / x.duration * 100) : 0;
+          return `<button class="tile ct" data-hi="${i}">${poster(x)}<div class="pr"><i style="width:${pct}%"></i></div><span>${esc((x.ua || x.title || '').split(' / ')[0])}</span><small>${esc(x.season ? `S${x.season} · E${x.episode}` : x.year || '')}</small></button>`; }).join('')}</div></section>` : '')
+      + (!rq.length && !hist.length ? '<p class="cap">Фільми, торенти і файли на дисках сервера - усе в одному пошуку.</p>' : '');
+    box.querySelectorAll('[data-rq]').forEach(b => b.onclick = () => { buzz(); go('/f/' + encodeURIComponent(rq[+b.dataset.rq])); });
+    box.querySelectorAll('[data-rx]').forEach(b => b.onclick = () => { buzz(); recentQ.del(rq[+b.dataset.rx]); searchHome(); });
+    if ($('rqClr')) $('rqClr').onclick = () => { buzz(); recentQ.set([]); searchHome(); };
+    box.querySelectorAll('[data-hi]').forEach(b => b.onclick = () => { buzz(); const x = hist[+b.dataset.hi]; if (x && x.url) go('/t/' + encodeURIComponent(x.url)); }); };
+  draw(null);
+  const h = await api('kino/home').catch(() => null); draw(h && h.history); }
 async function findAll(q){
   view.innerHTML = head('Пошук') + `<form class="search" id="ff"><svg viewBox="0 0 24 24" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input id="fq" placeholder="${SEARCH_PH}" value="${esc(q)}" enterkeyhint="search" autocomplete="off"><button aria-label="Шукати"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
-    <div id="fres">${q ? '' : '<p class="empty">Шукаю всюди: фільми, файли на дисках сервера і всі торент-трекери. Знайдене можна одразу скачати на сервер.</p>'}</div>
-    <p class="empty" style="margin-top:14px"><a href="https://<core-host>.<tailnet>.ts.net:8444" style="color:var(--link)">Усі трекери, пошуки агентів і завантаження - tinySearch</a></p>`;
+    <div id="fres"></div>`;
   $('ff').onsubmit = e => { e.preventDefault(); const v = $('fq').value.trim(); if (!v) return;
     if (/^(https?:|magnet:)/i.test(v)) return linkTargets(v); go('/f/' + encodeURIComponent(v)); };
-  if (!q) { setTimeout(() => $('fq') && $('fq').focus(), 50); return; }
+  suggestOn($('fq'), $('ff'));
+  if (!q) { searchHome(); return; }
+  // Owner 2026-10-24 «пошук пустий, без історії»: every real query is remembered on this device.
+  if (!/^(https?:|magnet:)/i.test(q)) recentQ.add(q);
   // A link (the phone remote opens #/f/<link> for "Тут"): no searches, the sheet "Де дивитись" at once. An HDRezka page opens as the film, like from the home search.
   if (/^(https?:|magnet:)/i.test(q)) { if (/rezka/.test(q) && /^https?:/.test(q)) location.replace('#/t/' + encodeURIComponent(q)); else linkTargets(q); return; }
   const box = $('fres');
-  box.innerHTML = `<section><h2>Фільми</h2><div id="fF"><div class="spin"></div></div></section>
-    <section><h2>Файли на сервері</h2><div id="fM"><div class="spin"></div></div></section>
-    <section><h2>Торенти</h2><div id="fT"><div class="spin"></div></div></section>`;
+  // Owner 2026-10-24: one search, three sections side by side (Фільми | Торенти | Файли), filters for torrents.
+  box.innerHTML = `<div class="sgm" id="fSeg"><button data-fs="F" class="on"><span class="t">Фільми</span></button><button data-fs="T"><span class="t">Торенти</span></button><button data-fs="M"><span class="t">Файли</span></button></div>
+    <div class="fchips" id="fFil" hidden><button data-ff="ua">UA</button><button data-ff="4k">4K</button><button data-ff="tv">TV ✓</button></div>
+    <div data-fp="F"><div id="fF"><div class="spin"></div></div></div><div data-fp="T" hidden><div id="fT"><div class="spin"></div></div></div><div data-fp="M" hidden><div id="fM"><div class="spin"></div></div></div>`;
+  const FF = new Set(); FTOR = null;
+  box.querySelectorAll('[data-fs]').forEach(b => b.onclick = () => { buzz(); box.querySelectorAll('[data-fs]').forEach(x => x.classList.toggle('on', x === b));
+    box.querySelectorAll('[data-fp]').forEach(x => x.hidden = x.dataset.fp !== b.dataset.fs); $('fFil').hidden = b.dataset.fs !== 'T'; });
+  box.querySelectorAll('[data-ff]').forEach(b => b.onclick = () => { buzz(); FF.has(b.dataset.ff) ? FF.delete(b.dataset.ff) : FF.add(b.dataset.ff); b.classList.toggle('on', FF.has(b.dataset.ff)); drawT(); });
+  const segN = (k, n) => { const b = box.querySelector(`[data-fs="${k}"] .t`); if (b) b.textContent = b.textContent.replace(/ · \d+$/, '') + (n ? ' · ' + n : ''); };
   // Films: the IMDb / Wikidata names first (they work when HDRezka is down), HDRezka's own hits under them (the old home search page, merged here, ux-review 9).
-  const F = {l: null, r: null};
-  const drawF = () => { if (!$('fF')) return; const l = F.l, r = F.r;
-    if (l && r && !l.length && !r.length) { $('fF').innerHTML = emptyState('Фільмів не знайшов', 'Спробуйте частину назви', null, IC.search); return; }
+  const F = {l: null, r: null}, my = RT, fx = fixLayout(q);
+  // Nothing anywhere and the query reads as Ukrainian in the other layout: search that instead.
+  const tryFix = () => { if (fx && F.l && F.r && FTOR && !F.l.length && !F.r.length && !FTOR.length && !stale(my))
+    api('kino/search2', {q: fx}).then(d => { if (!stale(my) && d && (d.items || []).length) { toast('Схоже, не та розкладка: шукаю «' + fx + '»'); location.replace('#/f/' + encodeURIComponent(fx)); } }).catch(() => {}); };
+  const drawF = () => { if (!$('fF') || stale(my)) return; const l = F.l, r = F.r;
+    if (l && r && !l.length && !r.length) { $('fF').innerHTML = emptyState('Фільмів не знайшов', 'Спробуйте частину назви', null, IC.search); tryFix(); return; }
     $('fF').innerHTML = (l && l.length ? '<div id="fG"></div>' : '') + (r && r.length ? `<h3 class="sub">Ще на HDRezka</h3><div class="grid">${r.map(x => tile(x, x.info)).join('')}</div>` : '') + (l && r ? '' : '<div class="spin"></div>');
     if (l && l.length) drawGrid($('fG'), l.slice(0, 12)); bindTiles(); };
   api('kino/search2', {q}).then(d => { F.l = (d && d.items) || []; drawF(); }).catch(() => { F.l = []; drawF(); });
   api('kino/search', {q}).then(d => { F.r = Array.isArray(d) ? d : []; drawF(); }).catch(() => { F.r = []; drawF(); });
   api('kino/media', {q}).then(d => { if (!$('fM')) return; MCARDS = []; const l = mrank((d && d.items) || []).slice(0, 10);
-    $('fM').innerHTML = l.length ? l.map(mrow).join('') : '<p class="empty">На дисках нічого.</p>'; bindMedia($('fM')); }).catch(() => { if ($('fM')) $('fM').innerHTML = '<p class="empty">Не вдалося перевірити файли.</p>'; });
+    segN('M', l.length); $('fM').innerHTML = l.length ? l.map(mrow).join('') : '<p class="empty">На дисках нічого.</p>'; bindMedia($('fM')); }).catch(() => { if ($('fM')) $('fM').innerHTML = '<p class="empty">Не вдалося перевірити файли.</p>'; });
   api('kino/torrents/any', {q}).then(r => { if (!$('fT')) return; FTOR = Array.isArray(r) ? r : [];
     const GR = {g: 0, y: 1, u: 1, r: 2};
     // The query in the release name itself first: "лоуренс" put MobLand (actor Лоуренс Гоф) above Lawrence of Arabia.
     const words = q.toLowerCase().split(/\s+/).filter(Boolean), rel = t => { const n = String(t.title || '').split(/[(\[]/)[0].toLowerCase(); return n.startsWith(words[0] || '') ? 0 : words.every(w => n.includes(w)) ? 1 : 2; };
     FTOR.sort((a, b) => rel(a) - rel(b) || (GR[a.grade] ?? 2) - (GR[b.grade] ?? 2) || tvRank(a) - tvRank(b) || tvDirect(b) - tvDirect(a) || (b.seeds || 0) - (a.seeds || 0));
-    $('fT').innerHTML = FTOR.length ? FTOR.slice(0, 40).map((t, i) => torCard(t, i, {use: 'fp', dl: 'fd'})).join('') : '<p class="empty">Торентів не знайшов.</p>';
+    segN('T', FTOR.length); drawT(); tryFix(); }).catch(() => { if ($('fT')) { $('fT').innerHTML = emptyState('Торент-індекси не відповіли', 'Спробуйте ще раз', 'Повторити'); const re = $('fT').querySelector('[data-es]'); if (re) re.onclick = () => findAll(q); } });
+  function drawT(){ if (!$('fT') || !FTOR || stale(my)) return;
+    const ok = t => (!FF.has('ua') || audioTags(t.title).some(([n]) => n === 'UA')) && (!FF.has('4k') || (t.quality || 0) >= 2160) && (!FF.has('tv') || tvDirect(t));
+    const idx = FTOR.map((t, i) => [t, i]).filter(([t]) => ok(t)).slice(0, 40);
+    $('fT').innerHTML = idx.length ? idx.map(([t, i]) => torCard(t, i, {use: 'fp', dl: 'fd'})).join('') : `<p class="empty">${FTOR.length ? 'Під ці фільтри нічого.' : 'Торентів не знайшов.'}</p>`;
     $('fT').querySelectorAll('[data-x]').forEach(x => x.onclick = () => x.classList.toggle('open'));
     $('fT').querySelectorAll('[data-fd]').forEach(b => b.onclick = async () => { const t = FTOR[+b.dataset.fd];
       const r = await api('kino/download/add', {magnet: t.magnet}).catch(() => ({error: ERRNET}));
-      toast(r && r.error ? r.error : 'Качається на сервері', r && r.error ? undefined : {label: 'Відкрити', fn: () => go('/m')}); if (!r.error) { b.innerHTML = IC.check; b.disabled = true; } });
+      toast(r && r.error ? r.error : 'Качається на сервері', r && r.error ? undefined : {label: 'Відкрити', fn: () => go('/dl')}); if (!r.error) { b.innerHTML = IC.check; b.disabled = true; } });
     $('fT').querySelectorAll('[data-fp]').forEach(b => b.onclick = () => { const t = FTOR[+b.dataset.fp];
       pick(b, {magnet: t.magnet, tv: async () => { toast('Запускаю на ТВ…');
         const r = await api('kino/torrent/use', {magnet: t.magnet}).catch(() => ({error: ERRNET})); if (r && r.error) toast(r.error); }}); });
-  }).catch(() => { if ($('fT')) { $('fT').innerHTML = emptyState('Торент-індекси не відповіли', 'Спробуйте ще раз', 'Повторити'); const re = $('fT').querySelector('[data-es]'); if (re) re.onclick = () => findAll(q); } });
+  }
 }
 // Owner: films first; small files without a catalogue match (clips, renders, game videos) go down.
 const mrank = l => [...l].sort((a, b) => (!!b.card - !!a.card) || ((b.mb > 600) - (a.mb > 600)) || (b.mb - a.mb));
 let MPOLL = 0;
 async function media(path, again){
   if (!again) MPOLL = 0; const at = location.hash; MCARDS = [];
-  view.innerHTML = head('Медіа', path ? '#/m' : null) + `<form class="search" id="mf"><svg viewBox="0 0 24 24" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  view.innerHTML = head(path ? 'Файли' : 'Медіа', path ? '#/m' : null) + `<form class="search" id="mf" hidden><svg viewBox="0 0 24 24" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input id="mq" placeholder="Пошук файлів на сервері" enterkeyhint="search" autocomplete="off"><button aria-label="Шукати"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
     <div id="mres"></div><div id="mbody"><div class="spin"></div></div>`;
   let tm; const run = async () => { const q = $('mq').value.trim(), box = $('mres'); if (!q) { box.innerHTML = ''; $('mbody').hidden = false; return; }
@@ -1720,7 +2217,7 @@ async function media(path, again){
     const d = await api('kino/media', {q}).catch(() => null); if ($('mq').value.trim() !== q) return;
     box.innerHTML = `<section><h2>Знайдено: ${(d && d.items || []).length}</h2>${mrank(d && d.items || []).map(mrow).join('') || emptyState('Нічого не знайшов', 'Спробуйте частину назви', null, IC.search)}</section>`; bindMedia(box); };
   $('mf').onsubmit = e => { e.preventDefault(); run(); }; $('mq').oninput = () => { clearTimeout(tm); tm = setTimeout(run, 350); };
-  const d = await api('kino/media', path ? {path} : {}).catch(() => null), body = $('mbody'); if (!body) return;
+  const my = RT, d = await api('kino/media', path ? {path} : {}).catch(() => null), body = $('mbody'); if (!body || stale(my)) return;
   if (!d || d.error) { body.innerHTML = emptyState(d && d.error ? 'Не вийшло відкрити' : 'Немає зв’язку з сервером', d && d.error ? d.error : 'Перевірте, що tinyTV Core увімкнений', 'Повторити');
     const re = body.querySelector('[data-es]'); if (re) re.onclick = () => media(path); return; }
   if (path) {
@@ -1740,7 +2237,7 @@ async function media(path, again){
   }
   body.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => go('/m/' + encodeURIComponent(b.dataset.dir))); bindMedia(body);
   // Posters are being matched in the core: draw again when they are in (at most ~1 min).
-  if (d.pending && MPOLL++ < 10) setTimeout(() => { if (location.hash === at && !$('mq').value && !document.querySelector('#mbody .pk')) media(path, true); }, 6000);
+  if (d.pending && MPOLL++ < 10) setTimeout(() => { if (location.hash === at && !$('mq').value && !document.querySelector('#mbody .pk, #mbody details[open]') && scrollY < 40) media(path, true); }, 6000);   // not under a scrolling finger
 }
 // ---- One list of targets for every menu (ux-review 23): the TV first, this device, paired screens; the ones that cannot be used are grey and last. ----
 // src.now = "what the TV plays now, here": no TV row. On the Mac "here" is the owner's split pill (window | PiP), not two rows.
@@ -1751,14 +2248,14 @@ const targets = src => { src = src || {}; const off = tvOff(), o = outNow(), l =
   return l.map((t, i) => [t, i]).sort((a, b) => (!!a[0].off - !!b[0].off) || a[1] - b[1]).map(x => x[0]); };
 const sheetRows = src => targets(src).concat([{n: 'Мої пристрої', v: '__dev', ic: IC.screen, link: 1}]);
 // The sheet "Де дивитись": picks the target, remembers it for the next "Дивитись", and sends the source there.
-async function chooseTarget(src, title){ buzz(); await loadScreens();
+async function chooseTarget(src, title){ buzz(); await Promise.race([loadScreens(), new Promise(r => setTimeout(r, 400))]);   // a slow screen list must not freeze the button
   const to = await choose('Де дивитись', sheetRows(src), {sub: title});
   if (to === null || to === undefined) return;
   if (to === '__dev') return devicesSheet();
   if (!src.now) { OUT.set({to}); syncOut(); }
   sendTo(to, src); }
 // Picks only (nothing starts): the home "continue" card remembers it and opens the film there.
-async function pickRoute(sub){ buzz(); await loadScreens();
+async function pickRoute(sub){ buzz(); await Promise.race([loadScreens(), new Promise(r => setTimeout(r, 400))]);
   const to = await choose('Де дивитись', sheetRows({}), {sub});
   if (to === null || to === undefined) return null;
   if (to === '__dev') { devicesSheet(); return to; }
@@ -1857,12 +2354,16 @@ api('kino/home').then(h => { HOMELISTS = {fav: (h && h.fav) || [], watch: (h && 
 loadScreens().then(syncOut).catch(() => {});   // the paired screens decide which target a remembered choice may still use
 
 route();
+if (new URLSearchParams(location.search).get('rem') === '1') { history.replaceState(null, '', location.pathname + location.hash); setTimeout(remOpen, 50); }   // / on a phone lands here with the remote open
 </script>
 <script>
 // A new core build reloads this page by itself (home-screen app and the Mac panel keep it open for hours).
 (() => { let mine = null;
   const check = async () => { try { const v = (await (await fetch('/api/version', {cache: 'no-store'})).json()).v;
-    if (mine === null) mine = v; else if (v !== mine && !document.querySelector('#phone.show, #tor.show')) location.reload(); } catch (e) {} };
+    if (mine === null) mine = v; else if (v !== mine && idle()) location.reload(); } catch (e) {} };
+  // Product review: never under the hand - no open sheet or player, no field in use, and 30 s without a touch.
+  let touched = Date.now(); ['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => touched = Date.now(), true));
+  const idle = () => Date.now() - touched > 30000 && !document.querySelector('#phone.show, #tor.show, #remS.show, .choice.show, .qs.show, #srcS.show, #dock.open') && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '');
   check(); setInterval(check, 15000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); }); })();
 </script>

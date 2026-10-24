@@ -21,7 +21,7 @@ for a in "$@"; do
   prev=$a
 done
 WITH=${WITH//,/ }
-VERSION=$(cat VERSION 2>/dev/null || echo 0.3.0)
+VERSION=$(cat VERSION 2>/dev/null || echo 0.3.1)
 SUP="$HOME/Library/Application Support/tinyTV"; LA=$HOME/Library/LaunchAgents; LOGS=$HOME/Library/Logs
 APPS=$HOME/Applications/tinyTV
 ok()   { print -P "%F{green}✓%f $*"; }

@@ -46,7 +46,10 @@ final class PhoneServer {
             break
         }
         // A dns-sd left by the previous core (deploys restart it) would make a duplicate "tinyTV (2)".
-        _ = Caster.run("/usr/bin/pkill", ["-f", "dns-sd -P tinyTV _http._tcp"])
+        // Not waited for: waiting spins the main run loop inside TV.init, and an early /api request then re-entered
+        // TV.shared and crashed the core (crash report 2026-10-24 00:56, engineer review).
+        let k = Process(); k.executableURL = URL(fileURLWithPath: "/usr/bin/pkill"); k.arguments = ["-f", "dns-sd -P tinyTV _http._tcp"]
+        try? k.run()
         DispatchQueue.main.async { MainActor.assumeIsolated { self.advertise() } }
         Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.advertise() } }
     }
@@ -119,6 +122,15 @@ final class PhoneServer {
         // QR of a stream link for another screen (the page player's "QR"): /qr/<percent-encoded URL>.
         if r.method == "GET", r.path.hasPrefix("/qr/"), let s = String(r.path.dropFirst(4)).removingPercentEncoding,
            s.hasPrefix("http"), s.count < 600, let png = QR.png(s) { return reply(c, 200, "image/png", png) }
+        // Poster library (Posters.swift): /poster?u=&t=&o=&y=&i= - cached on core host, IMDb when the original fails.
+        if r.method == "GET", r.path == "/poster", let q = URLComponents(string: "/poster?" + r.query)?.queryItems {
+            func v(_ k: String) -> String { q.first { $0.name == k }?.value ?? "" }
+            Task {
+                let d = await Posters.get(u: v("u"), t: v("t"), o: v("o"), y: Int(v("y")) ?? 0, i: v("i"))
+                if let d { self.reply(c, 200, "image/jpeg", d) } else { self.reply(c, 404, "text/plain", Data("no poster".utf8)) }
+            }
+            return
+        }
         if r.method == "GET", r.path == "/kino" || r.path == "/kino/" {
             let html = Bundle.main.url(forResource: "kino", withExtension: "html").flatMap { try? Data(contentsOf: $0) }
             return reply(c, 200, "text/html; charset=utf-8", html ?? Data("missing kino.html".utf8))
@@ -127,8 +139,13 @@ final class PhoneServer {
             let html = Bundle.main.url(forResource: "phone", withExtension: "html").flatMap { try? Data(contentsOf: $0) }
             return reply(c, 200, "text/html; charset=utf-8", html ?? Data("missing phone.html".utf8))
         }
+        // Home-screen icon (owner 2026-10-24: the remote as an app, PWA).
+        if r.method == "GET", r.path == "/icon-180.png" || r.path == "/icon-512.png",
+           let d = Bundle.main.url(forResource: String(r.path.dropFirst().dropLast(4)), withExtension: "png").flatMap({ try? Data(contentsOf: $0) }) {
+            return reply(c, 200, "image/png", d)
+        }
         if r.method == "GET", r.path == "/manifest.json" {
-            let m = ##"{"name":"tinyTV","short_name":"tinyTV","display":"standalone","background_color":"#0e0f13","theme_color":"#0e0f13","start_url":"/"}"##
+            let m = ##"{"name":"tinyTV","short_name":"tinyTV","display":"standalone","background_color":"#0e0f13","theme_color":"#0e0f13","start_url":"/kino","scope":"/","icons":[{"src":"/icon-180.png","sizes":"180x180","type":"image/png"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}"##
             return reply(c, 200, "application/manifest+json", Data(m.utf8))
         }
         guard r.path.hasPrefix("/api/") else { return reply(c, 404, "text/plain", Data("not found".utf8)) }
@@ -139,9 +156,11 @@ final class PhoneServer {
         if cmd.hasPrefix("kino/") {
             let body = (try? JSONSerialization.jsonObject(with: r.body)) as? [String: Any] ?? [:]
             // Who started what (the kino/* commands returned before the log below: nothing logged since 2026-10-23).
-            if r.method == "POST", ["kino/open", "kino/play", "kino/torrent/use", "kino/media/play", "kino/next/play", "kino/inbox", "kino/mix", "kino/switch/plan", "kino/prepare"].contains(cmd) {
+            if r.method == "POST", ["kino/open", "kino/play", "kino/torrent/use", "kino/media/play", "kino/next/play", "kino/inbox", "kino/mix", "kino/switch/plan", "kino/prepare", "kino/here/start", "kino/phone/seek"].contains(cmd) {
                 PhoneServer.logOpen(cmd, body, agent: r.agent)
             }
+            // The phone's own player reports here (owner 2026-10-24 "немає відео на iPhone"): ~/Library/Logs/tinyTV-client.log.
+            if cmd == "kino/clientlog" { PhoneServer.logClient(body, agent: r.agent); return reply(c, 200, "application/json", Data("{}".utf8)) }
             Task { @MainActor in
                 let res = await Kino.shared.handle(cmd, body)
                 let d = (try? JSONSerialization.data(withJSONObject: res)) ?? Data("{}".utf8)
@@ -325,7 +344,8 @@ final class PhoneServer {
     private func reply(_ c: NWConnection, _ code: Int, _ type: String, _ body: Data) {
         let status = [200: "OK", 400: "Bad Request", 404: "Not Found"][code] ?? "OK"
         var h = "HTTP/1.1 \(code) \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\n"
-        h += "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
+        // Covers and icons may stay in the phone's cache (a week); pages and API answers never.
+        h += (code == 200 && type.hasPrefix("image/") ? "Cache-Control: public, max-age=604800" : "Cache-Control: no-store") + "\r\nConnection: close\r\n\r\n"
         c.send(content: Data(h.utf8) + body, completion: .contentProcessed { _ in c.cancel() })
     }
 }
@@ -341,10 +361,19 @@ enum QR {
 }
 
 extension PhoneServer {
+    nonisolated static func logClient(_ body: [String: Any], agent: String) {
+        let ua = agent.contains("iPhone") ? "iPhone" : agent.contains("Macintosh") ? (agent.contains("Safari") ? "Mac page" : "Mac app") : String(agent.prefix(40))
+        let j = (try? JSONSerialization.data(withJSONObject: body)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+        let line = "\(ISO8601DateFormatter().string(from: Date())) [\(ua)] \(j.prefix(400))\n"
+        let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/tinyTV-client.log")
+        if let h = try? FileHandle(forWritingTo: u) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+        else { try? Data(line.utf8).write(to: u) }
+    }
     nonisolated static func logOpen(_ cmd: String, _ body: [String: Any], agent: String) {
         let what = (body["url"] ?? body["magnet"] ?? body["path"] ?? body["title"] ?? (body["film"] as? [String: Any])?["title"] ?? "") as? String ?? ""
         let ua = agent.contains("iPhone") ? "iPhone" : agent.contains("Macintosh") ? (agent.contains("Safari") ? "Mac page" : "Mac app") : String(agent.prefix(40))
-        let line = "\(ISO8601DateFormatter().string(from: Date())) \(cmd) [\(ua)] \(what.prefix(160))\n"
+        let from = (body["from"] as? Double).map { " from=\(Int($0))" } ?? "", rs = body["restart"] as? Bool == true ? " restart" : ""
+        let line = "\(ISO8601DateFormatter().string(from: Date())) \(cmd) [\(ua)]\(from)\(rs) \(what.prefix(160))\n"
         let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/tinyTV-open.log")
         if let h = try? FileHandle(forWritingTo: u) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
         else { try? Data(line.utf8).write(to: u) }
@@ -352,7 +381,7 @@ extension PhoneServer {
 }
 
 private struct Request {
-    let method: String, path: String, body: Data, agent: String
+    let method: String, path: String, query: String, body: Data, agent: String
     init?(_ d: Data) {
         guard let end = d.range(of: Data("\r\n\r\n".utf8)) else { return nil }
         let head = String(decoding: d[d.startIndex..<end.lowerBound], as: UTF8.self).components(separatedBy: "\r\n")
@@ -362,9 +391,11 @@ private struct Request {
             let p = h.split(separator: ":", maxSplits: 1)
             return p.count == 2 && p[0].lowercased() == "content-length" ? Int(p[1].trimmingCharacters(in: .whitespaces)) : nil
         }.first ?? 0
-        guard d.count - end.upperBound >= len else { return nil }
+        // A bad length (negative, huge) must not crash the core: port 80 is open to the whole home Wi-Fi.
+        guard len >= 0, len <= 50_000_000, d.count - end.upperBound >= len else { return nil }
         agent = head.dropFirst().first { $0.lowercased().hasPrefix("user-agent:") }.map { String($0.dropFirst(11)).trimmingCharacters(in: .whitespaces) } ?? ""
         method = String(line[0]); path = String(line[1].split(separator: "?").first ?? "/")
+        query = line[1].split(separator: "?", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
         body = d.subdata(in: end.upperBound..<end.upperBound + len)
     }
 }

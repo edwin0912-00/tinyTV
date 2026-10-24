@@ -148,7 +148,7 @@ final class Caster: ObservableObject {
     private var heavyCap = false
     // Owner: "we can do 48". The TV's Wi-Fi measured ~48 Mbit/s and a 30 Mbit/s remux stuttered on its PEAKS, so:
     // average 35, peaks held to 42 (1.2x) with a 2 s buffer - more picture, no peak over the link.
-    private var encodeMbps: Double { heavyCap ? min(video.mbps, 35) : video.mbps }
+    private var encodeMbps: Double { heavyCap ? min(video.mbps, 16) : video.mbps }   // under what the TV link carries beside the torrent
     /// Audio tracks of the current file (index among audio streams) and the chosen one.
     @Published var tracks: [(i: Int, label: String)] = []
     @Published var track = 0
@@ -241,6 +241,7 @@ final class Caster: ObservableObject {
     func airplay(_ on: Bool) {
         if !on { if screen == "airplay" { stop() }; return }
         guard airplayToTV, let ff = Caster.tool("ffmpeg") else { return }
+        beginCast()
         job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; position = 0
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
         tracks = []; trackCodecs = []; track = 0; currentFile = nil; remoteURL = nil; page = ""
@@ -289,7 +290,7 @@ final class Caster: ObservableObject {
                                         "wmv", "flv", "mp3", "m4a", "aac", "flac", "wav", "ogg"]
 
     func cast(_ raw: String) {
-        endScreen()
+        endScreen(); beginCast()
         fallback = nil; startAt = 0   // a new thing on the TV: the old torrent fallback no longer applies
         job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; endMix()
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
@@ -365,7 +366,7 @@ final class Caster: ObservableObject {
     /// proxied HDRezka MP4 (it reports no duration), so the Mac starts the stream at `from` and restarts it to seek.
     func castAt(_ url: String, title t: String, from: Double) {
         guard let ff = Caster.tool("ffmpeg") else { return fail("На сервері немає ffmpeg") }
-        endScreen()
+        endScreen(); beginCast()
         fallback = nil; startAt = 0   // a new thing on the TV: the old torrent fallback no longer applies
         job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; endMix(); position = 0
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
@@ -376,7 +377,7 @@ final class Caster: ObservableObject {
 
     func file(_ path: String) {
         if remote { return Remote.shared.upload(URL(fileURLWithPath: path)) }
-        endScreen()
+        endScreen(); beginCast()
         job?.terminate(); job = nil; liveJob = nil; offset = 0; currentFile = path; remoteURL = nil
         let ext = (path as NSString).pathExtension.lowercased()
         guard FileManager.default.isReadableFile(atPath: path) else { return fail("Не можу прочитати цей файл") }
@@ -552,7 +553,8 @@ final class Caster: ObservableObject {
     /// `from`, with the dub already aligned (or aligning) - no stop on the release's own sound first.
     func mixFile(_ path: String, from: Double, dub: String, track dubTrack: Int, label: String, key: String) {
         if remote { return }
-        endScreen()
+        // A planned switch on a paused film stays paused (engineer review round 2: beginCast cleared the pause).
+        let paused = userPaused; endScreen(); beginCast(); userPaused = paused
         fallback = nil; startAt = 0
         job?.terminate(); job = nil; liveJob = nil; endMix(); position = 0; offset = from
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
@@ -575,6 +577,7 @@ final class Caster: ObservableObject {
 
     private func mixStart(_ ff: String, video: String, scale: String?, from start: Double, planned: Bool = false) async {
         guard let m = mix else { return }
+        let gen = castGen   // a newer cast (or Stop) during the up to 150 s sync wait wins (engineer review round 2)
         var from = start
         try? String(format: "%.1f", from).write(toFile: m.status + ".pos", atomically: true, encoding: .utf8)
         // Planned: wait (no limit) until the voice covers P + 1 min and the TV reaches P; on pause - from the same place.
@@ -603,10 +606,11 @@ final class Caster: ObservableObject {
             let s = mixState, state = s["state"] as? String ?? "sync", until = s["until"] as? Double ?? 0
             if state == "error" { return failed(s) }
             if (state == "done" || until >= from + 20) && written() { break }
-            if i == 599 { endMix(); return fail("Синхрон озвучки не встиг") }
-            set(until > 0 ? "Синхронізую озвучку… \(clock(until))" : "Синхронізую озвучку…", min(0.95, Double(i) / 120))
+            if i == 599 { endMix(); return fail("Не встиг підлаштувати озвучку") }
+            set(until > 0 ? "Підлаштовую озвучку… \(clock(until))" : "Підлаштовую озвучку…", min(0.95, Double(i) / 120))
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
+        guard gen == castGen, !Task.isCancelled || seekTo == nil else { return }
         live(ff, inputs: [video, m.track], scale: scale, from: from)
     }
 
@@ -756,6 +760,14 @@ final class Caster: ObservableObject {
     private var liveJob: (ff: String, inputs: [String], scale: String?)?
     /// Seconds into the source where the current live stream starts (DLNA counts from 0).
     private var offset: Double = 0
+    private var seekTo: Double?
+    private var liveTries = 0
+    /// Bumped by every new cast: a slow start (torrent peers, CDN) checks it before it takes the TV.
+    private var castGen = 0
+    /// The owner paused (phone, watch): buffer refills and stream restarts do not start the TV again.
+    private var userPaused = false
+    private var lastLoad = Date.distantPast
+    private var seekTask: Task<Void, Never>?
     private var liveOut: URL?
 
     /// ffmpeg writes a growing MPEG-TS file: joins video and audio (YouTube), copies HLS,
@@ -780,7 +792,7 @@ final class Caster: ObservableObject {
         if let m = mix, inputs.last != m.track { endMix() }   // something else plays now
         job?.terminate()
         prune()
-        liveJob = (ff, inputs, scale); offset = from
+        liveJob = (ff, inputs, scale); offset = from; position = 0   // the TV counts from 0 in a new stream: no double count
         let out = dir.appendingPathComponent("live-\(UUID().uuidString.prefix(8)).ts")
         liveOut = out
         var args = ["-hide_banner", "-loglevel", "error", "-y"]
@@ -795,7 +807,8 @@ final class Caster: ObservableObject {
                 continue
             }
             if from > 0 { args += ["-ss", String(Int(from))] }
-            if u.hasPrefix("http") { args += ["-reconnect", "1", "-reconnect_streamed", "1"] }
+            // The HDRezka CDN (voidboost) sometimes times out (log 2026-10-24 13:21, 13:32): reconnect on network errors too.
+            if u.hasPrefix("http") { args += ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1", "-reconnect_delay_max", "2", "-reconnect_max_retries", "1"] }   // a dead host: ~10 s, not 25 s (measured)
             else if fetching { args += ["-follow", "1"] }  // the file is still downloading
             // GPU frames end to end only for H.264 / HEVC: VP9 (YouTube 4K) falls back to software decode after a seek
             // and scale_vt then fails ("Function not implemented", measured 2026-10-21); those scale in software.
@@ -828,12 +841,22 @@ final class Caster: ObservableObject {
         do { try p.run(); job = p } catch { return fail("Не вдалося запустити перекодування") }
         set("Запускаю…", 0)
         Task {
+            var size = 0
             for _ in 0..<120 {
-                let size = (try? FileManager.default.attributesOfItem(atPath: out.path)[.size] as? Int) ?? 0
+                size = (try? FileManager.default.attributesOfItem(atPath: out.path)[.size] as? Int) ?? 0
                 if size > 800_000 || !p.isRunning { break }
                 set("Запускаю…", min(0.95, Double(size) / 800_000))
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
+            // A newer start replaced this one: never push a dead stream over it (owner: "з другого разу").
+            guard job === p else { return }
+            // ffmpeg ended with almost nothing (the HDRezka CDN timed out): try again twice, then say so.
+            if size <= 800_000, !p.isRunning {
+                liveTries += 1
+                if liveTries <= 2 { return live(ff, inputs: inputs, scale: scale, from: from) }
+                liveTries = 0; return fail("Джерело не відповідає. Спробуйте ще раз або інше джерело")
+            }
+            liveTries = 0
             push(id, ext: "ts")
         }
     }
@@ -850,6 +873,7 @@ final class Caster: ObservableObject {
             var b: [String: Any] = ["from": from]; if let window { b["window"] = Int(window) }
             return Remote.post("screen", b)
         }
+        beginCast()
         job?.terminate(); job = nil; liveJob = nil; offset = 0; duration = 0; position = 0
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
         tracks = []; trackCodecs = []; track = 0; currentFile = nil; remoteURL = nil; page = ""
@@ -887,6 +911,11 @@ final class Caster: ObservableObject {
         }
     }
 
+    /// Every new thing on the TV (and Stop): older start chains, a pending seek and the owner's pause no longer apply.
+    private func beginCast() {
+        castGen += 1; seekTask?.cancel(); seekTo = nil; userPaused = false; liveTries = 0
+    }
+
     private func endScreen() {
         guard !screen.isEmpty else { return }
         screen = ""; screenWindow = nil
@@ -900,6 +929,7 @@ final class Caster: ObservableObject {
     private func torrent(_ s: String) {
         set("Додаю торент…", nil)
         title = "Torrent"
+        let gen = castGen
         Task {
             let base = URL(string: "http://127.0.0.1:8890")!
             var c = URLComponents(url: base.appendingPathComponent("add"), resolvingAgainstBaseURL: false)!
@@ -915,6 +945,7 @@ final class Caster: ObservableObject {
                 return fail("Сервер торентів не запущений")
             }
             for _ in 0..<240 {  // up to 2 min for peers and the first pieces
+                guard gen == castGen else { return }   // the owner started something else meanwhile
                 if let (d, _) = try? await URLSession.shared.data(from: base.appendingPathComponent("state")),
                    let st = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
                     let name = st["fileName"] as? String ?? ""
@@ -929,6 +960,7 @@ final class Caster: ObservableObject {
                         // Starting mid-film (switch from HDRezka / resume): fetch that part first, or the TV waits on
                         // missing pieces and the seek fails (owner: "не може початися з того ж місця").
                         if startAt > 1 { await preload(at: startAt) }
+                        guard gen == castGen else { return }   // preload takes up to 90 s
                         // Owner: a REMUX "jerks" at any download speed - the TV's Wi-Fi (~48 Mbit/s) cannot carry
                         // ~88 Mbit/s. Over ~36 Mbit/s the core re-encodes on the GPU instead of sending the file as is.
                         if let heavy = await heavyTorrent(), heavy, let ff = Caster.tool("ffmpeg") {
@@ -959,13 +991,20 @@ final class Caster: ObservableObject {
 
     private func play(_ url: String, ext: String, engine: Bool) {
         guard let tv else { return }
+        lastLoad = Date()
+        let gen = castGen
         // Also a remux of the engine's stream (another audio track) still reads the torrent: keep its buffer logic.
         engineCast = engine || (liveJob?.inputs.first == Caster.engineStream); torrent = [:]
         if engine { engineTracks() }
         set("Надсилаю на ТВ…", nil)
         media.lastHit = nil
         Task {
-            let ok = await DLNA.load(host: tv.host, url: url, mime: MediaServer.mime(ext), title: title)
+            // The TV sometimes answers one load with a timeout or SOAP 500, and the second tap worked: retry here.
+            var ok = await DLNA.load(host: tv.host, url: url, mime: MediaServer.mime(ext), title: title)
+            for _ in 0..<2 where !ok && gen == castGen {
+                try? await Task.sleep(nanoseconds: 1_500_000_000); ok = await DLNA.load(host: tv.host, url: url, mime: MediaServer.mime(ext), title: title)
+            }
+            guard gen == castGen else { return }
             guard ok else { return fail("ТВ не прийняв відео. Спробуйте ще раз") }
             await Caster.acceptConsent(tv, title: title)
             set("", nil)
@@ -1019,7 +1058,9 @@ final class Caster: ObservableObject {
             // Ukrainian first when there is one (owner's default elsewhere too).
             track = Caster.uaTrack(streams) ?? 0
         }
-        return dur > 0 ? size / dur > 4_500_000 : size > 30e9
+        // Measured 2026-10-24 (Великое безмолвие BDRemux, 33 Mbit/s, copied): tinyTV Core' Wi-Fi also carries the torrent, and the
+        // TV got ~20 Mbit/s - the picture stalled every few seconds with minutes on disk. Over 20 Mbit/s: re-encode.
+        return dur > 0 ? size / dur > 2_500_000 : size > 15e9
     }
 
     /// Download the part of the torrent at second t first (the engine moves its window there), up to ~90 s.
@@ -1086,8 +1127,8 @@ final class Caster: ObservableObject {
         }
         if rate > 0, progress < 0.999 {
             if playing, !bufferHold, ahead < 4, remaining > 5 { bufferHold = true; setPlaying(false, buffer: true) }
-            else if bufferHold, ahead >= target { bufferHold = false; setPlaying(true, buffer: true) }
-        } else if bufferHold { bufferHold = false; setPlaying(true, buffer: true) }
+            else if bufferHold, ahead >= target { bufferHold = false; if !userPaused { setPlaying(true, buffer: true) } }
+        } else if bufferHold { bufferHold = false; if !userPaused { setPlaying(true, buffer: true) } }
         torrent = ["down": down, "rate": rate, "ahead": ahead, "peers": num("peers"), "progress": progress,
                    "need": need, "wait": wait, "hold": bufferHold ? 1 : 0, "target": target]
     }
@@ -1101,10 +1142,16 @@ final class Caster: ObservableObject {
                 if let st = await DLNA.state(host: tv.host) {
                     let now = Date(), wasPlaying = playing
                     playing = st.state == "PLAYING"
+                    // Owner 2026-10-24: "треба, щоб воно слухало мою паузу". A stream (re)load ends in Play; the owner's
+                    // pause stands: within 30 s of a load the TV is paused again (later = someone pressed Play on the TV).
+                    if playing, userPaused, now.timeIntervalSince(lastLoad) < 30 {
+                        playing = false; Task { await DLNA.call(host: tv.host, "Pause", "") }
+                    }
                     if st.duration > 0, liveJob == nil { duration = st.duration }
                     // A live TS has no index: the TV reports 0, so count playing time ourselves - by the clock, since one
                     // round (DLNA query + 1 s sleep) is longer than a second and "+1" fell minutes behind over an episode.
-                    if liveJob != nil, st.position == 0 { if playing && wasPlaying { position += min(now.timeIntervalSince(tick), 5) } }
+                    if seekTo != nil, liveJob != nil {}   // a seek waits for the taps to stop: hold the target on screen
+                    else if liveJob != nil, st.position == 0 { if playing && wasPlaying { position += min(now.timeIntervalSince(tick), 5) } }
                     else { position = st.position }
                     tick = now
                     // "Динаміки ТВ" follows the TV volume: a step of 3+ re-tunes the running ffmpeg, no restart.
@@ -1127,7 +1174,7 @@ final class Caster: ObservableObject {
 
     /// Explicit play / pause. A toggle from a remote with a stale view (the watch) needed two presses.
     func setPlaying(_ p: Bool, buffer: Bool = false) {
-        if !buffer { bufferHold = false }   // the owner's own play / pause wins over the buffer pause
+        if !buffer { bufferHold = false; userPaused = !p }   // the owner's own play / pause wins over the buffer pause
         if remote { playing = p; return Remote.post("cast/pause", ["play": p]) }
         guard let tv else { return }
         playing = p
@@ -1139,7 +1186,7 @@ final class Caster: ObservableObject {
         if remote { playing.toggle(); return Remote.post("cast/pause") }
         guard let tv else { return }
         playing.toggle()
-        let p = playing
+        let p = playing; userPaused = !p
         Task { await DLNA.call(host: tv.host, p ? "Play" : "Pause", p ? "<Speed>1</Speed>" : "") }
     }
 
@@ -1148,17 +1195,25 @@ final class Caster: ObservableObject {
         guard let tv else { return }
         if MQTT.trace { NSLog("tinyTV seek %.0f (live=%d)", seconds, liveJob == nil ? 0 : 1) }
         if let j = liveJob, j.inputs.count > 0 {
-            position = 0
-            position = 0
-            if mix != nil, j.inputs.count == 2 {   // the aligned dub may not reach that second yet
-                Task { await mixStart(j.ff, video: j.inputs[0], scale: j.scale, from: max(0, seconds)) }; return
+            // Owner: "I press back/forward right away". Show the target at once (the next tap adds to it) and
+            // restart the stream once the taps stop (each restart reloads the TV), not on every tap.
+            let to = max(0, seconds); offset = to; position = 0; seekTo = to
+            seekTask?.cancel()
+            seekTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                guard !Task.isCancelled, let j = liveJob, seekTo == to else { return }
+                seekTo = nil
+                if mix != nil, j.inputs.count == 2 {   // the aligned dub may not reach that second yet
+                    return await mixStart(j.ff, video: j.inputs[0], scale: j.scale, from: to)
+                }
+                live(j.ff, inputs: j.inputs, scale: j.scale, from: to)
             }
-            return live(j.ff, inputs: j.inputs, scale: j.scale, from: max(0, seconds))
+            return
         }
         let s = max(0, Int(seconds)); position = Double(s)
         let t = String(format: "%02d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
         // Measured 2026-10-21: after Seek this TV sometimes stays PAUSED_PLAYBACK. If it was playing, press Play again.
-        let wasPlaying = playing || startAt > 0
+        let wasPlaying = (playing || startAt > 0) && !userPaused
         Task {
             await DLNA.call(host: tv.host, "Seek", "<Unit>REL_TIME</Unit><Target>\(t)</Target>")
             guard wasPlaying else { return }
@@ -1176,7 +1231,7 @@ final class Caster: ObservableObject {
         endScreen()
         MovieLight.shared.castChanged(playing: false)
         guard let tv else { return }
-        job?.terminate(); job = nil; poll?.cancel(); liveJob = nil; endMix()
+        job?.terminate(); job = nil; poll?.cancel(); liveJob = nil; endMix(); beginCast()
         fetchers.forEach { $0.terminate() }; fetchers = []; fetching = false
         title = ""; playing = false
         Task { await DLNA.call(host: tv.host, "Stop", "") }
@@ -1231,12 +1286,16 @@ final class Caster: ObservableObject {
         Task { try? await Task.sleep(nanoseconds: 6_000_000_000); if failed, status == s { status = ""; failed = false } }
     }
 
-    /// Keeps the cache small: the 3 newest files stay.
+    /// Keeps the cache small. Live streams are 10+ GB each (13 GB in 5 files, engineer review 2026-10-24): only the
+    /// newest one stays (the stream that is starting adds the second). Other files: the 6 newest. Folders stay (posters).
     private func prune() {
         let fm = FileManager.default
-        let items = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        let items = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey])) ?? [])
+            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
         let date = { (u: URL) in (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
-        items.sorted { date($0) > date($1) }.dropFirst(6).forEach { try? fm.removeItem(at: $0) }
+        let live = items.filter { $0.lastPathComponent.hasPrefix("live-") && $0.pathExtension == "ts" }
+        live.sorted { date($0) > date($1) }.dropFirst(1).forEach { try? fm.removeItem(at: $0) }
+        items.filter { !live.contains($0) }.sorted { date($0) > date($1) }.dropFirst(6).forEach { try? fm.removeItem(at: $0) }
     }
 
     nonisolated static func run(_ exe: String, _ args: [String]) -> (out: Data, err: Data) {
@@ -1400,8 +1459,10 @@ final class MediaServer: @unchecked Sendable {
             let ext = (path as NSString).pathExtension.lowercased()
             var range: (Int, Int?)?
             if let r = lines.first(where: { $0.lowercased().hasPrefix("range: bytes=") }) {
-                let spec = r.split(separator: "=", maxSplits: 1)[1].split(separator: "-", omittingEmptySubsequences: false)
-                range = (Int(spec[0]) ?? 0, spec.count > 1 ? Int(spec[1]) : nil)
+                // "Range: bytes=" with nothing after it crashed the core (engineer review 2026-10-24).
+                let spec = r.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).dropFirst().first?
+                    .split(separator: "-", omittingEmptySubsequences: false) ?? []
+                range = (spec.first.flatMap { Int($0) } ?? 0, spec.count > 1 ? Int(spec[1]) : nil)
             }
             switch src {
             case .file(let u): self.sendFile(c, u, range, method, ext)

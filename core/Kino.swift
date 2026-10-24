@@ -133,10 +133,10 @@ final class Kino: NSObject {
         // Only while our title is the one on the TV: the cover and choices for the players on every screen.
         // A non-empty title only: "x".hasPrefix("") is true, and an old untitled entry hid the torrent film (2026-10-23).
         if let c = current, let t = c["title"] as? String, !t.isEmpty, Caster.shared.title.hasPrefix(t) {
-            for key in ["id", "url", "title", "poster", "season", "episode", "quality", "qualities", "translator", "translatorName"] { s[key] = c[key] }
+            for key in ["id", "url", "title", "poster", "year", "original", "imdb", "season", "episode", "quality", "qualities", "translator", "translatorName"] { s[key] = c[key] }
         } else if let f = film, !Caster.shared.title.isEmpty, !Caster.shared.torrent.isEmpty || Caster.shared.mix != nil {
             // A torrent of a film card: the players show the film, not the file name.
-            for key in ["id", "url", "title", "poster", "season", "episode"] { s[key] = f[key] }
+            for key in ["id", "url", "title", "poster", "year", "original", "imdb", "season", "episode"] { s[key] = f[key] }
             s["source"] = "torrent"
         }
         if let n = next { s["next"] = n }
@@ -166,6 +166,14 @@ final class Kino: NSObject {
         case "kino/search2":
             // Owner: search must not depend on HDRezka - IMDb / Wikidata names, shown as film cards with all sources.
             return await Discover.run(["search", b["q"] as? String ?? ""]) ?? ["items": []]
+        case "kino/tracks":
+            // Real audio / subtitle tracks of a release, read from its file header by the torrent engine (cached there).
+            guard let m = b["magnet"] as? String, let q = m.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+                  let u = URL(string: "http://127.0.0.1:8890/tracks?magnet=" + q) else { return ["error": "Немає магнету"] }
+            var r = URLRequest(url: u); r.timeoutInterval = 8
+            guard let (d, _) = try? await URLSession.shared.data(for: r), let j = try? JSONSerialization.jsonObject(with: d) else { return ["state": "failed"] }
+            return j
+        case "kino/suggest": return await Discover.run(["search", b["q"] as? String ?? "", "--local"]) ?? ["items": []]   // typing: the local index only
         case "kino/bookmark": store.bookmark(b, on: b["on"] as? Bool ?? true); return store.home()
         case "kino/forget": store.forget(b["id"] as? String ?? ""); return store.home()
         case "kino/next/cancel": nextTimer?.cancel(); next = nil; return ["ok": true]
@@ -436,7 +444,8 @@ final class Kino: NSObject {
             do { try p.run() } catch { return ["error": "Не вдалося запустити"] }
             return ["ok": true]
         case "kino/switch/cancel":
-            if let s = switchStatus { FileManager.default.createFile(atPath: s + ".cancel", contents: nil) }
+            if let s = switchStatus { FileManager.default.createFile(atPath: s + ".cancel", contents: nil)
+                try? Data(#"{"state":"cancelled"}"#.utf8).write(to: URL(fileURLWithPath: s)) }   // the dock stops showing the old plan
             switchPlan?.terminate(); switchPlan = nil
             return ["ok": true]
         case "kino/keep":
@@ -592,13 +601,30 @@ final class KinoStore {
     func recordStart(_ b: [String: Any]) {
         guard let id = b["id"] as? String else { return }
         var h = progress(id) ?? card(b)
+        // Some paths (torrent, resume) start a film without its cover: take it from the request or the favourites.
+        if (h["poster"] as? String ?? "").isEmpty {
+            h["poster"] = (b["poster"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                ?? favourites.first { ($0["id"] as? String) == id }?["poster"] as? String ?? ""
+        }
         for k in ["translator", "translatorName", "season", "episode", "quality", "seasons"] { if let v = b[k] { h[k] = v } }
-        if (b["from"] as? Double ?? 0) < 1 { h["position"] = 0 }
+        // History position and the episode's own memory say the same second (product review: Home showed 0:00 while
+        // the episode remembered 10:25, and Continue started from 0).
+        let from = b["from"] as? Double ?? 0, key = "\(h["season"] as? Int ?? 0):\(h["episode"] as? Int ?? 0)"
+        h["position"] = from >= 1 ? from : 0
+        var eps = h["eps"] as? [String: [Double]] ?? [:]
+        if var e = eps[key] { e[0] = from >= 1 ? from : 0; eps[key] = e; h["eps"] = eps }
         h["updated"] = Date().timeIntervalSince1970
         history.removeAll { ($0["id"] as? String) == id }
         history.insert(h, at: 0)
         if history.count > 60 { history = Array(history.prefix(60)) }
         save()
+    }
+
+    /// History saved without a cover (КітПес, owner 2026-10-24) or with a broken one gets it when the film's page is read again.
+    func fillPoster(_ id: String, _ p: String) {
+        // The film page is the truth: a missing or different (broken) cover in the history takes the page's one.
+        guard let i = history.firstIndex(where: { ($0["id"] as? String) == id }), history[i]["poster"] as? String != p else { return }
+        history[i]["poster"] = p; save()
     }
 
     /// Saves the title's last position and, per episode ("season:episode"), [position, duration].

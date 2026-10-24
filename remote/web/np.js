@@ -4,6 +4,10 @@
 // drive the TV through the core API. Without a cast a 1 s silent loop keeps the remote controls (play/pause keys).
 (() => {
   if (!('mediaSession' in navigator)) return;
+  // The remote inside Кіно: Кіно's own copy owns the lock screen (two copies doubled the polls and silent tracks).
+  const isOn0 = () => { try { return localStorage.getItem('npOff') !== '1'; } catch (e) { return true; } };
+  if (window.parent !== window) { window.tinyNP = { on: isOn0, set: on => { try { localStorage.setItem('npOff', on ? '0' : '1'); } catch (e) {}
+    try { window.parent.tinyNP && window.parent.tinyNP.set(on); } catch (e) {} } }; return; }
   // Owner: lock-screen / watch control can be switched off - while the silent track plays the phone can't play
   // anything else. Off = no track, no Now Playing; on again = back on the next tap.
   const isOn = () => { try { return localStorage.getItem('npOff') !== '1'; } catch (e) { return true; } };
@@ -29,6 +33,11 @@
   // A page video playing on the phone itself (kino "На телефоні") owns the sound: iOS pauses one media element when
   // another starts, so the silent track stands down and the lock screen / watch drive that video instead.
   const local = () => { const v = window.npLocal; return v && v.src && !v.ended ? v : null; };
+  // Owner 2026-10-24 ("немає відео на iPhone", his phone's log): the page video interrupted this silent track, iOS sent
+  // "pause" and the handler paused the new video (two AbortErrors, no picture). The page now hushes the track before it
+  // starts its video, and a "pause" in the first 15 s of a page video is that interruption, not the user.
+  window.npHush = () => { if (!np.paused) np.pause(); };
+  const fresh = () => { const v = local(); return !!v && Date.now() - (v._at || 0) < 15000; };
   const setPlay = on => { const v = local(); if (v) { on ? v.play().catch(() => {}) : v.pause(); return; }
     // The silent track never pauses: a paused page on a locked iPhone is suspended in ~30 s and drops off the watch.
     ms.playbackState = on ? 'playing' : 'paused'; np.play().catch(() => {}); if (casting()) st.cast.playing = on;
@@ -36,8 +45,12 @@
   const seekTo = t => { const v = local(); if (v) { v.currentTime = Math.max(0, t); return; } if (!casting()) return; np.currentTime = Math.max(0, t); api('cast/seek', {t}); };
   // The watch may show either button while the track keeps playing: both toggle the TV.
   const toggle = dflt => setPlay(local() ? local().paused : casting() ? !st.cast.playing : dflt);
-  ms.setActionHandler('play', () => toggle(true));
-  ms.setActionHandler('pause', () => toggle(false));
+  // Owner 2026-10-24: recording a voice message in another app started the paused film. iOS interrupts the silent
+  // track and sends "pause" (and "play" when it ends); the toggle turned that pause into play. Now "pause" never
+  // starts the TV, and "play" while another app holds the sound only wakes the silent track.
+  const held = () => armed && isOn() && !local() && np.paused;
+  ms.setActionHandler('play', () => { if (held()) { np.play().catch(() => {}); return; } toggle(true); });
+  ms.setActionHandler('pause', () => { if (fresh() || held() || (!local() && casting() && !st.cast.playing)) return; toggle(false); });
   ms.setActionHandler('seekforward', () => (local() || casting()) ? seekTo((local() ? local().currentTime : st.cast.position || 0) + 30) : api('key', {key: 'KEY_RIGHT'}));
   ms.setActionHandler('seekbackward', () => (local() || casting()) ? seekTo((local() ? local().currentTime : st.cast.position || 0) - 10) : api('key', {key: 'KEY_LEFT'}));
   try { ms.setActionHandler('seekto', d => seekTo(d.seekTime)); } catch (e) {}
@@ -61,10 +74,10 @@
     const c = st.cast || {}, k = st.kino || {};
     const dur = c.title && c.duration > 0 ? c.duration : 0;
     await load(dur);
-    const art = k.poster ? [{src: k.poster, sizes: '512x768', type: 'image/jpeg'}] : [];
+    const art = k.poster || k.title ? [{src: location.origin + '/poster?' + new URLSearchParams({u: k.poster || '', t: k.title || '', o: k.original || '', y: k.year || '', i: k.imdb || ''}), sizes: '400x600', type: 'image/jpeg'}] : [];
     ms.metadata = new MediaMetadata({
-      title: k.title ? k.title + (k.season ? ` · S${k.season}E${k.episode}` : '') : (c.title || st.nowPlaying || 'Hisense TV'),
-      artist: k.translatorName || 'tinyTV', album: c.title ? 'На ТВ' : 'Пульт', artwork: art });
+      title: k.title ? k.title.split(' / ')[0] + (k.season ? ` · S${k.season}E${k.episode}` : '') : (c.title || st.nowPlaying || 'Hisense TV'),
+      artist: (k.translatorName || 'tinyTV').replace(/^Украинский\s*/i, 'UA · ').replace(/[()]/g, '').replace(/ · $/, ''), album: c.title ? 'На ТВ' : 'Пульт', artwork: art });
     if (!armed) return;
     if (dur) {
       // Follow the TV: same second (correct drift over 3 s), same play / pause.
